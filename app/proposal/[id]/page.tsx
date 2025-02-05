@@ -13,6 +13,7 @@ export default function ProposalPage({ params }: { params: { id: string } }) {
         <div >
             <Suspense fallback={<Loading />}>
                 <ProposalContent proposalId={params.id} />
+
             </Suspense>
         </div>
     )
