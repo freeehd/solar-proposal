@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import ErrorBoundary from "@/components/error-boundary"
 import { toast } from "@/components/ui/use-toast"
 import WhySunStudios from "@/components/why-sun-studios"
-import HowSolarWorks from "@/components/how-solar-works"
+import HowSolarWorksx from "@/components/how-solar-worksx"
 import AppSection from "@/components/app-section"
 import { Sun } from "lucide-react"
 
@@ -283,7 +283,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                         if (el) sectionRefs.current["how-solar-works"] = el
                     }}
                 >
-                    <HowSolarWorks />
+                    <HowSolarWorksx />
                 </div>
             </ErrorBoundary>
             <ErrorBoundary fallback={<div>Error loading Energy Usage section</div>}>

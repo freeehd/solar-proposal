@@ -34,10 +34,7 @@ export default function AppSection() {
   }
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      nextSlide()
-    }, 5000) // Change slide every 5 seconds
-
+    const interval = setInterval(nextSlide, 5000) // Change slide every 5 seconds
     return () => clearInterval(interval)
   }, []) // Removed nextSlide from dependencies
 
@@ -75,46 +72,53 @@ export default function AppSection() {
         </div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
             {/* Left Text */}
             <motion.div
-                className="lg:col-span-4"
+                className="lg:w-1/4 text-center lg:text-left"
                 initial={{ opacity: 0, x: -50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
                 viewport={{ once: true }}
             >
-              <h2 className="text-5xl font-bold text-gray-900 dark:text-white leading-tight mb-6">
+              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white leading-tight mb-6">
                 Power at Your Control
               </h2>
             </motion.div>
 
             {/* Center Phone */}
             <motion.div
-                className="lg:col-span-5 relative h-[600px]"
+                className="relative w-full lg:w-1/2 h-[700px] lg:h-[900px]"
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
                 viewport={{ once: true }}
             >
-              <div className="relative w-full h-full">
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] z-10">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <div className="w-[350px] h-[700px] lg:w-[700px] lg:h-[800px] relative">
                   <Image src="/app/phone.png" alt="Solar app screen" fill className="object-contain" priority />
                 </div>
               </div>
 
               {/* Navigation Controls */}
-              <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-50">
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-50">
                 {/* Dot indicators */}
-                <div className="flex gap-3 mb-4">
+                <div className="flex gap-4 mb-4">
                   {slides.map((_, index) => (
                       <button
                           key={index}
                           onClick={() => setCurrentSlide(index)}
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                              currentSlide === index ? "w-8 bg-orange-500" : "bg-gray-400 hover:bg-orange-300"
-                          }`}
-                      />
+                          className="w-3 h-3 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                      >
+                        <motion.div
+                            className="w-full h-full rounded-full"
+                            initial={false}
+                            animate={{
+                              backgroundColor: currentSlide === index ? "#f97316" : "#9ca3af",
+                            }}
+                            transition={{ duration: 0.3 }}
+                        />
+                      </button>
                   ))}
                 </div>
 
@@ -124,17 +128,17 @@ export default function AppSection() {
                       variant="outline"
                       size="icon"
                       onClick={prevSlide}
-                      className="bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800 backdrop-blur-sm border-gray-200 dark:border-gray-700"
+                      className="w-12 h-12 rounded-full bg-white hover:bg-orange-100 dark:bg-gray-800 dark:hover:bg-gray-700 border-2 border-orange-500 text-orange-500 hover:text-orange-600 transition-colors duration-300"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-6 w-6" />
                   </Button>
                   <Button
                       variant="outline"
                       size="icon"
                       onClick={nextSlide}
-                      className="bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800 backdrop-blur-sm border-gray-200 dark:border-gray-700"
+                      className="w-12 h-12 rounded-full bg-white hover:bg-orange-100 dark:bg-gray-800 dark:hover:bg-gray-700 border-2 border-orange-500 text-orange-500 hover:text-orange-600 transition-colors duration-300"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-6 w-6" />
                   </Button>
                 </div>
               </div>
@@ -142,7 +146,7 @@ export default function AppSection() {
 
             {/* Right Text */}
             <motion.div
-                className="lg:col-span-3"
+                className="lg:w-1/4 text-center lg:text-left"
                 initial={{ opacity: 0, x: 50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.6 }}
@@ -155,7 +159,7 @@ export default function AppSection() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.5 }}
-                    className="text-2xl text-gray-600 dark:text-gray-300 leading-relaxed"
+                    className="text-xl lg:text-2xl text-gray-600 dark:text-gray-300 leading-relaxed"
                 >
                   {slides[currentSlide].description}
                 </motion.p>
