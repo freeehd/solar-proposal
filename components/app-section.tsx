@@ -3,23 +3,20 @@
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 
 const slides = [
   {
     id: 1,
-    image: "/app/1.png",
     description: "Use analyze features to better understand the home's consumption trends.",
   },
   {
     id: 2,
-    image: "/app/2.png",
     description: "Tap and hold on the analyze graph to see more details about the home's consumption trends.",
   },
   {
     id: 3,
-    image: "/app/3.png",
     description:
         "Monitor your home solar, storage and electricity use from virtually anywhere with the mySunPower™ Monitoring app.",
   },
@@ -35,6 +32,14 @@ export default function AppSection() {
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)
   }
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nextSlide()
+    }, 5000) // Change slide every 5 seconds
+
+    return () => clearInterval(interval)
+  }, []) // Removed nextSlide from dependencies
 
   return (
       <section className="relative py-32 overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -84,7 +89,7 @@ export default function AppSection() {
               </h2>
             </motion.div>
 
-            {/* Center Phones */}
+            {/* Center Phone */}
             <motion.div
                 className="lg:col-span-5 relative h-[600px]"
                 initial={{ opacity: 0, y: 50 }}
@@ -93,49 +98,9 @@ export default function AppSection() {
                 viewport={{ once: true }}
             >
               <div className="relative w-full h-full">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                      key={currentSlide}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.5 }}
-                      className="absolute inset-0"
-                  >
-                    {/* Left Phone */}
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[280px] h-[570px]">
-                      <Image
-                          src={slides[(currentSlide - 1 + slides.length) % slides.length].image || "/placeholder.svg"}
-                          alt="Solar app screen"
-                          fill
-                          className="object-contain"
-                          priority
-                      />
-                    </div>
-
-                    {/* Center Phone */}
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[600px] z-10">
-                      <Image
-                          src={slides[currentSlide].image || "/placeholder.svg"}
-                          alt="Solar app screen"
-                          fill
-                          className="object-contain"
-                          priority
-                      />
-                    </div>
-
-                    {/* Right Phone */}
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[280px] h-[570px]">
-                      <Image
-                          src={slides[(currentSlide + 1) % slides.length].image || "/placeholder.svg"}
-                          alt="Solar app screen"
-                          fill
-                          className="object-contain"
-                          priority
-                      />
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[600px] z-10">
+                  <Image src="/phone.png" alt="Solar app screen" fill className="object-contain" priority />
+                </div>
               </div>
 
               {/* Navigation Controls */}
