@@ -14,11 +14,11 @@ export async function POST(request: Request) {
                 payback_period, total_system_cost, lifetime_savings, net_cost, incentives,
                 solar_system_model, solar_system_quantity, solar_system_price,
                 storage_system_model, storage_system_quantity, storage_system_price,
-                status
+                energy_data, status
             ) VALUES (
                          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
                          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
-                         $33
+                         $33, $34
                      ) RETURNING *
         `
 
@@ -55,8 +55,11 @@ export async function POST(request: Request) {
             body.storageSystemModel,
             Number.parseInt(body.storageSystemQuantity),
             Number.parseFloat(body.storageSystemPrice),
+            body.energyData,
             body.status || "in_progress",
         ]
+
+        console.log("Query values:", values)
 
         const result = await pool.query(query, values)
         const proposal = result.rows[0]

@@ -55,6 +55,7 @@ interface ProposalData {
     storageSystemModel: string
     storageSystemQuantity: string
     storageSystemPrice: string
+    energyData: string
 }
 
 interface ProposalContentProps {
@@ -96,13 +97,14 @@ const defaultProposalData: ProposalData = {
     storageSystemModel: "Default Storage Model",
     storageSystemQuantity: "1",
     storageSystemPrice: "10000",
+    energyData: "",
 }
 
 const sections = [
     { id: "hero", title: "Home" },
     { id: "why-sun-studios", title: "Why Sun Studios" },
-    { id: "how-solar-works", title: "How Solar Works" },
     { id: "app", title: "Mobile App" },
+    { id: "how-solar-works", title: "How Solar Works" },
     { id: "energy-usage", title: "Energy Usage" },
     { id: "solar-design", title: "Solar Design" },
     { id: "storage", title: "Storage" },
@@ -137,6 +139,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                             essentialsDays: data.proposal.essentials_days || prevData.essentialsDays,
                             appliancesDays: data.proposal.appliances_days || prevData.appliancesDays,
                             wholeHomeDays: data.proposal.whole_home_days || prevData.wholeHomeDays,
+                            energyData: data.proposal.energy_data || prevData.energyData,
                         }))
                     } else {
                         toast({
@@ -228,7 +231,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                         activeSection === section.id ? "opacity-100 scale-100" : "opacity-0 scale-0"
                     }`}
                 >
-                  <Sun className="w-6 h-8 text-yellow-500 text-center" />
+                  <Sun className="w-5 h-5 text-yellow-400" />
                 </span>
                                 <span
                                     className={`w-2 h-2 rounded-full transition-all duration-300 ${
@@ -265,16 +268,6 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                     <WhySunStudios />
                 </div>
             </ErrorBoundary>
-
-            <ErrorBoundary fallback={<div>Error loading How Solar Works section</div>}>
-                <div
-                    ref={(el: HTMLDivElement | null) => {
-                        if (el) sectionRefs.current["how-solar-works"] = el
-                    }}
-                >
-                    <HowSolarWorks />
-                </div>
-            </ErrorBoundary>
             <ErrorBoundary fallback={<div>Error loading App section</div>}>
                 <div
                     ref={(el: HTMLDivElement | null) => {
@@ -282,6 +275,15 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                     }}
                 >
                     <AppSection />
+                </div>
+            </ErrorBoundary>
+            <ErrorBoundary fallback={<div>Error loading How Solar Works section</div>}>
+                <div
+                    ref={(el: HTMLDivElement | null) => {
+                        if (el) sectionRefs.current["how-solar-works"] = el
+                    }}
+                >
+                    <HowSolarWorks />
                 </div>
             </ErrorBoundary>
             <ErrorBoundary fallback={<div>Error loading Energy Usage section</div>}>
@@ -295,6 +297,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                             monthlyBill: proposalData.monthlyBill,
                             averageRateKWh: proposalData.averageRateKWh,
                             escalation: proposalData.escalation,
+                            energyData: proposalData.energyData,
                         }}
                     />
                     {!proposalId && (

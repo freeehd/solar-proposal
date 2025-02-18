@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 import { ImageGalleryDialog } from "@/components/image-gallery-dialog"
 import Image from "next/image"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function DefaultForm() {
   const [formData, setFormData] = useState({
@@ -48,6 +49,9 @@ export default function DefaultForm() {
     storageSystemQuantity: "",
     storageSystemPrice: "",
   })
+  const [energyData, setEnergyData] = useState(`Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
+Energy usage (kWh)	973	844	916	932	1,029	1,171	1,521	800	1,700	1,060	1,060	1,440
+New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	1,475	1,093	784`)
   const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -76,8 +80,8 @@ export default function DefaultForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Submitting form data:", formData)
-    localStorage.setItem("solarProposalData", JSON.stringify(formData))
+    console.log("Submitting form data:", { ...formData, energyData })
+    localStorage.setItem("solarProposalData", JSON.stringify({ ...formData, energyData }))
 
     try {
       const response = await fetch("/api/submit-proposal", {
@@ -85,7 +89,7 @@ export default function DefaultForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, energyData }),
       })
 
       if (!response.ok) {
@@ -146,6 +150,13 @@ export default function DefaultForm() {
       storageSystemQuantity: "1",
       storageSystemPrice: "8500",
     })
+    setEnergyData(`Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
+Energy usage (kWh)	973	844	916	932	1,029	1,171	1,521	800	1,700	1,060	1,060	1,440
+New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	1,475	1,093	784`)
+  }
+
+  const handleEnergyDataChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEnergyData(e.target.value)
   }
 
   useEffect(() => {
@@ -360,7 +371,7 @@ export default function DefaultForm() {
                   <div className="space-y-2 col-span-full">
                     <Label>Battery Image</Label>
                     <div className="space-y-4">
-                      <ImageGalleryDialog initialImage={formData.batteryImage} />
+                      <ImageGalleryDialog initialImage={formData.batteryImage} onSelect={handleBatteryImageSelect} />
                       {formData.batteryImage && (
                           <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
                             <Image
@@ -553,6 +564,21 @@ export default function DefaultForm() {
                         required
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-2">Energy Usage and Production Data</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="energyData">Monthly Energy Data</Label>
+                  <Textarea
+                      id="energyData"
+                      name="energyData"
+                      value={energyData}
+                      onChange={handleEnergyDataChange}
+                      className="min-h-[150px] font-mono text-sm"
+                      placeholder="Paste your energy data here..."
+                  />
                 </div>
               </div>
 

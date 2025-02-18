@@ -1,24 +1,34 @@
 "use client"
 
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import { DollarSign, Lightbulb, Zap } from "lucide-react"
 import { motion } from "framer-motion"
-import { useState, useEffect } from "react"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 interface EnergyUsageSectionProps {
   proposalData: {
     monthlyBill: string
     averageRateKWh: string
     escalation: string
+    energyData: string
   }
+}
+
+interface ChartData {
+  month: string
+  usage: number
+  production: number
 }
 
 export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionProps) {
   const [utilityData, setUtilityData] = useState<Array<{ year: number; amount: number }>>([])
   const [totalPayments, setTotalPayments] = useState(0)
   const [finalMonthlyPayment, setFinalMonthlyPayment] = useState(0)
+
+  const [data, setData] = useState<ChartData[]>([])
+  const [inputText, setInputText] = useState(proposalData.energyData || "")
+  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!proposalData) {
@@ -53,6 +63,65 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
       setFinalMonthlyPayment(0)
     }
   }, [proposalData])
+
+  const parseData = useCallback((text: string) => {
+    try {
+      const lines = text.split("\n").filter((line) => line.trim())
+      if (lines.length !== 3) {
+        throw new Error(`Expected 3 lines of data, but got ${lines.length}`)
+      }
+
+      const months = lines[0].split("\t").filter((item) => item.trim())
+      const usage = lines[1]
+          .split("\t")
+          .filter((item) => item.trim())
+          .slice(1)
+          .map((v) => Number.parseFloat(v.replace(",", "")))
+      const production = lines[2]
+          .split("\t")
+          .filter((item) => item.trim())
+          .slice(1)
+          .map((v) => Number.parseFloat(v.replace(",", "")))
+
+      if (months.length !== 12 || usage.length !== 12 || production.length !== 12) {
+        throw new Error(
+            `Invalid data length. Expected 12 entries each, but got: Months: ${months.length}, Usage: ${usage.length}, Production: ${production.length}`,
+        )
+      }
+
+      const chartData = months.map((month, index) => ({
+        month,
+        usage: usage[index],
+        production: production[index],
+      }))
+
+      setData(chartData)
+      setError("")
+    } catch (err) {
+      setError(`Invalid data format: ${err.message}`)
+      setData([])
+    }
+  }, [])
+
+  const yAxisDomain = useMemo(() => {
+    if (data.length === 0) return [0, 100]
+    const maxValue = Math.max(...data.map((d) => Math.max(d.usage, d.production)))
+    const upperLimit = Math.ceil(maxValue / 500) * 500
+    return [0, upperLimit]
+  }, [data])
+
+  const yAxisTicks = useMemo(() => {
+    const [, upperLimit] = yAxisDomain
+    const tickCount = 5
+    const tickInterval = upperLimit / tickCount
+    return Array.from({ length: tickCount + 1 }, (_, i) => i * tickInterval)
+  }, [yAxisDomain])
+
+  useEffect(() => {
+    if (proposalData.energyData) {
+      parseData(proposalData.energyData)
+    }
+  }, [proposalData.energyData, parseData])
 
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -129,28 +198,15 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.5 }}
           >
-            <Card className="bg-card backdrop-blur border-primary/10 relative z-20">
+            <Card className="bg-card/50 backdrop-blur border-primary/10 relative z-20 mb-12">
               <CardHeader>
                 <CardTitle>Monthly Utility Costs Over 30 Years</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[400px] w-full">
                   {utilityData.length > 0 ? (
-                      <ChartContainer
-                          config={{
-                            amount: {
-                              label: "Monthly Cost",
-                              color: "hsl(var(--primary))",
-                            },
-                          }}
-                          className="min-h-[200px]"
-                      >
-                        <BarChart
-                            data={utilityData}
-                            margin={{ top: 10, right: 10, bottom: 20, left: 40 }}
-                            barSize={12}
-                            accessibilityLayer
-                        >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={utilityData} margin={{ top: 10, right: 10, bottom: 20, left: 40 }} barSize={12}>
                           <CartesianGrid
                               strokeDasharray="3 3"
                               horizontal={true}
@@ -174,37 +230,81 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                               fontSize={10}
                               tickFormatter={(value) => `$${value}`}
                           />
-                          <ChartTooltip
-                              content={
-                                <ChartTooltipContent
-                                    style={{
-                                      backgroundColor: "hsl(var(--background))",
-                                      border: "1px solid hsl(var(--border))",
-                                      borderRadius: "var(--radius)",
-                                      padding: "8px",
-                                    }}
-                                />
-                              }
-                              cursor={{
-                                fill: "hsl(var(--muted))",
-                                opacity: 0.1,
+                          <Tooltip
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--background))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "var(--radius)",
                               }}
+                              formatter={(value) => [`$${value}`, "Monthly Cost"]}
                           />
-                          <Bar dataKey="amount" fill="red" opacity={0.5} radius={[4, 4, 0, 0]}>
-                            <defs>
-                              <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                              </linearGradient>
-                            </defs>
-                          </Bar>
+                          <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                         </BarChart>
-                      </ChartContainer>
+                      </ResponsiveContainer>
                   ) : (
                       <div className="flex items-center justify-center h-full">
                         <p className="text-muted-foreground">No data available</p>
                       </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+          >
+            <Card className="bg-card/50 backdrop-blur border-primary/10 relative z-20">
+              <CardHeader>
+                <CardTitle>Energy Usage vs. New System Production</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="h-[400px] w-full">
+                    {data.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                              data={data}
+                              margin={{
+                                top: 20,
+                                right: 20,
+                                bottom: 40,
+                                left: 40,
+                              }}
+                              barGap={0}
+                              barSize={20}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+                            <XAxis
+                                dataKey="month"
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: "#666" }}
+                                tickFormatter={(value) => value.slice(0, 3)}
+                                padding={{ left: 20, right: 20 }}
+                            />
+                            <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: "#666" }}
+                                tickFormatter={(value) => `${value} kWh`}
+                                domain={yAxisDomain}
+                                ticks={yAxisTicks}
+                            />
+                            <Tooltip formatter={(value) => `${value} kWh`} labelFormatter={(label) => `Month: ${label}`} />
+                            <Legend />
+                            <Bar name="Energy Usage" dataKey="usage" fill="#FF6B4A" radius={[0, 0, 0, 0]} />
+                            <Bar name="New System Production" dataKey="production" fill="#FFB84D" radius={[0, 0, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <p className="text-muted-foreground">No data available</p>
+                        </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">{error && <p className="text-red-500 text-sm">{error}</p>}</div>
                 </div>
               </CardContent>
             </Card>
