@@ -98,8 +98,8 @@ export default function AppSection() {
                 viewport={{ once: true }}
             >
               <div className="relative w-full h-full">
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[600px] z-10">
-                  <Image src="/phone.png" alt="Solar app screen" fill className="object-contain" priority />
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] z-10">
+                  <Image src="/app/phone.png" alt="Solar app screen" fill className="object-contain" priority />
                 </div>
               </div>
 
