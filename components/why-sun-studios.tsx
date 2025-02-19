@@ -47,8 +47,8 @@ export default function WhySunStudios() {
   }
 
   return (
-      <section className="relative py-52 bg-white overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,165,0,0.1),transparent_70%)]" />
+      <section className="relative py-52  overflow-hidden">
+        <div className="absolute inset-0 " />
         <div className="container mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row items-start justify-between max-w-7xl mx-auto">
             <div className="md:w-1/2 lg:w-4/5 mb-16 md:mb-0 pr-10">

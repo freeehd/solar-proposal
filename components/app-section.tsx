@@ -39,7 +39,7 @@ export default function AppSection() {
   }, []) // Removed nextSlide from dependencies
 
   return (
-      <section className="relative py-32 overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <section className="relative py-32 overflow-hidden ">
         {/* Animated background shapes */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute inset-0 opacity-[0.03]">

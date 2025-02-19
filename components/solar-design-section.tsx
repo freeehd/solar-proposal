@@ -2,24 +2,26 @@
 
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sun, Zap } from "lucide-react"
+import { Sun, Zap, BarChart2, Thermometer, Shield } from "lucide-react"
 import { motion } from "framer-motion"
 
 interface SolarDesignSectionProps {
   proposalData: {
     numberOfSolarPanels?: string
     yearlyEnergyProduced?: string
+    yearlyEnergyUsage?: string
     energyOffset?: string
     solarPanelDesign?: string
+    solarPanelSize?: string
   }
 }
 
 const CircularProgress = ({ percentage }: { percentage: number }) => {
-  const circumference = 2 * Math.PI * 40 // 40 is the radius of the circle
+  const circumference = 2 * Math.PI * 40
   const strokeDashoffset = circumference - (percentage / 100) * circumference
 
   return (
-      <div className="relative w-24 h-24">
+      <div className="relative w-44 h-44">
         <svg className="w-full h-full" viewBox="0 0 100 100">
           <circle className="text-gray-300 stroke-current" strokeWidth="10" cx="50" cy="50" r="40" fill="transparent" />
           <circle
@@ -54,8 +56,8 @@ export default function SolarDesignSection({ proposalData }: SolarDesignSectionP
   const energyOffset = Number.parseInt(proposalData.energyOffset || "0", 10)
 
   return (
-      <section className="relative z-10 py-20 bg-gradient-to-b from-background to-gray-900">
-        <div className="container mx-auto px-4 relative bg-gradient-to-b from-background to-gray-900">
+      <section className="relative z-10 py-20 sky-gradient">
+        <div className="container mx-auto px-4 relative sky-gradient">
           <motion.h2
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -64,7 +66,7 @@ export default function SolarDesignSection({ proposalData }: SolarDesignSectionP
           >
             Your Solar Design Breakdown
           </motion.h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -94,30 +96,103 @@ export default function SolarDesignSection({ proposalData }: SolarDesignSectionP
                   <CardTitle className="text-2xl font-bold text-center">Solar System Details</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="flex flex-col items-center">
-                      <Sun className="w-12 h-12 mb-2 text-primary" />
-                      <p className="text-sm text-muted-foreground">Solar Panels</p>
-                      <p className="text-2xl font-bold text-primary">{proposalData.numberOfSolarPanels || "0"}</p>
+                  <div className="relative min-h-[400px]">
+                    {/* Top Row */}
+                    <div className="absolute top-0 w-full flex justify-between">
+                      {/* Top Left - Solar Panels */}
+                      <div className="text-center">
+                        <div className="flex flex-col items-center">
+                          <Sun className="w-12 h-12 mb-2 text-primary" />
+                          <p className="text-sm text-muted-foreground">Solar Panels</p>
+                          <p className="text-2xl font-bold text-primary">{proposalData.numberOfSolarPanels || "0"}</p>
+                        </div>
+                      </div>
+
+                      {/* Top Right - Year 1 Usage */}
+                      <div className="text-center">
+                        <div className="flex flex-col items-center">
+                          <Zap className="w-12 h-12 mb-2 text-primary" />
+                          <p className="text-sm text-muted-foreground">Year 1 Usage</p>
+                          <p className="text-2xl font-bold text-primary">{proposalData.yearlyEnergyUsage || "0"}</p>
+                          <p className="text-sm text-muted-foreground">kWh/year</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <Zap className="w-12 h-12 mb-2 text-primary" />
-                      <p className="text-sm text-muted-foreground">Annual Energy</p>
-                      <p className="text-2xl font-bold text-primary">{proposalData.yearlyEnergyProduced || "0"}</p>
-                      <p className="text-sm text-muted-foreground">kWh/year</p>
+
+                    {/* Center - Energy Offset */}
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                      <div className="flex flex-col items-center" >
+                        <p className="text-sm text-muted-foreground mb-2">Energy Offset</p>
+                        <CircularProgress  percentage={energyOffset} />
+                      </div>
                     </div>
-                    <div className="col-span-2 flex flex-col items-center mt-4">
-                      <p className="text-sm text-muted-foreground mb-2">Energy Offset</p>
-                      <CircularProgress percentage={energyOffset} />
+
+                    {/* Bottom Row */}
+                    <div className="absolute bottom-0 w-full flex justify-between">
+                      {/* Bottom Left - Solar Panel Size */}
+                      <div className="text-center">
+                        <div className="flex flex-col items-center">
+                          <BarChart2 className="w-12 h-12 mb-2 text-primary" />
+                          <p className="text-sm text-muted-foreground">Solar Panel Size</p>
+                          <p className="text-2xl font-bold text-primary">{proposalData.solarPanelSize || "0"}</p>
+                          <p className="text-sm text-muted-foreground">kW</p>
+                        </div>
+                      </div>
+
+                      {/* Bottom Right - Year 1 Production */}
+                      <div className="text-center">
+                        <div className="flex flex-col items-center">
+                          <Zap className="w-12 h-12 mb-2 text-primary" />
+                          <p className="text-sm text-muted-foreground">Year 1 Production</p>
+                          <p className="text-2xl font-bold text-primary">{proposalData.yearlyEnergyProduced || "0"}</p>
+                          <p className="text-sm text-muted-foreground">kWh/year</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           </div>
+
+          <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="mt-12"
+          >
+            <Card className="bg-card/50 backdrop-blur border-primary/10">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold text-center">Advanced Solar Technology</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-center mb-6">
+                  Our solar panels use advanced photovoltaic technology to convert sunlight into electricity. They are
+                  designed to withstand various weather conditions and have an expected lifespan of 25-30 years.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex flex-col items-center text-center">
+                    <BarChart2 className="w-12 h-12 mb-2 text-primary" />
+                    <p className="font-semibold">Panel Efficiency</p>
+                    <p className="text-lg text-primary">20-22%</p>
+                  </div>
+                  <div className="flex flex-col items-center text-center">
+                    <Thermometer className="w-12 h-12 mb-2 text-primary" />
+                    <p className="font-semibold">Temperature Coefficient</p>
+                    <p className="text-lg text-primary">-0.35% / °C</p>
+                  </div>
+                  <div className="flex flex-col items-center text-center">
+                    <Shield className="w-12 h-12 mb-2 text-primary" />
+                    <p className="font-semibold">Warranty</p>
+                    <p className="text-lg text-primary">25 years performance</p>
+                    <p className="text-lg text-primary">10 years product</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
       </section>
   )
 }
-
 

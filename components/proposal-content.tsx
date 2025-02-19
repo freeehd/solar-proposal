@@ -340,17 +340,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                             solarPanelDesign: proposalData.solarPanelDesign,
                         }}
                     />
-                    <div className="container mx-auto px-4 mt-8">
-                        <p>
-                            Our solar panels use advanced photovoltaic technology to convert sunlight into electricity. They are
-                            designed to withstand various weather conditions and have an expected lifespan of 25-30 years.
-                        </p>
-                        <ul className="list-disc list-inside mt-4">
-                            <li>Panel Efficiency: 20-22%</li>
-                            <li>Temperature Coefficient: -0.35% / °C</li>
-                            <li>Warranty: 25 years performance, 10 years product</li>
-                        </ul>
-                    </div>
+
                 </div>
             </ErrorBoundary>
             <ErrorBoundary fallback={<div>Error loading Storage section</div>}>

@@ -22,7 +22,7 @@ export default function SystemSummarySection({ proposalData }: SystemSummarySect
   }
 
   return (
-    <section className="py-20 bg-gradient-to-b from-background to-gray-900">
+    <section className="py-20 sky-gradient">
       <div className="container mx-auto px-4">
         <motion.h2
           initial={{ opacity: 0, y: -20 }}

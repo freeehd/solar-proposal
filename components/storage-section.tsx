@@ -29,7 +29,7 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
   }
 
   return (
-      <section className="py-20 bg-gradient-to-b from-gray-900 to-background">
+      <section className="py-20 sky-gradient">
         <div className="container mx-auto px-4">
           <motion.h2
               initial={{ opacity: 0, y: -20 }}
@@ -76,7 +76,7 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="relative w-full h-[400px] bg-gradient-to-br from-gray-900 to-background rounded-lg overflow-hidden shadow-lg"
+                className="relative w-full h-[400px] sky-gradient rounded-lg overflow-hidden shadow-lg"
             >
               <Image
                   src={

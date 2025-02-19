@@ -76,7 +76,7 @@ export default function HowSolarWorksx() {
   }, [activeScenario])
 
   return (
-      <section className="relative h-screen overflow-hidden bg-gray-900">
+      <section className="relative h-screen  bg-gray-900">
         {/* Video Background */}
         <div className="absolute inset-0 w-full h-full">
           <motion.div
