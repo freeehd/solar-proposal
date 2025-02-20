@@ -110,7 +110,7 @@ export default function HowSolarWorks() {
             transition={{ duration: 3 }}
         />
         <motion.div
-            className="absolute inset-0 bg-[url('/night.png')] bg-cover bg-center"
+            className="absolute inset-0 bg-[url('/night3.png')] bg-cover bg-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: activeScenario === "night" ? 1 : 0 }}
             transition={{ duration: 3 }}
@@ -137,7 +137,7 @@ export default function HowSolarWorks() {
                       activeScenario === "day" ? "text-black" : "text-white"
                   }`}
               >
-                {scenarios[activeScenario].title}
+                {/*{scenarios[activeScenario].title}*/}
               </motion.h3>
             </div>
 
