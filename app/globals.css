@@ -48,7 +48,7 @@
   }
 
   .section-title {
-    @apply text-4xl md:text-5xl font-bold mb-12 text-center;
+    @apply text-4xl md:text-5xl font-normal leading-tight leading-tight mb-12 text-center;
   }
 
   .card-premium {

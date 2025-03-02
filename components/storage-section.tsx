@@ -45,7 +45,7 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-4xl font-bold mb-12 text-center accent-text"
+          className="text-4xl font-normal leading-tight leading-tight mb-12 text-center accent-text"
         >
           Your Storage Setup
         </motion.h2>
@@ -66,14 +66,14 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
                   <div className="text-center">
                     <Battery className="w-12 h-12 mx-auto mb-2 text-primary" />
                     <p className="text-sm text-muted-foreground">Capacity</p>
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-xl font-normal leading-tight leading-tight text-primary">
                       {proposalData.capacity} kWh
                     </p>
                   </div>
                   <div className="text-center">
                     <Zap className="w-12 h-12 mx-auto mb-2 text-primary" />
                     <p className="text-sm text-muted-foreground">Output</p>
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-xl font-normal leading-tight leading-tight text-primary">
                       {proposalData.outputKW} kW
                     </p>
                   </div>
@@ -82,7 +82,7 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
                     <p className="text-sm text-muted-foreground">
                       Operating Mode
                     </p>
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-xl font-normal leading-tight leading-tight text-primary">
                       {proposalData.operatingMode}
                     </p>
                   </div>
@@ -91,7 +91,7 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
                     <p className="text-sm text-muted-foreground">
                       Backup Allocation
                     </p>
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-xl font-normal leading-tight leading-tight text-primary">
                       {proposalData.backupAllocation}
                     </p>
                   </div>
@@ -135,7 +135,7 @@ export default function StorageSection({ proposalData }: StorageSectionProps) {
                   <CardTitle className="text-center">{title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold text-center text-primary">
+                  <p className="text-4xl font-normal leading-tight leading-tight text-center text-primary">
                     {
                       proposalData[
                         `${title

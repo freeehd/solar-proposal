@@ -153,7 +153,7 @@ export default function SolarDesignSection({
               transition={{ duration: 0.7 }}
               className="text-center mb-20"
             >
-              <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-800 to-blue-600 mb-6 tracking-tight">
+              <h2 className="text-4xl md:text-5xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-800 to-blue-600 mb-6 tracking-tight">
                 Your Premium Solar Solution
               </h2>
               <p className="text-slate-600 max-w-2xl mx-auto text-lg">
@@ -227,10 +227,10 @@ export default function SolarDesignSection({
                           }}
                           className="relative"
                         >
-                          <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
+                          <p className="text-sm font-normal leading-tight text-slate-500 uppercase tracking-wider mb-1">
                             System Size
                           </p>
-                          <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                          <p className="text-2xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                             {proposalData.solarPanelSize || "0"} kW
                           </p>
                         </motion.div>
@@ -247,10 +247,10 @@ export default function SolarDesignSection({
                           }}
                           className="relative"
                         >
-                          <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
+                          <p className="text-sm font-normal leading-tight text-slate-500 uppercase tracking-wider mb-1">
                             Solar Panels
                           </p>
-                          <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                          <p className="text-2xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                             {proposalData.numberOfSolarPanels || "0"}
                           </p>
                         </motion.div>
@@ -266,10 +266,10 @@ export default function SolarDesignSection({
                           }}
                           className="relative"
                         >
-                          <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
+                          <p className="text-sm font-normal leading-tight text-slate-500 uppercase tracking-wider mb-1">
                             Annual Consumption
                           </p>
-                          <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                          <p className="text-2xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                             {proposalData.yearlyEnergyUsage || "0"} kWh
                           </p>
                         </motion.div>
@@ -285,10 +285,10 @@ export default function SolarDesignSection({
                           }}
                           className="relative"
                         >
-                          <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
+                          <p className="text-sm font-normal leading-tight text-slate-500 uppercase tracking-wider mb-1">
                             Annual Production
                           </p>
-                          <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                          <p className="text-2xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                             {proposalData.yearlyEnergyProduced || "0"} kWh
                           </p>
                         </motion.div>
@@ -310,10 +310,10 @@ export default function SolarDesignSection({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 1, duration: 0.5 }}
                     >
-                      <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
+                      <p className="text-sm font-normal leading-tight text-slate-500 uppercase tracking-wider mb-1">
                         Lifetime Savings
                       </p>
-                      <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-500">
+                      <p className="text-3xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-500">
                         $
                         {Number(
                           proposalData.lifetimeSavings || 0
@@ -329,7 +329,7 @@ export default function SolarDesignSection({
             <motion.div className="mt-16 relative isolate">
               <Card className="bg-white/90 backdrop-blur-xl border border-blue-100/50 shadow-2xl overflow-hidden rounded-xl">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-white border-b border-blue-50 py-6">
-                  <CardTitle className="text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-800 to-blue-600">
+                  <CardTitle className="text-2xl font-normal leading-tight leading-tight text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-800 to-blue-600">
                     Premium Solar Technology
                   </CardTitle>
                 </CardHeader>
@@ -359,7 +359,7 @@ export default function SolarDesignSection({
                       <p className="font-semibold text-slate-700 text-lg mb-2">
                         Elite Efficiency
                       </p>
-                      <p className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                      <p className="text-xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                         20-22%
                       </p>
                       <p className="text-sm text-slate-500 mt-2">
@@ -379,7 +379,7 @@ export default function SolarDesignSection({
                       <p className="font-semibold text-slate-700 text-lg mb-2">
                         Temperature Resilience
                       </p>
-                      <p className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                      <p className="text-xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                         -0.35% / °C
                       </p>
                       <p className="text-sm text-slate-500 mt-2">
@@ -399,7 +399,7 @@ export default function SolarDesignSection({
                       <p className="font-semibold text-slate-700 text-lg mb-2">
                         Premium Warranty
                       </p>
-                      <p className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
+                      <p className="text-xl font-normal leading-tight leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
                         25 Years
                       </p>
                       <p className="text-sm text-slate-500 mt-2">

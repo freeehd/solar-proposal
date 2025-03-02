@@ -25,16 +25,24 @@ interface StarAnimationProps {
   onAnimationComplete?: () => void;
 }
 
-// Optimize star geometry creation
+// Add custom type for the material that includes MeshTransmissionMaterial properties
+type CustomMaterial = THREE.MeshPhysicalMaterial & {
+  distortion?: number;
+  transmission?: number;
+  distortionScale?: number;
+  temporalDistortion?: number;
+};
+
+// Rest of the code remains the same until StarMesh component
 const createStarGeometry = () => {
   const shape = new THREE.Shape();
   const points = [
-    [0, 0.5], // Top point
+    [0, 0.5],
     [0.1, 0.15],
-    [0.4, 0.2], // Right top corner
+    [0.4, 0.2],
     [0.15, 0.0],
-    [0.3, -0.4], // Right bottom corner
-    [0, -0.15], // Bottom middle
+    [0.3, -0.4],
+    [0, -0.15],
     [-0.3, -0.4],
     [-0.15, 0],
     [-0.4, 0.2],
@@ -63,23 +71,19 @@ const StarMesh = ({
   delay = 0,
 }: StarMeshProps) => {
   const meshRef = useRef<Mesh>(null);
-  const materialRef = useRef<
-    THREE.Material & { transmission?: number; distortion?: number }
-  >(null);
+  // Update the material ref type to use our custom type
+  const materialRef = useRef<CustomMaterial>(null);
   const targetRotation = useRef({ x: 0, y: 0 });
   const currentRotation = useRef({ x: 0, y: 0 });
   const startTime = useRef<number | null>(null);
 
-  // Memoize geometry
   const starGeometry = useMemo(() => createStarGeometry(), []);
 
-  // GPU detection for quality settings
   const gpu = useDetectGPU();
   const quality = useMemo(() => {
     return gpu.tier >= 2 ? "high" : "low";
   }, [gpu.tier]);
 
-  // Cleanup function
   useEffect(() => {
     return () => {
       if (starGeometry) {
@@ -103,16 +107,14 @@ const StarMesh = ({
 
     if (timeSinceStart < 0) {
       mesh.scale.set(0, 0, 0);
-      mesh.position.y = 0.5; // Start position above
+      mesh.position.y = 0.5;
       return;
     }
 
     if (timeSinceStart < entryDuration) {
-      // Entry animation sequence
       const progress = timeSinceStart / entryDuration;
       const smoothProgress = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-      // 1. Scale up with elastic effect
       const elasticScale = Math.min(
         1,
         1 +
@@ -120,33 +122,24 @@ const StarMesh = ({
       );
       mesh.scale.setScalar(elasticScale * 0.2 + smoothProgress * 0.8);
 
-      // 2. Spin animation with smooth deceleration
-      const spinRotations = 2; // Number of full rotations
+      const spinRotations = 2;
       const spinEasing = THREE.MathUtils.smootherstep(1 - progress, 0, 1);
       mesh.rotation.y = spinRotations * Math.PI * 2 * spinEasing;
 
-      // 3. Position tween with smooth landing
       mesh.position.y = 0.5 * (1 - smoothProgress) * (1 - smoothProgress);
 
-      // Subtle tilt during entry with smooth transition
       mesh.rotation.x = (1 - smoothProgress) * 0.5;
 
-      // Trigger completion near the end of the animation for smoother transition
       if (progress > 0.95 && !hasCompletedEntrance) {
         onAnimationComplete?.();
       }
     } else {
-      // Remove the position reset and completion trigger from here
-      // as it's now handled during the entry animation
-
-      // Optimized hover and idle animations
       const time = state.clock.getElapsedTime();
 
       if (isHovered) {
         targetRotation.current.y = Math.sin(time * 2) * 0.2;
         targetRotation.current.x = Math.cos(time * 2) * 0.2;
 
-        // Optimized material transitions
         if (material.transmission !== undefined) {
           material.transmission = THREE.MathUtils.lerp(
             material.transmission,
@@ -181,7 +174,6 @@ const StarMesh = ({
         }
       }
 
-      // Optimized rotation interpolation
       currentRotation.current.x = THREE.MathUtils.lerp(
         currentRotation.current.x,
         targetRotation.current.x,
@@ -196,12 +188,16 @@ const StarMesh = ({
       mesh.rotation.x = currentRotation.current.x;
       mesh.rotation.y = currentRotation.current.y;
 
-      // Optimized color transition
       const targetColor = isHovered
         ? new THREE.Color("#ffd700")
         : new THREE.Color("#ffb800");
-      if (material.color instanceof THREE.Color) {
-        material.color.lerp(targetColor, delta * 4);
+      if (
+        (material as THREE.MeshStandardMaterial).color instanceof THREE.Color
+      ) {
+        (material as THREE.MeshStandardMaterial).color.lerp(
+          targetColor,
+          delta * 4
+        );
       }
     }
   });
@@ -235,6 +231,7 @@ export const StarAnimation = ({
   delay = 0,
   onAnimationComplete,
 }: StarAnimationProps) => {
+  const [dpr, setDpr] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -243,7 +240,10 @@ export const StarAnimation = ({
     setHasCompletedEntrance(true);
     onAnimationComplete?.();
   };
-
+  useEffect(() => {
+    // Safely access window.devicePixelRatio after component mount
+    setDpr(Math.min(2, window.devicePixelRatio));
+  }, []);
   return (
     <motion.div
       ref={containerRef}
@@ -258,7 +258,7 @@ export const StarAnimation = ({
       className="w-[100px] h-[100px] relative cursor-pointer"
     >
       <Canvas
-        dpr={Math.min(2, window.devicePixelRatio)}
+        dpr={dpr}
         camera={{ position: [0, 0, 2], fov: 45 }}
         className="w-full h-full"
         style={{ background: "transparent" }}
@@ -279,11 +279,8 @@ export const StarAnimation = ({
           </Center>
         </Float>
 
-        {/* Simplified lighting */}
         <ambientLight intensity={0.7} />
         <pointLight position={[5, 5, 5]} intensity={0.8} />
-
-        {/* Environment with transparent background */}
         <Environment preset="apartment" background={false} />
       </Canvas>
 

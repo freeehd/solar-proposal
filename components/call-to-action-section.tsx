@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { motion } from "framer-motion"
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 export default function CallToActionSection() {
   return (
@@ -11,7 +11,7 @@ export default function CallToActionSection() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-4xl font-bold mb-8 accent-text"
+          className="text-4xl font-normal leading-tight leading-tight mb-8 accent-text"
         >
           Ready to Embrace the Future of Energy?
         </motion.h2>
@@ -21,8 +21,9 @@ export default function CallToActionSection() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-xl mb-12 text-muted-foreground max-w-3xl mx-auto"
         >
-          Join thousands of homeowners who have already made the switch to clean, renewable solar energy. Your journey
-          to energy independence starts here.
+          Join thousands of homeowners who have already made the switch to
+          clean, renewable solar energy. Your journey to energy independence
+          starts here.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -38,6 +39,5 @@ export default function CallToActionSection() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }
-

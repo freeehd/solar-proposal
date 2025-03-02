@@ -215,7 +215,7 @@ export function CircularProgress({
         style={{ zIndex: 40 }}
       >
         <motion.span
-          className="text-5xl font-bold"
+          className="text-5xl font-normal leading-tight leading-tight"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.5 }}
@@ -227,7 +227,7 @@ export function CircularProgress({
           {currentPercentage}%
         </motion.span>
         <motion.span
-          className="text-sm text-slate-500 font-medium"
+          className="text-sm text-slate-500 font-normal leading-tight"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7, duration: 0.5 }}
