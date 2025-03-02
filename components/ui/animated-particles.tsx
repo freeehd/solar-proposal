@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { useEffect, useRef, useState } from "react"
+import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
 interface Particle {
-  id: number
-  x: number
-  y: number
-  size: number
-  alpha: number
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  alpha: number;
 }
 
 export const AnimatedParticles = ({
@@ -16,28 +16,30 @@ export const AnimatedParticles = ({
   centerY,
   active,
 }: {
-  centerX: number
-  centerY: number
-  active: boolean
+  centerX: number;
+  centerY: number;
+  active: boolean;
 }) => {
-  const [particles, setParticles] = useState<Particle[]>([])
-  const requestRef = useRef<number>()
-  const particleCount = 12
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const requestRef = useRef<number>();
+  const particleCount = 12;
 
   useEffect(() => {
     if (active) {
-      const newParticles: Particle[] = Array.from({ length: particleCount }).map((_, i) => ({
+      const newParticles: Particle[] = Array.from({
+        length: particleCount,
+      }).map((_, i) => ({
         id: i,
         x: centerX,
         y: centerY,
         size: Math.random() * 3 + 1,
         alpha: 1,
-      }))
-      setParticles(newParticles)
+      }));
+      setParticles(newParticles);
     } else {
-      setParticles([])
+      setParticles([]);
     }
-  }, [active, centerX, centerY])
+  }, [active, centerX, centerY]);
 
   useEffect(() => {
     const animate = () => {
@@ -49,21 +51,21 @@ export const AnimatedParticles = ({
             y: particle.y + (Math.random() - 0.5) * 2,
             alpha: particle.alpha - 0.02,
           }))
-          .filter((particle) => particle.alpha > 0),
-      )
-      requestRef.current = requestAnimationFrame(animate)
-    }
+          .filter((particle) => particle.alpha > 0)
+      );
+      requestRef.current = requestAnimationFrame(animate);
+    };
 
     if (active && particles.length > 0) {
-      requestRef.current = requestAnimationFrame(animate)
+      requestRef.current = requestAnimationFrame(animate);
     }
 
     return () => {
       if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current)
+        cancelAnimationFrame(requestRef.current);
       }
-    }
-  }, [active, particles.length])
+    };
+  }, [active, particles.length]);
 
   return (
     <div className="absolute inset-0 pointer-events-none">
@@ -80,6 +82,5 @@ export const AnimatedParticles = ({
         />
       ))}
     </div>
-  )
-}
-
+  );
+};

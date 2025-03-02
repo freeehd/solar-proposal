@@ -1,15 +1,17 @@
 "use client";
 
-import { type RefObject, useEffect, useId, useState, useMemo } from "react";
+import type React from "react";
+import { type RefObject, useEffect, useId, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { BeamParticles } from "./beam-particles";
 
-export interface AnimatedLightningProps {
+export interface AnimatedBeamProps {
   className?: string;
   containerRef: RefObject<HTMLElement>;
   fromRef: RefObject<HTMLElement>;
   toRef: RefObject<HTMLElement>;
-  pattern?: "zigzag" | "wave";
+  circleRef?: RefObject<HTMLElement>;
+  pattern?: "straight" | "wave";
   patternCount?: number;
   patternIntensity?: number;
   pathColor?: string;
@@ -19,82 +21,102 @@ export interface AnimatedLightningProps {
   glowWidth?: number;
   delay?: number;
   duration?: number;
-  stayAliveTime?: number;
-  fromSpeed?: number;
-  toSpeed?: number;
-  uniqueId: string;
+  onProgress?: (progress: number) => void;
+  onComplete?: () => void;
 }
 
-export const AnimatedLightning: React.FC<AnimatedLightningProps> = ({
+export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
   className,
   containerRef,
   fromRef,
   toRef,
+  circleRef,
   pattern = "wave",
-  patternCount = 1,
-  patternIntensity = 0.1,
-  pathColor = "#ffff00",
+  patternCount = 3,
+  patternIntensity = 0.05,
+  pathColor = "rgba(59, 130, 246, 0.6)",
   pathWidth = 1,
-  pathOpacity = 0.8,
-  glowColor = "#ffff00",
-  glowWidth = 10,
+  pathOpacity = 1,
+  glowColor = "rgba(59, 130, 246, 0.3)",
+  glowWidth = 16,
   delay = 0,
-  duration = 1.5,
-  stayAliveTime = 10,
-  fromSpeed = 1,
-  toSpeed = 1,
-  uniqueId,
+  duration = 2.5,
+  onProgress,
+  onComplete,
 }) => {
   const id = useId();
   const [pathD, setPathD] = useState("");
   const [svgDimensions, setSvgDimensions] = useState({ width: 0, height: 0 });
+  const [progress, setProgress] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
 
-  const updatePath = useMemo(() => {
-    return () => {
-      if (containerRef.current && fromRef.current && toRef.current) {
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const rectA = fromRef.current.getBoundingClientRect();
-        const rectB = toRef.current.getBoundingClientRect();
+  // Calculate center points
+  const calculateCenter = useCallback(
+    (element: HTMLElement, containerRect: DOMRect, isCircle = false) => {
+      try {
+        const rect = element.getBoundingClientRect();
+        const iconSize = 112; // 28 * 4 (w-28 class)
+        const circleSize = 208; // 52 * 4 (w-52 class)
+        const size = isCircle ? circleSize : iconSize;
+        return {
+          x: rect.left - containerRect.left + size / 2,
+          y: rect.top - containerRect.top + size / 2,
+        };
+      } catch (error) {
+        console.error("Error calculating center:", error);
+        return { x: 0, y: 0 };
+      }
+    },
+    []
+  );
 
-        const svgWidth = containerRect.width;
-        const svgHeight = containerRect.height;
-        setSvgDimensions({ width: svgWidth, height: svgHeight });
+  // Update path and dimensions
+  const updatePath = useCallback(() => {
+    try {
+      if (!containerRef?.current || !fromRef?.current || !toRef?.current) {
+        console.warn("Missing required refs");
+        return;
+      }
 
-        const startX = rectA.left - containerRect.left + rectA.width / 2;
-        const startY = rectA.top - containerRect.top + rectA.height / 2;
-        const endX = rectB.left - containerRect.left + rectB.width / 2;
-        const endY = rectB.top - containerRect.top + rectB.height / 2;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      setSvgDimensions({
+        width: containerRect.width,
+        height: containerRect.height,
+      });
 
-        const dx = endX - startX;
-        const dy = endY - startY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+      const isTargetCircle =
+        circleRef?.current && toRef.current === circleRef.current;
+      const start = calculateCenter(fromRef.current, containerRect);
+      const end = calculateCenter(
+        toRef.current,
+        containerRect,
+        !!isTargetCircle
+      );
 
-        let d = `M ${startX},${startY} `;
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (pattern === "zigzag") {
-          for (let i = 1; i <= patternCount; i++) {
-            const t = i / (patternCount + 1);
-            const x = startX + dx * t;
-            const y = startY + dy * t;
-            const perpX =
-              (-dy / distance) *
-              (i % 2 === 0 ? 1 : -1) *
-              distance *
-              patternIntensity;
-            const perpY =
-              (dx / distance) *
-              (i % 2 === 0 ? 1 : -1) *
-              distance *
-              patternIntensity;
-            d += `L ${x + perpX},${y + perpY} `;
-          }
-        } else if (pattern === "wave") {
-          const waveFrequency = Math.PI * 2 * patternCount;
-          const steps = Math.min(100, Math.floor(distance / 5)); // Reduce steps for shorter distances
+      if (distance === 0) {
+        console.warn("Zero distance between points");
+        return;
+      }
+
+      let d = `M ${start.x},${start.y} `;
+
+      if (pattern === "straight") {
+        d += `L ${end.x},${end.y}`;
+      } else if (pattern === "wave") {
+        const waveFrequency = Math.PI * 2 * patternCount;
+        const steps = Math.min(100, Math.floor(distance / 5));
+
+        if (steps < 2) {
+          d += `L ${end.x},${end.y}`;
+        } else {
           for (let i = 0; i <= steps; i++) {
             const t = i / steps;
-            const x = startX + dx * t;
-            const y = startY + dy * t;
+            const x = start.x + dx * t;
+            const y = start.y + dy * t;
             const waveOffset =
               Math.sin(t * waveFrequency) * distance * patternIntensity;
             const perpX = (-dy / distance) * waveOffset;
@@ -102,54 +124,53 @@ export const AnimatedLightning: React.FC<AnimatedLightningProps> = ({
             d += `${i === 0 ? "M" : "L"} ${x + perpX},${y + perpY} `;
           }
         }
-
-        d += `L ${endX},${endY}`;
-        setPathD(d);
       }
-    };
-  }, [containerRef, fromRef, toRef, pattern, patternCount, patternIntensity]);
+
+      d += `L ${end.x},${end.y}`;
+      setPathD(d);
+    } catch (error) {
+      console.error("Error updating beam path:", error);
+      setPathD("");
+    }
+  }, [
+    containerRef,
+    fromRef,
+    toRef,
+    circleRef,
+    pattern,
+    patternCount,
+    patternIntensity,
+    calculateCenter,
+  ]);
 
   useEffect(() => {
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(updatePath);
-    });
+    try {
+      const resizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(updatePath);
+      });
 
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
+      if (containerRef?.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+
+      updatePath();
+
+      return () => {
+        resizeObserver.disconnect();
+      };
+    } catch (error) {
+      console.error("Error setting up resize observer:", error);
     }
-
-    updatePath();
-
-    return () => {
-      resizeObserver.disconnect();
-    };
   }, [containerRef, updatePath]);
 
-  const getCustomTimes = useMemo(() => {
-    return (speed: number) => {
-      const animationDuration = duration / Math.max(0.1, speed);
-      const totalTime = animationDuration + stayAliveTime;
-      return {
-        duration: totalTime,
-        animationDuration,
-        times: [
-          0,
-          animationDuration / totalTime,
-          (totalTime - 0.05) / totalTime,
-          1,
-        ],
-      };
-    };
-  }, [duration, stayAliveTime]);
+  const handleComplete = () => {
+    setIsComplete(true);
+    onComplete?.();
+  };
 
-  const fromTiming = useMemo(
-    () => getCustomTimes(fromSpeed),
-    [getCustomTimes, fromSpeed]
-  );
-  const toTiming = useMemo(
-    () => getCustomTimes(toSpeed),
-    [getCustomTimes, toSpeed]
-  );
+  if (!pathD) {
+    return null;
+  }
 
   return (
     <svg
@@ -157,76 +178,90 @@ export const AnimatedLightning: React.FC<AnimatedLightningProps> = ({
       width={svgDimensions.width}
       height={svgDimensions.height}
       xmlns="http://www.w3.org/2000/svg"
-      className={cn(
-        "pointer-events-none absolute left-0 top-0 transform-gpu z-[-10]",
-        className
-      )}
+      className="pointer-events-none absolute left-0 top-0"
+      style={{ zIndex: 25 }} // Set a z-index that's higher than cards (10) but lower than premium icons (30)
       viewBox={`0 0 ${svgDimensions.width} ${svgDimensions.height}`}
     >
       <defs>
-        <filter id={`glow-${id}`}>
-          <feGaussianBlur stdDeviation="3.5" result="coloredBlur" />
+        <filter id={`glow-${id}`} filterUnits="userSpaceOnUse">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1" />
+          <feGaussianBlur in="blur1" stdDeviation="8" result="blur2" />
           <feMerge>
-            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="blur2" />
+            <feMergeNode in="blur1" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
-      <motion.path
-        key={`glow-${uniqueId}`}
-        d={pathD}
-        stroke={glowColor}
-        strokeWidth={glowWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        filter={`url(#glow-${id})`}
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{
-          pathLength: [0, 1],
-          opacity: [0, pathOpacity, pathOpacity, 0],
-        }}
-        transition={{
-          pathLength: {
+
+      <g style={{ isolation: "isolate" }}>
+        {/* Base beam path */}
+        <motion.path
+          d={pathD}
+          stroke={pathColor}
+          strokeWidth={pathWidth * 2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.3}
+        />
+
+        {/* Main glow path */}
+        <motion.path
+          key={`glow-${id}`}
+          d={pathD}
+          stroke={glowColor}
+          strokeWidth={glowWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter={`url(#glow-${id})`}
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{
+            pathLength: 1,
+            opacity: [0, pathOpacity, pathOpacity * 0.8, pathOpacity],
+          }}
+          transition={{
             delay,
-            duration: fromTiming.animationDuration,
-            ease: "linear",
-          },
-          opacity: {
+            duration,
+            ease: "easeInOut",
+            opacity: {
+              duration: duration * 2,
+              repeat: 0,
+              ease: "easeInOut",
+            },
+          }}
+          onUpdate={({ pathLength = 0 }) => {
+            const numericPathLength = Number(pathLength);
+            setProgress(numericPathLength);
+            onProgress?.(numericPathLength);
+          }}
+          onAnimationComplete={handleComplete}
+        />
+
+        {/* Main path */}
+        <motion.path
+          key={`path-${id}`}
+          d={pathD}
+          stroke={pathColor}
+          strokeWidth={pathWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{
+            pathLength: 1,
+            opacity: 1,
+          }}
+          transition={{
             delay,
-            duration: fromTiming.duration,
-            ease: "linear",
-            times: fromTiming.times,
-          },
-        }}
-      />
-      <motion.path
-        key={`path-${uniqueId}`}
-        d={pathD}
-        stroke={pathColor}
-        strokeWidth={pathWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{
-          pathLength: [0, 1],
-          opacity: [0, 1, 1, 0],
-        }}
-        transition={{
-          pathLength: {
-            delay,
-            duration: fromTiming.animationDuration,
-            ease: "linear",
-          },
-          opacity: {
-            delay,
-            duration: fromTiming.duration,
-            ease: "linear",
-            times: fromTiming.times,
-          },
-        }}
-      />
+            duration,
+            ease: "easeInOut",
+          }}
+        />
+
+        {/* Particle effects */}
+        <BeamParticles progress={progress} pathD={pathD} />
+      </g>
     </svg>
   );
 };
 
-export default AnimatedLightning;
+export default AnimatedBeam;

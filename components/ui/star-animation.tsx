@@ -1,297 +1,309 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import {
+  Center,
+  Float,
+  useDetectGPU,
+  Environment,
+  MeshTransmissionMaterial,
+} from "@react-three/drei";
+import * as THREE from "three";
+import type { Mesh } from "three";
+
+interface StarMeshProps {
+  isHovered: boolean;
+  hasCompletedEntrance: boolean;
+  onAnimationComplete?: () => void;
+  delay?: number;
+}
 
 interface StarAnimationProps {
-  className?: string;
   delay?: number;
   onAnimationComplete?: () => void;
 }
 
+// Optimize star geometry creation
+const createStarGeometry = () => {
+  const shape = new THREE.Shape();
+  const points = [
+    [0, 0.5], // Top point
+    [0.1, 0.15],
+    [0.4, 0.2], // Right top corner
+    [0.15, 0.0],
+    [0.3, -0.4], // Right bottom corner
+    [0, -0.15], // Bottom middle
+    [-0.3, -0.4],
+    [-0.15, 0],
+    [-0.4, 0.2],
+    [-0.1, 0.15],
+  ];
+
+  shape.moveTo(points[0][0], points[0][1]);
+  points.forEach((point, i) => {
+    if (i > 0) shape.lineTo(point[0], point[1]);
+  });
+  shape.lineTo(points[0][0], points[0][1]);
+
+  return new THREE.ExtrudeGeometry(shape, {
+    depth: 0.1,
+    bevelEnabled: true,
+    bevelThickness: 0.05,
+    bevelSize: 0.05,
+    bevelSegments: 5,
+  });
+};
+
+const StarMesh = ({
+  isHovered,
+  hasCompletedEntrance,
+  onAnimationComplete,
+  delay = 0,
+}: StarMeshProps) => {
+  const meshRef = useRef<Mesh>(null);
+  const materialRef = useRef<
+    THREE.Material & { transmission?: number; distortion?: number }
+  >(null);
+  const targetRotation = useRef({ x: 0, y: 0 });
+  const currentRotation = useRef({ x: 0, y: 0 });
+  const startTime = useRef<number | null>(null);
+
+  // Memoize geometry
+  const starGeometry = useMemo(() => createStarGeometry(), []);
+
+  // GPU detection for quality settings
+  const gpu = useDetectGPU();
+  const quality = useMemo(() => {
+    return gpu.tier >= 2 ? "high" : "low";
+  }, [gpu.tier]);
+
+  // Cleanup function
+  useEffect(() => {
+    return () => {
+      if (starGeometry) {
+        starGeometry.dispose();
+      }
+    };
+  }, [starGeometry]);
+
+  useFrame((state, delta) => {
+    if (!meshRef.current || !materialRef.current) return;
+    const mesh = meshRef.current;
+    const material = materialRef.current;
+
+    if (startTime.current === null) {
+      startTime.current = state.clock.elapsedTime + delay;
+      return;
+    }
+
+    const timeSinceStart = state.clock.elapsedTime - startTime.current;
+    const entryDuration = 1.2;
+
+    if (timeSinceStart < 0) {
+      mesh.scale.set(0, 0, 0);
+      mesh.position.y = 0.5; // Start position above
+      return;
+    }
+
+    if (timeSinceStart < entryDuration) {
+      // Entry animation sequence
+      const progress = timeSinceStart / entryDuration;
+      const smoothProgress = THREE.MathUtils.smoothstep(progress, 0, 1);
+
+      // 1. Scale up with elastic effect
+      const elasticScale = Math.min(
+        1,
+        1 +
+          Math.pow(2, -10 * progress) * Math.sin((progress - 0.1) * 5 * Math.PI)
+      );
+      mesh.scale.setScalar(elasticScale * 0.2 + smoothProgress * 0.8);
+
+      // 2. Spin animation with smooth deceleration
+      const spinRotations = 2; // Number of full rotations
+      const spinEasing = THREE.MathUtils.smootherstep(1 - progress, 0, 1);
+      mesh.rotation.y = spinRotations * Math.PI * 2 * spinEasing;
+
+      // 3. Position tween with smooth landing
+      mesh.position.y = 0.5 * (1 - smoothProgress) * (1 - smoothProgress);
+
+      // Subtle tilt during entry with smooth transition
+      mesh.rotation.x = (1 - smoothProgress) * 0.5;
+
+      // Trigger completion near the end of the animation for smoother transition
+      if (progress > 0.95 && !hasCompletedEntrance) {
+        onAnimationComplete?.();
+      }
+    } else {
+      // Remove the position reset and completion trigger from here
+      // as it's now handled during the entry animation
+
+      // Optimized hover and idle animations
+      const time = state.clock.getElapsedTime();
+
+      if (isHovered) {
+        targetRotation.current.y = Math.sin(time * 2) * 0.2;
+        targetRotation.current.x = Math.cos(time * 2) * 0.2;
+
+        // Optimized material transitions
+        if (material.transmission !== undefined) {
+          material.transmission = THREE.MathUtils.lerp(
+            material.transmission,
+            0.8,
+            0.1
+          );
+        }
+        if (material.distortion !== undefined) {
+          material.distortion = THREE.MathUtils.lerp(
+            material.distortion,
+            0.6,
+            0.1
+          );
+        }
+      } else {
+        targetRotation.current.y = Math.sin(time * 0.5) * 0.05;
+        targetRotation.current.x = Math.cos(time * 0.5) * 0.05;
+
+        if (material.transmission !== undefined) {
+          material.transmission = THREE.MathUtils.lerp(
+            material.transmission,
+            1,
+            0.1
+          );
+        }
+        if (material.distortion !== undefined) {
+          material.distortion = THREE.MathUtils.lerp(
+            material.distortion,
+            0.4,
+            0.1
+          );
+        }
+      }
+
+      // Optimized rotation interpolation
+      currentRotation.current.x = THREE.MathUtils.lerp(
+        currentRotation.current.x,
+        targetRotation.current.x,
+        delta * 4
+      );
+      currentRotation.current.y = THREE.MathUtils.lerp(
+        currentRotation.current.y,
+        targetRotation.current.y,
+        delta * 4
+      );
+
+      mesh.rotation.x = currentRotation.current.x;
+      mesh.rotation.y = currentRotation.current.y;
+
+      // Optimized color transition
+      const targetColor = isHovered
+        ? new THREE.Color("#ffd700")
+        : new THREE.Color("#ffb800");
+      if (material.color instanceof THREE.Color) {
+        material.color.lerp(targetColor, delta * 4);
+      }
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} geometry={starGeometry}>
+      <MeshTransmissionMaterial
+        ref={materialRef}
+        samples={quality === "high" ? 4 : 2}
+        thickness={0.5}
+        roughness={0.05}
+        transmission={1}
+        ior={1.5}
+        chromaticAberration={quality === "high" ? 0.06 : 0.04}
+        distortion={0.4}
+        distortionScale={0.6}
+        temporalDistortion={0.3}
+        metalness={0.9}
+        clearcoat={1}
+        attenuationDistance={0.5}
+        attenuationColor="#fff7e6"
+        color="#ffb800"
+        transparent
+        toneMapped={false}
+      />
+    </mesh>
+  );
+};
+
 export const StarAnimation = ({
-  className = "",
   delay = 0,
   onAnimationComplete,
 }: StarAnimationProps) => {
-  const [uniqueId] = useState(() => Math.random().toString(36).substr(2, 9));
   const [isHovered, setIsHovered] = useState(false);
   const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!hasCompletedEntrance) {
-      const timer = setTimeout(() => {
-        setHasCompletedEntrance(true);
-        onAnimationComplete?.();
-      }, 1800);
-      return () => clearTimeout(timer);
-    }
-  }, [hasCompletedEntrance, onAnimationComplete]);
+  const handleComplete = () => {
+    setHasCompletedEntrance(true);
+    onAnimationComplete?.();
+  };
 
   return (
     <motion.div
-      initial={{ y: 50, scale: 0, opacity: 0 }}
-      animate={{ y: 0, scale: 1, opacity: 1 }}
+      ref={containerRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{
-        type: "spring",
-        stiffness: 200,
-        damping: 20,
-        duration: 0.5,
+        duration: 0.3,
         delay,
-      }}
-      onAnimationComplete={() => {
-        setTimeout(() => {
-          setHasCompletedEntrance(true);
-          onAnimationComplete?.();
-        }, 1800);
-      }}
-      className="w-[100px] h-[100px] relative"
-      style={{
-        perspective: "800px",
-        transformStyle: "preserve-3d",
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      className="w-[100px] h-[100px] relative cursor-pointer"
     >
-      <motion.div
+      <Canvas
+        dpr={Math.min(2, window.devicePixelRatio)}
+        camera={{ position: [0, 0, 2], fov: 45 }}
         className="w-full h-full"
-        animate={
-          !hasCompletedEntrance
-            ? {
-                rotateY: [0, 720],
-                scale: [1, 1.2, 1],
-              }
-            : {
-                scale: isHovered ? 1.1 : 1,
-              }
-        }
-        transition={
-          !hasCompletedEntrance
-            ? {
-                duration: 1.8,
-                ease: [0.34, 1.56, 0.64, 1],
-                scale: {
-                  times: [0, 0.5, 1],
-                  ease: "easeInOut",
-                },
-              }
-            : {
-                scale: {
-                  duration: 0.3,
-                  ease: "easeOut",
-                },
-              }
-        }
-        style={{
-          transformStyle: "preserve-3d",
+        style={{ background: "transparent" }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance",
         }}
       >
-        {/* Sparkles */}
-        <motion.div
-          className="absolute inset-0"
-          initial={false}
-          animate={
-            isHovered
-              ? {
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 1, 0.5],
-                }
-              : {}
-          }
-          transition={{
-            duration: 1,
-            repeat: Number.POSITIVE_INFINITY,
-          }}
-        >
-          <svg className="w-full h-full" viewBox="0 0 100 100">
-            <defs>
-              <radialGradient id={`sparkle-${uniqueId}`}>
-                <stop offset="0%" stopColor="white" stopOpacity="0.8" />
-                <stop offset="100%" stopColor="white" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <circle cx="50" cy="50" r="40" fill={`url(#sparkle-${uniqueId})`} />
-          </svg>
-        </motion.div>
-
-        {/* Front glow */}
-        <svg
-          className="absolute inset-0 w-full h-full"
-          style={{ transform: "translateZ(1px)" }}
-        >
-          <defs>
-            <filter
-              id={`glow1-${uniqueId}`}
-              x="-20%"
-              y="-20%"
-              width="140%"
-              height="140%"
-            >
-              <feGaussianBlur in="SourceGraphic" stdDeviation="4" />
-              <feComposite operator="out" in2="SourceGraphic" />
-              <feBlend in="SourceGraphic" />
-            </filter>
-            <linearGradient
-              id={`star-gradient-${uniqueId}`}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor="#FFD700" />
-              <stop offset="100%" stopColor="#ffea70" />
-            </linearGradient>
-          </defs>
-          <motion.polygon
-            points="25,20 45,20 50,5 55,20 75,20 60,32.5 65,55 50,40 35,55 40,32.5"
-            fill={`url(#star-gradient-${uniqueId})`}
-            stroke="#FFD700"
-            strokeWidth="1"
-            filter={`url(#glow1-${uniqueId})`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 0] }}
-            transition={{
-              duration: 2.5,
-              repeat: Number.POSITIVE_INFINITY,
-              repeatType: "reverse",
-            }}
-          />
-        </svg>
-
-        {/* Side glow */}
-        <motion.div
-          className="absolute inset-0"
-          style={{
-            transformStyle: "preserve-3d",
-            transform: "rotateY(80deg)",
-          }}
-        >
-          <svg className="w-full h-full">
-            <defs>
-              <filter
-                id={`glow2-${uniqueId}`}
-                x="-20%"
-                y="-20%"
-                width="140%"
-                height="140%"
-              >
-                <feGaussianBlur in="SourceGraphic" stdDeviation="20" />
-                <feColorMatrix
-                  type="matrix"
-                  values="0 0 0 0 1   0 0 0 0 0.8   0 0 0 0 0   0 0 0 0.5 0"
-                />
-              </filter>
-            </defs>
-            <motion.polygon
-              points="60,5 40,5 40,55 60,55"
-              fill={`url(#star-gradient-${uniqueId})`}
-              stroke="#FFD700"
-              strokeWidth="1"
-              filter={`url(#glow2-${uniqueId})`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 1] }}
-              transition={{
-                duration: 2.5,
-                repeat: Number.POSITIVE_INFINITY,
-                repeatType: "reverse",
-              }}
+        <Float speed={1} floatIntensity={1} rotationIntensity={0.2}>
+          <Center>
+            <StarMesh
+              isHovered={isHovered}
+              hasCompletedEntrance={hasCompletedEntrance}
+              onAnimationComplete={handleComplete}
+              delay={delay}
             />
-          </svg>
-        </motion.div>
+          </Center>
+        </Float>
 
-        {/* Front face */}
-        <div
-          className="absolute inset-0"
-          style={{ transform: "translateZ(5px)" }}
-        >
-          <svg className="w-full h-full">
-            <polygon
-              points="25,20 45,20 50,5 55,20 75,20 60,32.5 65,55 50,40 35,55 40,32.5"
-              fill={`url(#star-gradient-${uniqueId})`}
-              stroke="#FFD700"
-              strokeWidth="1"
-            />
-          </svg>
-        </div>
+        {/* Simplified lighting */}
+        <ambientLight intensity={0.7} />
+        <pointLight position={[5, 5, 5]} intensity={0.8} />
 
-        {/* Back face */}
-        <div
-          className="absolute inset-0"
-          style={{ transform: "translateZ(-5px) rotateY(180deg)" }}
-        >
-          <svg className="w-full h-full">
-            <polygon
-              points="25,20 45,20 50,5 55,20 75,20 60,32.5 65,55 50,40 35,55 40,32.5"
-              fill={`url(#star-gradient-${uniqueId})`}
-              stroke="#FFD700"
-              strokeWidth="1"
-            />
-          </svg>
-        </div>
+        {/* Environment with transparent background */}
+        <Environment preset="apartment" background={false} />
+      </Canvas>
 
-        {/* 3D edges with gradient */}
-        {[
-          {
-            top: "1px",
-            left: "42px",
-            height: "20px",
-            rotate: "rotateZ(18deg)",
-          },
-          {
-            top: "15px",
-            left: "26px",
-            height: "21px",
-            rotate: "rotateZ(-50deg)",
-          },
-          {
-            top: "30px",
-            left: "32px",
-            height: "28px",
-            rotate: "rotateZ(17deg)",
-          },
-          {
-            top: "33px",
-            left: "39px",
-            height: "28px",
-            rotate: "rotateZ(42deg)",
-          },
-          {
-            top: "1px",
-            left: "48px",
-            height: "20px",
-            rotate: "rotateZ(-18deg)",
-          },
-          {
-            top: "15px",
-            left: "65px",
-            height: "21px",
-            rotate: "rotateZ(50deg)",
-          },
-          {
-            top: "30px",
-            left: "59px",
-            height: "28px",
-            rotate: "rotateZ(-14deg)",
-          },
-          {
-            top: "32px",
-            left: "51px",
-            height: "28px",
-            rotate: "rotateZ(-40deg)",
-          },
-        ].map((edge, index) => (
-          <div
-            key={index}
-            className="absolute w-[6px] bg-gradient-to-b from-yellow-200 to-yellow-400 border-l border-r border-yellow-300"
-            style={{
-              top: edge.top,
-              left: edge.left,
-              height: edge.height,
-              transform: `${edge.rotate} rotateY(90deg)`,
-            }}
-          />
-        ))}
-      </motion.div>
+      <motion.div
+        className="absolute inset-0 rounded-full pointer-events-none"
+        initial={false}
+        animate={{
+          scale: isHovered ? 1 : 0.8,
+          opacity: isHovered ? 1 : 0,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 300,
+          damping: 20,
+        }}
+        style={{
+          background:
+            "radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%)",
+        }}
+      />
     </motion.div>
   );
 };

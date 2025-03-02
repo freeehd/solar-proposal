@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
+import { motion } from "framer-motion";
 
 export const Particles = () => {
   return (
@@ -22,8 +22,16 @@ export const Particles = () => {
           animate={{
             opacity: [0, 1, 0],
             scale: [0, 1, 0],
-            y: [Math.random() * 100 + "%", Math.random() * 100 + "%", Math.random() * 100 + "%"],
-            x: [Math.random() * 100 + "%", Math.random() * 100 + "%", Math.random() * 100 + "%"],
+            y: [
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%",
+            ],
+            x: [
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%",
+            ],
           }}
           transition={{
             duration: Math.random() * 15 + 15,
@@ -33,6 +41,5 @@ export const Particles = () => {
         />
       ))}
     </div>
-  )
-}
-
+  );
+};
