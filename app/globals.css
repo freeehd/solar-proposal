@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 100% 97%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+
+    /* Z-index hierarchy */
+    --z-index-base: 1;
+    --z-index-cards: var(--z-index-base);
+    --z-index-beams: calc(var(--z-index-base) + 1);
+    --z-index-icons: calc(var(--z-index-base) + 2);
+    --z-index-portal: 100;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-gradient-to-b from-sky-100 via-white to-sky-100 min-h-screen bg-fixed;
+    background-size: 100% 200%;
+    animation: gradientFlow 20s ease infinite;
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply container mx-auto px-4 py-20 relative z-10;
+  }
+
+  .section-title {
+    @apply text-4xl md:text-5xl font-normal leading-tight leading-tight mb-12 text-center;
+  }
+
+  .card-premium {
+    @apply bg-white/80 backdrop-blur border-primary/10 rounded-lg shadow-lg overflow-hidden;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  .dramatic-text {
+    @apply text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold leading-tight tracking-tighter;
+  }
+
+  .accent-text {
+    @apply gradient-text;
+  }
+
+  .grain {
+    @apply fixed inset-0 z-10 pointer-events-none opacity-20;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .text-shadow-lg {
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+
+  .perspective {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+
+  .bg-blur {
+    @apply backdrop-blur-md bg-opacity-30;
+  }
+
+  .transition-all-300 {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .hover-lift {
+    @apply transition-all-300 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
+
+  .absolute-center {
+    @apply absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2;
+  }
+
+  .section-padding {
+    @apply py-20 md:py-32;
+  }
+
+  .gradient-border {
+    @apply border border-transparent bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-border;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-blue-500;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(14, 165, 233, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.8);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+/* Premium icon styles */
+.premium-icon-wrapper {
+  position: relative;
+  z-index: var(--z-index-portal);
+  isolation: isolate;
+}
