@@ -1,69 +1,128 @@
-"use client";
+"use client"
 
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-
-interface Particle {
-  id: number;
-  angle: number;
-  delay: number;
-  scale: number;
-  opacity: number;
-}
+import { useMemo } from "react"
+import { motion } from "framer-motion"
 
 interface ChargeParticlesProps {
-  progress?: number;
-  isCharging?: boolean;
+  progress: number
+  isComplete?: boolean
 }
 
-export function ChargeParticles({
-  progress = 1,
-  isCharging = false,
-}: ChargeParticlesProps) {
-  const [particles, setParticles] = useState<Particle[]>([]);
+export function ChargeParticles({ progress, isComplete = false }: ChargeParticlesProps) {
+  // Scale number of particles with progress for a more dynamic feel
+  const baseParticles = 18
+  const numParticles = Math.max(5, Math.floor(baseParticles * progress) + baseParticles)
 
-  useEffect(() => {
-    const particleCount = 12;
-    const newParticles = Array.from({ length: particleCount }, (_, i) => ({
-      id: i,
-      angle: (i * 2 * Math.PI) / particleCount,
-      delay: i * 0.05,
-      scale: Math.random() * 0.3 + 0.3,
-      opacity: Math.random() * 0.3 + 0.3,
-    }));
-    setParticles(newParticles);
-  }, []);
+  // Generate particles with more sophisticated positioning and animation
+  const generateParticles = () => {
+    const particles = []
 
-  if (!isCharging) return null;
+    // Create a more natural, organic distribution
+    for (let i = 0; i < numParticles; i++) {
+      // Use golden ratio to create more natural distribution
+      const goldenRatio = 1.618033988749895
+      const angle = i * goldenRatio * Math.PI * 2
+
+      // Distance varies with progress and has some randomness
+      const randomFactor = 0.7 + Math.random() * 0.6 // 0.7-1.3 range for natural variation
+      const distance = 30 * progress * randomFactor + Math.random() * 20
+
+      // Position with slight randomness
+      const x = 70 + distance * Math.cos(angle)
+      const y = 70 + distance * Math.sin(angle)
+
+      // Size varies with progress
+      const size = (Math.random() * 2 + 1) * (0.5 + progress * 0.5)
+
+      // Opacity increases with progress
+      const opacity = (Math.random() * 0.5 + 0.3) * (0.5 + progress * 0.5)
+
+      // Stagger animation timing
+      const delay = Math.random() * 0.8
+
+      // Duration varies for more organic movement
+      const duration = 0.5 + Math.random() * 0.8
+
+      // Movement direction
+      const moveAngle = angle + (Math.random() * 0.4 - 0.2)
+
+      // Movement distance
+      const moveDistance = 8 + Math.random() * 20 * progress
+
+      particles.push({
+        x,
+        y,
+        size,
+        opacity,
+        delay,
+        duration,
+        moveAngle,
+        moveDistance,
+        initialX: x,
+        initialY: y,
+      })
+    }
+    return particles
+  }
+
+  // Memoize particles to prevent regeneration on every render
+  const particles = useMemo(() => generateParticles(), [numParticles, isComplete, progress])
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      {particles.map((particle) => {
-        const radius = 28; // Match the icon size (w-14 = 3.5rem = 56px, so radius is 28px)
-        const x = Math.cos(particle.angle) * radius * progress;
-        const y = Math.sin(particle.angle) * radius * progress;
-
-        return (
-          <motion.div
-            key={particle.id}
-            className="absolute left-1/2 top-1/2 w-1 h-1 bg-blue-400 rounded-full"
-            initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
-            animate={{
-              x,
-              y,
-              scale: [0, particle.scale, 0],
-              opacity: [0, particle.opacity, 0],
-            }}
-            transition={{
-              duration: 0.6,
-              delay: particle.delay,
-              repeat: Number.POSITIVE_INFINITY,
-              repeatDelay: 0.2,
-              ease: "easeInOut",
-            }}
-          />
-        );
-      })}
-    </div>
-  );
+    <>
+      {particles.map((particle, index) => (
+        <motion.div
+          key={index}
+          style={{
+            position: "absolute",
+            left: `${particle.initialX}px`,
+            top: `${particle.initialY}px`,
+            width: `${particle.size}px`,
+            height: `${particle.size}px`,
+            backgroundColor: "white",
+            borderRadius: "50%",
+            filter: "blur(0.5px)",
+            zIndex: 50,
+          }}
+          initial={{
+            scale: 0,
+            opacity: 0,
+            x: 0,
+            y: 0,
+          }}
+          animate={
+            isComplete
+              ? {
+                scale: [0, 1.5, 0],
+                opacity: [0, particle.opacity * 1.5, 0],
+                x: [0, particle.moveDistance * 5 * Math.cos(particle.moveAngle)],
+                y: [0, particle.moveDistance * 5 * Math.sin(particle.moveAngle)],
+              }
+              : {
+                scale: 1,
+                opacity: particle.opacity,
+                x: [0, particle.moveDistance * Math.cos(particle.moveAngle), 0],
+                y: [0, particle.moveDistance * Math.sin(particle.moveAngle), 0],
+              }
+          }
+          transition={
+            isComplete
+              ? {
+                duration: particle.duration * 1.2,
+                ease: "easeOut",
+              }
+              : {
+                duration: particle.duration * 1.5,
+                delay: particle.delay * 0.5,
+                ease: "easeInOut",
+                repeat: Number.POSITIVE_INFINITY,
+                repeatType: "reverse",
+                repeatDelay: Math.random() * 0.3,
+              }
+          }
+        />
+      ))}
+    </>
+  )
 }
+

@@ -123,6 +123,7 @@ export default function LoadingScreen() {
                             <div className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" style={{ animationDelay: "0.2s" }}></div>
                             <div className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" style={{ animationDelay: "0.4s" }}></div>
                         </div>
+
                     </motion.div>
                 </motion.div>
             )}

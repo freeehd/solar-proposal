@@ -18,7 +18,14 @@ interface IconPortalLayerProps {
     icon4: boolean
     circle: boolean
   }
-  onChargingComplete: (key: string) => void
+  textRevealStates: {
+    text1: boolean
+    text2: boolean
+    text3: boolean
+    text4: boolean
+    circleText: boolean
+  }
+  onChargingComplete: (key: "circle" | "icon1" | "icon2" | "icon3" | "icon4") => void
   energyOffset: number
   containerRef: React.RefObject<HTMLElement>
   shouldAnimate: boolean
@@ -43,7 +50,7 @@ export function IconPortalLayer({
         const rect = cardsSection.getBoundingClientRect()
         const portalContainer = document.querySelector("[data-portal-container]")
         if (portalContainer) {
-          portalContainer.style.top = `${rect.top + window.scrollY}px`
+          (portalContainer as HTMLElement).style.top = `${rect.top + window.scrollY}px`
         }
       }
     }

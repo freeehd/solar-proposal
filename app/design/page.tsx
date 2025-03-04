@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ProposalDashboard from "@/components/why-sun-studios";
+import ProposalDashboard from "@/components/solar-design-section";
 import Loading from "../loading";
 
 export default function DashboardPage() {

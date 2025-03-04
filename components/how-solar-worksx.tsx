@@ -188,15 +188,15 @@ export default function HowSolarWorks() {
       </AnimatePresence>
 
       {/* Main content */}
-      <div className="relative z-20 w-full h-full flex flex-col justify-between py-10 px-6 md:px-12">
-        <div className="container mx-auto flex-grow flex flex-col md:flex-row items-center justify-center gap-8">
+      <div className="relative z-20 w-screen h-full flex flex-col justify-between py-10 px-6 ">
+        <div className="w-full mx-auto flex-grow flex flex-col md:flex-row items-center justify-center gap-8">
           {/* Left text */}
           <div className="md:w-1/4 text-center md:text-left">
             <motion.h2
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className={`text-5xl md:text-6xl font-light leading-tight mb-6 transition-colors duration-1000
+              className={`text-5xl md:text-6xl font-medium  mb-6 transition-colors duration-1000
                 ${scenario === "day" ? "text-black" : "text-white"}`}
             >
               How Solar Works
@@ -213,7 +213,7 @@ export default function HowSolarWorks() {
           </div>
 
           {/* Center video */}
-          <div className="md:w-3/4 h-[40vh] md:h-[60vh]">
+          <div className="md:w-[180vh] md:h-[70vh]">
             <motion.div
               className="w-full h-full relative rounded-3xl overflow-hidden shadow-2xl"
               initial={{ opacity: 0, y: 20 }}

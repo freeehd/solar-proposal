@@ -194,7 +194,8 @@ export default function SolarDesignSection({
                 <Image
                   src={
                     // proposalData.solarPanelDesign ||
-                    "/solar.png?height=600&width=800" || "/placeholder.svg"
+                    "/solar.png?height=600&width=800"
+                    || "/placeholder.svg"
                   }
                   alt="Solar Panel Design"
                   fill
@@ -231,12 +232,12 @@ export default function SolarDesignSection({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mt-12">
               {/* Main card */}
               <motion.div className="col-span-1 md:col-span-2">
-                <Card className="bg-white/90 backdrop-blur-xl border border-blue-100/50 shadow-2xl overflow-visible rounded-xl h-full">
+                <Card className="bg-white/90 backdrop-blur-xl border border-blue-100/50 shadow-2xl overflow-visible rounded-xl h-[250px] mt-10">
                   <CardContent className="flex items-center justify-center min-h-[320px] py-20">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-12 w-full px-4">
                       {/* Icon placeholders with fixed heights */}
                       <div className="flex flex-col items-center space-y-5 w-full">
-                        <div ref={icon1Ref} className="h-[112px] w-full flex items-center justify-center" />
+                        <div ref={icon1Ref} className="h-[50px] w-full flex items-center justify-center" />
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{
@@ -275,7 +276,7 @@ export default function SolarDesignSection({
 
                       {/* Repeat for other icons with the same structure */}
                       <div className="flex flex-col items-center space-y-5 w-full">
-                        <div ref={icon2Ref} className="h-[112px] w-full flex items-center justify-center" />
+                        <div ref={icon2Ref} className="h-[50px] w-full flex items-center justify-center" />
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{
@@ -313,7 +314,7 @@ export default function SolarDesignSection({
                       </div>
 
                       <div className="flex flex-col items-center space-y-5 w-full">
-                        <div ref={icon3Ref} className="h-[112px] w-full flex items-center justify-center" />
+                        <div ref={icon3Ref} className="h-[50px] w-full flex items-center justify-center" />
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{
@@ -351,7 +352,7 @@ export default function SolarDesignSection({
                       </div>
 
                       <div className="flex flex-col items-center space-y-5 w-full">
-                        <div ref={icon4Ref} className="h-[112px] w-full flex items-center justify-center" />
+                        <div ref={icon4Ref} className="h-[50px] w-full flex items-center justify-center" />
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{

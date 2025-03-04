@@ -17,7 +17,7 @@ export const RippleEffect = ({
 }: RippleEffectProps) => {
   return (
     <motion.div
-      className="absolute  pointer-events-none"
+      className="absolute  "
       initial={{ scale: 0.5, opacity: 0 }}
       animate={{
         scale: [0.5, 1.5],
