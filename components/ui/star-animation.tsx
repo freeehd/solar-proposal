@@ -1,306 +1,468 @@
-"use client";
+"use client"
 
-import { motion } from "framer-motion";
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import {
-  Center,
-  Float,
-  useDetectGPU,
-  Environment,
-  MeshTransmissionMaterial,
-} from "@react-three/drei";
-import * as THREE from "three";
-import type { Mesh } from "three";
+import React from "react"
+
+import { motion, useReducedMotion, AnimatePresence } from "framer-motion"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { Center, Float, useDetectGPU, Environment, MeshTransmissionMaterial } from "@react-three/drei"
+import * as THREE from "three"
+import type { Mesh } from "three"
 
 interface StarMeshProps {
-  isHovered: boolean;
-  hasCompletedEntrance: boolean;
-  onAnimationComplete?: () => void;
-  delay?: number;
+  isHovered: boolean
+  hasCompletedEntrance: boolean
+  onAnimationComplete?: () => void
+  delay?: number
+  prefersReducedMotion: boolean
+  quality: "high" | "low"
+  inView?: boolean
 }
 
 interface StarAnimationProps {
-  delay?: number;
-  onAnimationComplete?: () => void;
+  delay?: number
+  onAnimationComplete?: () => void
+  inView?: boolean
 }
 
 // Add custom type for the material that includes MeshTransmissionMaterial properties
 type CustomMaterial = THREE.MeshPhysicalMaterial & {
-  distortion?: number;
-  transmission?: number;
-  distortionScale?: number;
-  temporalDistortion?: number;
-};
+  distortion?: number
+  transmission?: number
+  distortionScale?: number
+  temporalDistortion?: number
+}
 
-// Rest of the code remains the same until StarMesh component
-const createStarGeometry = () => {
-  const shape = new THREE.Shape();
-  const points = [
-    [0, 0.5],
-    [0.1, 0.15],
-    [0.4, 0.2],
-    [0.15, 0.0],
-    [0.3, -0.4],
-    [0, -0.15],
-    [-0.3, -0.4],
-    [-0.15, 0],
-    [-0.4, 0.2],
-    [-0.1, 0.15],
-  ];
+// Memoized star geometry creation - moved outside component to prevent recreation
+const starGeometry = (() => {
+  const shape = new THREE.Shape()
+  const numPoints = 5 // Number of star points
+  const outerRadius = 0.6 // Outer radius of the star
+  const innerRadius = 0.22 // Inner radius between points
 
-  shape.moveTo(points[0][0], points[0][1]);
-  points.forEach((point, i) => {
-    if (i > 0) shape.lineTo(point[0], point[1]);
-  });
-  shape.lineTo(points[0][0], points[0][1]);
+  // Create star points using polar coordinates
+  const points = []
+  for (let i = 0; i <= numPoints * 2; i++) {
+    const angle = (i * Math.PI) / numPoints
+    const radius = i % 2 === 0 ? outerRadius : innerRadius
+    const x = Math.sin(angle) * radius
+    const y = Math.cos(angle) * radius
+    points.push([x, y])
+  }
+
+  // Create shape
+  shape.moveTo(points[0][0], points[0][1])
+  for (let i = 1; i < points.length; i++) {
+    shape.lineTo(points[i][0], points[i][1])
+  }
+  shape.closePath()
 
   return new THREE.ExtrudeGeometry(shape, {
     depth: 0.1,
     bevelEnabled: true,
     bevelThickness: 0.05,
     bevelSize: 0.05,
-    bevelSegments: 5,
-  });
-};
+    bevelSegments: 10,
+  })
+})()
 
-const StarMesh = ({
-  isHovered,
-  hasCompletedEntrance,
-  onAnimationComplete,
-  delay = 0,
-}: StarMeshProps) => {
-  const meshRef = useRef<Mesh>(null);
-  // Update the material ref type to use our custom type
-  const materialRef = useRef<CustomMaterial>(null);
-  const targetRotation = useRef({ x: 0, y: 0 });
-  const currentRotation = useRef({ x: 0, y: 0 });
-  const startTime = useRef<number | null>(null);
+// Memoized color objects to prevent recreation on each frame
+const hoverColor = new THREE.Color("#ffd700")
+const defaultColor = new THREE.Color("#daa520")
+const accentColor = new THREE.Color("#f8f0e3")
 
-  const starGeometry = useMemo(() => createStarGeometry(), []);
+// Separated component for better performance isolation
+const StarMesh = React.memo(
+  ({
+    isHovered,
+    hasCompletedEntrance,
+    onAnimationComplete,
+    delay = 0,
+    prefersReducedMotion,
+    quality,
+    inView = true,
+  }: StarMeshProps) => {
+    const meshRef = useRef<Mesh>(null)
+    const materialRef = useRef<CustomMaterial>(null)
+    const targetRotation = useRef({ x: 0, y: 0 })
+    const currentRotation = useRef({ x: 0, y: 0 })
+    const startTime = useRef<number | null>(null)
+    const animationCompleted = useRef(false)
 
-  const gpu = useDetectGPU();
-  const quality = useMemo(() => {
-    return gpu.tier >= 2 ? "high" : "low";
-  }, [gpu.tier]);
+    // Fixed final scale to ensure consistency
+    const FINAL_SCALE = 1.0
 
-  useEffect(() => {
-    return () => {
-      if (starGeometry) {
-        starGeometry.dispose();
-      }
-    };
-  }, [starGeometry]);
+    // Reset animation state when inView changes
+    useEffect(() => {
+      if (inView && !animationCompleted.current) {
+        startTime.current = null
+        animationCompleted.current = false
 
-  useFrame((state, delta) => {
-    if (!meshRef.current || !materialRef.current) return;
-    const mesh = meshRef.current;
-    const material = materialRef.current;
-
-    if (startTime.current === null) {
-      startTime.current = state.clock.elapsedTime + delay;
-      return;
-    }
-
-    const timeSinceStart = state.clock.elapsedTime - startTime.current;
-    const entryDuration = 1.2;
-
-    if (timeSinceStart < 0) {
-      mesh.scale.set(0, 0, 0);
-      mesh.position.y = 0.5;
-      return;
-    }
-
-    if (timeSinceStart < entryDuration) {
-      const progress = timeSinceStart / entryDuration;
-      const smoothProgress = THREE.MathUtils.smoothstep(progress, 0, 1);
-
-      const elasticScale = Math.min(
-        1,
-        1 +
-          Math.pow(2, -10 * progress) * Math.sin((progress - 0.1) * 5 * Math.PI)
-      );
-      mesh.scale.setScalar(elasticScale * 0.2 + smoothProgress * 0.8);
-
-      const spinRotations = 2;
-      const spinEasing = THREE.MathUtils.smootherstep(1 - progress, 0, 1);
-      mesh.rotation.y = spinRotations * Math.PI * 2 * spinEasing;
-
-      mesh.position.y = 0.5 * (1 - smoothProgress) * (1 - smoothProgress);
-
-      mesh.rotation.x = (1 - smoothProgress) * 0.5;
-
-      if (progress > 0.95 && !hasCompletedEntrance) {
-        onAnimationComplete?.();
-      }
-    } else {
-      const time = state.clock.getElapsedTime();
-
-      if (isHovered) {
-        targetRotation.current.y = Math.sin(time * 2) * 0.2;
-        targetRotation.current.x = Math.cos(time * 2) * 0.2;
-
-        if (material.transmission !== undefined) {
-          material.transmission = THREE.MathUtils.lerp(
-            material.transmission,
-            0.8,
-            0.1
-          );
+        // Ensure we start from scale 0
+        if (meshRef.current) {
+          meshRef.current.scale.set(0, 0, 0)
         }
+      }
+    }, [inView])
+
+    // Refined frame handler with elegant animation and spin-up effect
+    useFrame((state, delta) => {
+      if (!meshRef.current || !materialRef.current) return
+
+      // Skip animation if not in view
+      if (!inView) {
+        if (meshRef.current.scale.x > 0) {
+          meshRef.current.scale.set(0, 0, 0)
+        }
+        return
+      }
+
+      const mesh = meshRef.current
+      const material = materialRef.current
+
+      // Skip animations for users who prefer reduced motion
+      if (prefersReducedMotion) {
+        if (!animationCompleted.current) {
+          mesh.scale.setScalar(FINAL_SCALE)
+          mesh.position.y = 0
+          mesh.rotation.set(0, 0, 0)
+          if (!hasCompletedEntrance) {
+            animationCompleted.current = true
+            onAnimationComplete?.()
+          }
+        }
+        return
+      }
+
+      if (startTime.current === null) {
+        startTime.current = state.clock.elapsedTime + delay
+        // Explicitly set scale to 0 at the start
+        mesh.scale.set(0, 0, 0)
+        return
+      }
+
+      const timeSinceStart = state.clock.elapsedTime - startTime.current
+      const entryDuration = 1.5 // Slower, more elegant animation
+
+      if (timeSinceStart < 0) {
+        mesh.scale.set(0, 0, 0)
+        mesh.position.y = 0
+        return
+      }
+
+      // Elegant entrance animation with spin-up effect
+      if (timeSinceStart < entryDuration) {
+        const progress = timeSinceStart / entryDuration
+
+        // Smooth entrance with subtle easing
+        const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+        const easeOutQuint = 1 - Math.pow(1 - progress, 5)
+
+        // Gradual scale up with NO overshoot to ensure consistent final size
+        let scaleProgress = 0
+
+        if (progress < 0.95) {
+          // Normal scale up to 95% of the animation
+          scaleProgress = easeOutCubic * FINAL_SCALE
+        } else {
+          // Final 5% of animation - ensure we reach exactly the final scale
+          const finalProgress = (progress - 0.95) / 0.05
+          scaleProgress = THREE.MathUtils.lerp(easeOutCubic * FINAL_SCALE, FINAL_SCALE, finalProgress)
+        }
+
+        // Apply consistent scale
+        mesh.scale.setScalar(scaleProgress)
+
+        // Enhanced spin-up effect during reveal
+        // More rotation at the beginning that gradually slows down
+        const spinRotations = 2 // Number of full rotations during entrance
+        const spinEasing = 1 - Math.pow(1 - progress, 4) // Accelerated easing for spin
+
+        // Y-axis spin (horizontal rotation)
+        mesh.rotation.y = (1 - spinEasing) * Math.PI * 2 * spinRotations
+
+        // Subtle X-axis tilt that settles
+        mesh.rotation.x = (1 - easeOutQuint) * Math.PI * 0.25
+
+        // Subtle color transition
+        if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
+          const currentColor = (material as THREE.MeshStandardMaterial).color
+
+          // Start with accent color and transition to default
+          if (progress < 0.7) {
+            const colorProgress = progress / 0.7
+            currentColor.copy(accentColor).lerp(defaultColor, easeOutCubic)
+          } else {
+            currentColor.copy(defaultColor)
+          }
+
+          // Subtle emission during entrance
+          if (material.emissiveIntensity !== undefined) {
+            material.emissiveIntensity = Math.max(0, 0.5 - progress * 0.5)
+          }
+        }
+
+        // Subtle material transitions
+        if (material.transmission !== undefined) {
+          material.transmission = THREE.MathUtils.lerp(0.7, 1, easeOutCubic)
+        }
+
         if (material.distortion !== undefined) {
-          material.distortion = THREE.MathUtils.lerp(
-            material.distortion,
-            0.6,
-            0.1
-          );
+          material.distortion = THREE.MathUtils.lerp(0.6, 0.4, easeOutCubic)
+        }
+
+        if (progress > 0.95 && !hasCompletedEntrance && !animationCompleted.current) {
+          // Explicitly set final scale to ensure consistency
+          mesh.scale.setScalar(FINAL_SCALE)
+          animationCompleted.current = true
+          onAnimationComplete?.()
         }
       } else {
-        targetRotation.current.y = Math.sin(time * 0.5) * 0.05;
-        targetRotation.current.x = Math.cos(time * 0.5) * 0.05;
-
-        if (material.transmission !== undefined) {
-          material.transmission = THREE.MathUtils.lerp(
-            material.transmission,
-            1,
-            0.1
-          );
+        // Ensure the scale is exactly at the final value after animation
+        if (Math.abs(mesh.scale.x - FINAL_SCALE) > 0.001) {
+          mesh.scale.setScalar(FINAL_SCALE)
         }
-        if (material.distortion !== undefined) {
-          material.distortion = THREE.MathUtils.lerp(
-            material.distortion,
-            0.4,
-            0.1
-          );
+
+        // Refined idle animation after entrance
+        const time = state.clock.getElapsedTime()
+
+        // Only update target rotation every few frames for better performance
+        if (state.clock.elapsedTime % 0.1 < delta) {
+          if (isHovered) {
+            targetRotation.current.y = Math.sin(time * 1.2) * 0.15
+            targetRotation.current.x = Math.cos(time * 1.0) * 0.1
+          } else {
+            targetRotation.current.y = Math.sin(time * 0.3) * 0.03
+            targetRotation.current.x = Math.cos(time * 0.4) * 0.02
+          }
+        }
+
+        // Optimize material updates by checking if they need to change
+        if (isHovered) {
+          if (material.transmission !== undefined && Math.abs(material.transmission - 0.85) > 0.01) {
+            material.transmission = THREE.MathUtils.lerp(material.transmission, 0.85, 0.05)
+          }
+          if (material.distortion !== undefined && Math.abs(material.distortion - 0.5) > 0.01) {
+            material.distortion = THREE.MathUtils.lerp(material.distortion, 0.5, 0.05)
+          }
+        } else {
+          if (material.transmission !== undefined && Math.abs(material.transmission - 1) > 0.01) {
+            material.transmission = THREE.MathUtils.lerp(material.transmission, 1, 0.05)
+          }
+          if (material.distortion !== undefined && Math.abs(material.distortion - 0.4) > 0.01) {
+            material.distortion = THREE.MathUtils.lerp(material.distortion, 0.4, 0.05)
+          }
+        }
+
+        // Optimize rotation updates with threshold check and smoother damping
+        const rotXDiff = Math.abs(currentRotation.current.x - targetRotation.current.x)
+        const rotYDiff = Math.abs(currentRotation.current.y - targetRotation.current.y)
+
+        if (rotXDiff > 0.0005) {
+          currentRotation.current.x = THREE.MathUtils.lerp(
+            currentRotation.current.x,
+            targetRotation.current.x,
+            delta * 2.5, // Slower, more elegant movement
+          )
+          mesh.rotation.x = currentRotation.current.x
+        }
+
+        if (rotYDiff > 0.0005) {
+          currentRotation.current.y = THREE.MathUtils.lerp(
+            currentRotation.current.y,
+            targetRotation.current.y,
+            delta * 2.5, // Slower, more elegant movement
+          )
+          mesh.rotation.y = currentRotation.current.y
+        }
+
+        // Optimize color updates with threshold check
+        if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
+          const targetColor = isHovered ? hoverColor : defaultColor
+          const currentColor = (material as THREE.MeshStandardMaterial).color
+
+          if (!currentColor.equals(targetColor)) {
+            // Smoother color transition
+            currentColor.lerp(targetColor, delta * 2)
+          }
         }
       }
+    })
 
-      currentRotation.current.x = THREE.MathUtils.lerp(
-        currentRotation.current.x,
-        targetRotation.current.x,
-        delta * 4
-      );
-      currentRotation.current.y = THREE.MathUtils.lerp(
-        currentRotation.current.y,
-        targetRotation.current.y,
-        delta * 4
-      );
+    // Enhanced material properties for premium look
+    const materialProps = useMemo(
+      () => ({
+        samples: quality === "high" ? 6 : 3,
+        thickness: 0.4,
+        roughness: 0.03, // Smoother surface
+        transmission: 1,
+        ior: 1.6, // Higher index of refraction for more premium look
+        chromaticAberration: quality === "high" ? 0.04 : 0.03,
+        distortion: 0.4,
+        distortionScale: 0.5,
+        temporalDistortion: 0.2,
+        metalness: 0.8,
+        clearcoat: 1.2, // Enhanced clearcoat for premium shine
+        attenuationDistance: 0.6,
+        attenuationColor: "#ffd700",
+        color: "#daa520",
+        emissive: "#ffd000",
+        emissiveIntensity: 0,
+        transparent: true,
+        toneMapped: false,
+      }),
+      [quality],
+    )
+7
+    return (
+      <mesh ref={meshRef} geometry={starGeometry}>
+        <MeshTransmissionMaterial ref={materialRef} {...materialProps} />
+      </mesh>
+    )
+  },
+)
 
-      mesh.rotation.x = currentRotation.current.x;
-      mesh.rotation.y = currentRotation.current.y;
+StarMesh.displayName = "StarMesh"
 
-      const targetColor = isHovered
-        ? new THREE.Color("#ffd700")
-        : new THREE.Color("#ffb800");
-      if (
-        (material as THREE.MeshStandardMaterial).color instanceof THREE.Color
-      ) {
-        (material as THREE.MeshStandardMaterial).color.lerp(
-          targetColor,
-          delta * 4
-        );
+// Optimized main component with debounced hover state
+export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inView = true }: StarAnimationProps) => {
+  const [dpr, setDpr] = useState(1)
+  const [isHovered, setIsHovered] = useState(false)
+  const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = useReducedMotion()
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // GPU detection with memoized quality setting
+  const gpu = useDetectGPU()
+  const quality = useMemo(() => {
+    return gpu.tier >= 2 ? "high" : "low"
+  }, [gpu.tier])
+
+  // Debounced hover handlers to prevent rapid state changes
+  const handleMouseEnter = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    hoverTimeoutRef.current = setTimeout(() => setIsHovered(true), 50)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    hoverTimeoutRef.current = setTimeout(() => setIsHovered(false), 50)
+  }, [])
+
+  const handleComplete = useCallback(() => {
+    setHasCompletedEntrance(true)
+    onAnimationComplete?.()
+  }, [onAnimationComplete])
+
+  // Reset animation state when inView changes
+  useEffect(() => {
+    if (inView && !hasCompletedEntrance) {
+      setHasCompletedEntrance(false)
+    }
+  }, [inView, hasCompletedEntrance])
+
+  // Set DPR once on mount
+  useEffect(() => {
+    setDpr(Math.min(2, window.devicePixelRatio))
+
+    // Clean up hover timeout on unmount
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
       }
     }
-  });
+  }, [])
 
-  return (
-    <mesh ref={meshRef} geometry={starGeometry}>
-      <MeshTransmissionMaterial
-        ref={materialRef}
-        samples={quality === "high" ? 4 : 2}
-        thickness={0.5}
-        roughness={0.05}
-        transmission={1}
-        ior={1.5}
-        chromaticAberration={quality === "high" ? 0.06 : 0.04}
-        distortion={0.4}
-        distortionScale={0.6}
-        temporalDistortion={0.3}
-        metalness={0.9}
-        clearcoat={1}
-        attenuationDistance={0.5}
-        attenuationColor="#fff7e6"
-        color="#ffb800"
-        transparent
-        toneMapped={false}
-      />
-    </mesh>
-  );
-};
+  // Enhanced canvas settings for premium quality
+  const canvasProps = useMemo(
+    () => ({
+      dpr,
+      camera: { position: [0, 0, 2] as [number, number, number], fov: 40 }, // Narrower FOV for more premium look
+      className: "w-full h-full",
+      style: { background: "transparent" },
+      gl: {
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance" as WebGLPowerPreference,
+        depth: true, // Enable depth for better visual quality
+        stencil: false,
+      },
+    }),
+    [dpr],
+  )
 
-export const StarAnimation = ({
-  delay = 0,
-  onAnimationComplete,
-}: StarAnimationProps) => {
-  const [dpr, setDpr] = useState(1);
-  const [isHovered, setIsHovered] = useState(false);
-  const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Don't render anything if not in view and not using reduced motion
+  if (!inView && !prefersReducedMotion && !hasCompletedEntrance) {
+    return null
+  }
 
-  const handleComplete = () => {
-    setHasCompletedEntrance(true);
-    onAnimationComplete?.();
-  };
-  useEffect(() => {
-    // Safely access window.devicePixelRatio after component mount
-    setDpr(Math.min(2, window.devicePixelRatio));
-  }, []);
   return (
     <motion.div
       ref={containerRef}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{
+        opacity: inView ? 1 : 0,
+      }}
       transition={{
         duration: 0.3,
-        delay,
+        delay: inView ? delay : 0,
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="w-[100px] h-[100px] relative cursor-pointer"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className="w-full h-full relative cursor-pointer"
+      aria-hidden="true"
     >
-      <Canvas
-        dpr={dpr}
-        camera={{ position: [0, 0, 2], fov: 45 }}
-        className="w-full h-full"
-        style={{ background: "transparent" }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          powerPreference: "high-performance",
-        }}
-      >
-        <Float speed={1} floatIntensity={1} rotationIntensity={0.2}>
+      <Canvas {...canvasProps}>
+        <Float
+          speed={1.5}
+          floatIntensity={0.5}
+          rotationIntensity={0.5} // Subtle floating effect
+        >
           <Center>
             <StarMesh
               isHovered={isHovered}
               hasCompletedEntrance={hasCompletedEntrance}
               onAnimationComplete={handleComplete}
               delay={delay}
+              prefersReducedMotion={!!prefersReducedMotion}
+              quality={quality}
+              inView={inView}
             />
           </Center>
         </Float>
 
-        <ambientLight intensity={0.7} />
-        <pointLight position={[5, 5, 5]} intensity={0.8} />
+        <ambientLight intensity={0.6} />
+        <pointLight position={[5, 5, 5]} intensity={0.7} />
+        <pointLight position={[-5, -5, 5]} intensity={0.3} color="#ffd700" />
         <Environment preset="apartment" background={false} />
       </Canvas>
 
-      <motion.div
-        className="absolute inset-0 rounded-full pointer-events-none"
-        initial={false}
-        animate={{
-          scale: isHovered ? 1 : 0.8,
-          opacity: isHovered ? 1 : 0,
-        }}
-        transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 20,
-        }}
-        style={{
-          background:
-            "radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%)",
-        }}
-      />
+      {/* Subtle glow effect */}
+      <AnimatePresence>
+        {isHovered && inView && (
+          <motion.div
+            className="absolute inset-0 rounded-full pointer-events-none"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{
+              scale: 1,
+              opacity: 0.4,
+            }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 100,
+              damping: 20,
+            }}
+            style={{
+              background: "radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)",
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
-  );
-};
+  )
+})
+
+StarAnimation.displayName = "StarAnimation"
+

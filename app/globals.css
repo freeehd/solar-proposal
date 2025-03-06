@@ -32,11 +32,43 @@
     --z-index-icons: calc(var(--z-index-base) + 2);
     --z-index-portal: 100;
   }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 9.8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
 }
 
 @layer base {
   body {
+    @apply bg-background text-foreground;
+  }
+
+  body:not(.dark) {
     @apply bg-gradient-to-b from-sky-100 via-white to-sky-100 min-h-screen bg-fixed;
+    background-size: 100% 200%;
+    animation: gradientFlow 20s ease infinite;
+  }
+
+  body.dark {
+    @apply bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 min-h-screen bg-fixed;
     background-size: 100% 200%;
     animation: gradientFlow 20s ease infinite;
   }
@@ -52,11 +84,11 @@
   }
 
   .card-premium {
-    @apply bg-white/80 backdrop-blur border-primary/10 rounded-lg shadow-lg overflow-hidden;
+    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur border-primary/10 rounded-lg shadow-lg overflow-hidden;
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-sky-600 to-blue-600 dark:from-sky-400 dark:to-blue-400 bg-clip-text text-transparent;
   }
 }
 
@@ -112,7 +144,7 @@
   }
 
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-blue-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-blue-500 dark:from-sky-300 dark:to-blue-400;
   }
 }
 
@@ -162,4 +194,16 @@
   position: relative;
   z-index: var(--z-index-portal);
   isolation: isolate;
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-pulse-glow {
+    animation: none;
+  }
+
+  body {
+    animation: none;
+  }
 }

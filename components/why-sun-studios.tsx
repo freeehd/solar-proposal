@@ -1,233 +1,188 @@
-"use client";
+"use client"
 
-import {
-  motion,
-  useInView,
-  AnimatePresence,
-  useScroll,
-  useTransform,
-} from "framer-motion";
-import { StarAnimation } from "./ui/star-animation";
-import { useRef, useState } from "react";
+import { motion, useInView, AnimatePresence, useScroll, useTransform } from "framer-motion"
+import { useRef, useState } from "react"
+import dynamic from "next/dynamic"
+import { Card } from "@/components/ui/card"
+import { ThemeToggle } from "./theme-toggle"
+import { ReasonItem } from "./ui/reason-item"
 
-const TextReveal = ({ text, delay = 0, className = "" }) => {
+const MetalicPaint = dynamic(() => import("@/components/ui/metallic"), {
+  ssr: false,
+})
+
+// Improved text reveal component with better animation
+const ImprovedTextReveal = ({ text, className = "", delay = 0, staggerChildren = 0.02 }: { text: string, className?: string, delay?: number, staggerChildren?: number }) => {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, amount: 0.5 })
+
+  const words = text.split(" ")
+
+  const container = {
+    hidden: { opacity: 0 },
+    visible: (i = 1) => ({
+      opacity: 1,
+      transition: { staggerChildren, delayChildren: delay },
+    }),
+  }
+
+  const child = {
+    hidden: {
+      opacity: 0,
+      y: 20,
+      filter: "blur(4px)",
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      filter: "blur(0px)",
+      transition: {
+        type: "spring",
+        damping: 12,
+        stiffness: 100,
+      },
+    },
+  }
+
   return (
-    <span className="inline-block overflow-hidden">
-      <motion.span
-        className={`inline-block ${className}`}
-        initial={{ clipPath: "inset(0 100% 0 0)" }}
-        animate={{ clipPath: "inset(0 0% 0 0)" }}
-        transition={{
-          duration: 0.8,
-          delay,
-          ease: [0.22, 1, 0.36, 1],
-        }}
-      >
-        {text}
-      </motion.span>
-    </span>
-  );
-};
+    <motion.div
+      ref={ref}
+      className={`inline-block ${className}`}
+      variants={container}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+    >
+      {words.map((word, index) => (
+        <motion.span key={index} className="inline-block mr-[0.25em] whitespace-nowrap" variants={child}>
+          {word}
+        </motion.span>
+      ))}
+    </motion.div>
+  )
+}
 
+// Data for reasons to choose Sun Studios
 const reasons = [
   {
-    text: "Accredited by Better Business Bureau",
-    description:
-      "Our commitment to excellence has earned us accreditation from the Better Business Bureau.",
+    text: "5 star rating on Google",
+    description: "Join thousands of satisfied customers who have rated us 5 stars on Google.",
   },
   {
-    text: "5 star rating on Google",
-    description:
-      "Join thousands of satisfied customers who have rated us 5 stars on Google.",
+    text: "Accredited by Better Business Bureau",
+    description: "Our commitment to excellence has earned us accreditation from the Better Business Bureau.",
   },
+ 
   {
     text: "5 star rating on Consumer Affairs",
-    description:
-      "Consistently rated 5 stars by Consumer Affairs for our exceptional service.",
+    description: "Consistently rated 5 stars by Consumer Affairs for our exceptional service.",
   },
   {
     text: "The best solar in 36 states",
-    description:
-      "Providing top-quality solar solutions across 36 states nationwide.",
+    description: "Providing top-quality solar solutions across 36 states nationwide.",
   },
   {
     text: "Only solar company that offers customer satisfaction guarantee",
-    description:
-      "We stand behind our work with an industry-leading customer satisfaction guarantee.",
+    description: "We stand behind our work with an industry-leading customer satisfaction guarantee.",
   },
-];
+]
 
-export default function WhySunStudios() {
-  const [completedAnimations, setCompletedAnimations] = useState(new Set());
-  const containerRef = useRef(null);
-  const isInView = useInView(containerRef, { once: true, margin: "-100px" });
+export default function WhySunStudiosImproved() {
+  const [completedAnimations, setCompletedAnimations] = useState(new Set())
+  const containerRef = useRef(null)
+  const titleRef = useRef(null)
+  const isInView = useInView(containerRef, { once: true, margin: "-100px" })
+  const isTitleInView = useInView(titleRef, { once: true, amount: 0.5 })
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start end", "end start"],
-  });
+  })
 
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
-  const scale = useTransform(
-    scrollYProgress,
-    [0, 0.2, 0.8, 1],
-    [0.95, 1, 1, 0.95]
-  );
+  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
+  const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.95, 1, 1, 0.95])
 
-  const handleStarComplete = (index) => {
+  const handleStarComplete = (index: number) => {
     setCompletedAnimations((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(index);
-      return newSet;
-    });
-  };
+      const newSet = new Set(prev)
+      newSet.add(index)
+      return newSet
+    })
+  }
 
   return (
-    <section className="relative min-h-screen py-32 overflow-hidden bg-gradient-to-b from-white to-gray-50/80">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.8),rgba(255,255,255,0))]" />
-      <motion.div
-        className="container mx-auto px-4 relative z-10"
-        style={{ opacity, scale }}
-      >
-        <div className="flex flex-col md:flex-row items-start justify-between max-w-full mx-auto">
-          <div className="md:w-1/2 lg:w-full mb-16 md:mb-0 pr-10 ">
-            <div className="mb-12 max-w-4xl sticky top-32 ">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.8 }}
-              >
-                <h2 className="text-4xl md:text-5xl lg:text-[5.5rem] font-light  tracking-tight text-gray-900 mb-12 leading-[1.1]">
-                  <TextReveal
-                    text="Why Choose"
-                    delay={0.3}
-                    className="block mb-4"
-                  />
-                  <span className="font-normal relative inline-block">
-                    <TextReveal
-                      text="Sun Studios"
-                      delay={0.6}
-                      className="bg-gradient-to-r from-[#FFB800] to-[#FF8A00] bg-clip-text text-transparent"
-                    />
-                    <motion.div
-                      className="absolute -bottom-2 left-0 w-full h-[2px]"
-                      initial={{ scaleX: 0 }}
-                      animate={{ scaleX: 1 }}
-                      transition={{ duration: 1.2, delay: 1.2 }}
+    <section className="relative min-h-screen py-32 overflow-hidden bg-gradient-to-b from-background to-background/80">
+      {/* Theme toggle in the top right corner */}
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.8),rgba(255,255,255,0))] dark:bg-[radial-gradient(circle_at_50%_50%,rgba(25,25,25,0.8),rgba(25,25,25,0))]" />
+
+      <motion.div className="container mx-auto px-4 relative z-10" style={{ opacity, scale }}>
+        <Card className="p-8 md:p-12 mb-12 bg-card/50 backdrop-blur-sm border-primary/10 shadow-xl">
+          <div className="flex flex-col md:flex-row items-start justify-between max-w-full mx-auto">
+            {/* Left column with heading and description */}
+            <div className="md:w-1/2 lg:w-full mb-16 md:mb-0 pr-0 md:pr-10">
+              <div className="mb-12 max-w-4xl sticky top-32" ref={titleRef}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
+                  <div className="mb-4">
+                    <motion.h2
+                      className="text-4xl md:text-6xl font-medium tracking-tight text-foreground leading-[1.1]"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={isTitleInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                      transition={{ duration: 0.6, delay: 0.2 }}
                     >
-                      <div className="h-full bg-gradient-to-r from-[#FFB800] to-[#FF8A00]" />
-                    </motion.div>
-                    <motion.div
-                      className="absolute -bottom-2 left-0 w-full h-6"
-                      initial={{ scaleX: 0, opacity: 0 }}
-                      animate={{ scaleX: 1, opacity: 1 }}
-                      transition={{ duration: 1.2, delay: 1.3 }}
-                    >
-                      <div className="h-full bg-gradient-to-r from-[#FFB800]/20 to-[#FF8A00]/20 blur-lg" />
-                    </motion.div>
-                  </span>
-                  <TextReveal text="?" delay={0.9} className="text-gray-900" />
-                </h2>
-                <div className="relative overflow-hidden">
-                  <motion.p
-                    className="text-xl md:text-2xl leading-relaxed text-gray-500 font-light tracking-wide"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 1.5 }}
+                      <span className="block text-gray-800 dark:text-gray-200">
+                        <ImprovedTextReveal text="Why Choose" delay={0.3} staggerChildren={0.03} />
+                      </span>
+                      <div className="mt-2">
+                        <MetalicPaint />
+                      </div>
+                    </motion.h2>
+                  </div>
+
+                  <motion.div
+                    className="overflow-hidden rounded-lg"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={isTitleInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+                    transition={{ duration: 0.7, delay: 0.6 }}
                   >
-                    <TextReveal
-                      text="Sun Studios is a leading provider of solar energy solutions, committed to powering a sustainable future. With our innovative technology and expert team, we're transforming how homes and businesses harness the sun's energy."
-                      delay={1.5}
-                    />
-                  </motion.p>
-                </div>
-              </motion.div>
+                    <div className="text-xl md:text-2xl leading-relaxed text-muted-foreground font-light tracking-wide mt-8">
+                      <ImprovedTextReveal
+                        text="Sun Studios is a leading provider of solar energy solutions, committed to powering a sustainable future. With our innovative technology and expert team, we're transforming how homes and businesses harness the sun's energy."
+                        delay={0.8}
+                        staggerChildren={0.01}
+                      />
+                    </div>
+                  </motion.div>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Right column with reasons list */}
+            <div className="lg:w-full pl-0 md:pl-2" ref={containerRef}>
+              <ul className="space-y-6">
+                <AnimatePresence>
+                  {reasons.map((reason, index) => {
+                    const previousCompleted = index === 0 || completedAnimations.has(index - 1)
+                    const shouldAnimate = isInView && previousCompleted
+                    const hasCompleted = completedAnimations.has(index)
+
+                    return (
+                      <ReasonItem
+                        key={index}
+                        reason={reason}
+                        index={index}
+                        previousCompleted={previousCompleted}
+                        hasCompleted={hasCompleted}
+                        onStarComplete={() => handleStarComplete(index)}
+                      />
+                    )
+                  })}
+                </AnimatePresence>
+              </ul>
             </div>
           </div>
-          <div className=" lg:w-full pl-2" ref={containerRef}>
-            <ul className="space-y-4">
-              <AnimatePresence>
-                {reasons.map((reason, index) => {
-                  const previousCompleted =
-                    index === 0 || completedAnimations.has(index - 1);
-                  const shouldAnimate = isInView && previousCompleted;
-                  const hasCompleted = completedAnimations.has(index);
-
-                  return (
-                    <motion.li
-                      key={index}
-                      className="flex items-start gap-6 group relative"
-                      initial={{ opacity: 0, y: 60 }}
-                      animate={{
-                        opacity: previousCompleted ? 1 : 0,
-                        y: previousCompleted ? 0 : 60,
-                      }}
-                      transition={{
-                        duration: 0.8,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    >
-                      <div className="flex-shrink-0 mt-2">
-                        {previousCompleted && (
-                          <StarAnimation
-                            delay={0}
-                            onAnimationComplete={() =>
-                              handleStarComplete(index)
-                            }
-                            key={`star-${index}-${shouldAnimate}`}
-                          />
-                        )}
-                      </div>
-                      <div className="flex-grow overflow-hidden">
-                        <motion.div
-                          className="relative py-8"
-                          initial={{ opacity: 0 }}
-                          animate={{
-                            opacity: hasCompleted ? 1 : 0,
-                          }}
-                          transition={{
-                            duration: 0.6,
-                            ease: "easeOut",
-                          }}
-                        >
-                          <div className="overflow-hidden">
-                            <TextReveal
-                              text={reason.text}
-                              delay={0.2}
-                              className="text-xl md:text-2xl font-normal text-gray-900 block mb-3"
-                            />
-                          </div>
-
-                          <div className="overflow-hidden">
-                            <TextReveal
-                              text={reason.description}
-                              delay={0.3}
-                              className="text-base text-gray-500 font-light tracking-wide"
-                            />
-                          </div>
-
-                          <motion.div
-                            className="absolute bottom-0 left-0 h-[1px] w-full"
-                            initial={{ scaleX: 0 }}
-                            animate={{
-                              scaleX: hasCompleted ? 1 : 0,
-                            }}
-                            transition={{
-                              duration: 1.2,
-                              delay: 0.4,
-                              ease: [0.22, 1, 0.36, 1],
-                            }}
-                          >
-                            <div className="h-full bg-gradient-to-r from-[#FFB800]/30 via-[#FF8A00]/30 to-transparent" />
-                          </motion.div>
-                        </motion.div>
-                      </div>
-                    </motion.li>
-                  );
-                })}
-              </AnimatePresence>
-            </ul>
-          </div>
-        </div>
+        </Card>
       </motion.div>
 
       {/* Enhanced subtle background gradient */}
@@ -235,8 +190,7 @@ export default function WhySunStudios() {
         <motion.div
           className="absolute top-[5%] right-[5%] w-[800px] h-[800px] rounded-full"
           style={{
-            background:
-              "radial-gradient(circle, rgba(255,184,0,0.08) 0%, rgba(255,184,0,0) 70%)",
+            background: "radial-gradient(circle, rgba(255,184,0,0.08) 0%, rgba(255,184,0,0) 70%)",
             filter: "blur(100px)",
           }}
           animate={{
@@ -251,5 +205,6 @@ export default function WhySunStudios() {
         />
       </div>
     </section>
-  );
+  )
 }
+

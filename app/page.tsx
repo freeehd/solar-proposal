@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import ProposalDashboard from "@/components/proposal-dashboard";
 import { Button } from "@/components/ui/button";
-import Loading from "./loading";
+import Loading from "../components/ui/loading";
 import Navbar from "@/components/navbar";
 
 export default function Home() {

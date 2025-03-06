@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import ProposalEdit from "@/components/proposal-edit";
-import Loading from "@/app/loading";
+import Loading from "@/components/ui/loading";
 
 export default function ProposalEditPage({
   params,

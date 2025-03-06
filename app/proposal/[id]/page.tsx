@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import ProposalContent from "@/components/proposal-content"
-import Loading from "@/app/loading"
+import Loading from "@/components/ui/loading"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
