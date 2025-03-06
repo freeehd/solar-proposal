@@ -18,9 +18,7 @@ export default function ProposalLayout({
     return (
         <html lang="en">
         <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <main>{children}</main>
-        </ThemeProvider>
         </body>
         </html>
     )

@@ -4,9 +4,7 @@ import Loading from "../../components/ui/loading"
 
 export default function ProposalPage() {
     return (
-        <Suspense fallback={<Loading />}>
             <ProposalContent />
-        </Suspense>
     )
 }
 
