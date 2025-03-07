@@ -88,34 +88,34 @@ const StarMesh = React.memo(
     const currentRotation = useRef({ x: 0, y: 0 })
     const startTime = useRef<number | null>(null)
     const animationCompleted = useRef(false)
+    const hasStartedRef = useRef(false)
 
     // Fixed final scale to ensure consistency
     const FINAL_SCALE = 1.0
 
-    // Reset animation state when inView changes
+    // Ensure animation completes even if tab loses focus
     useEffect(() => {
       if (inView && !animationCompleted.current) {
-        startTime.current = null
-        animationCompleted.current = false
-
-        // Ensure we start from scale 0
-        if (meshRef.current) {
-          meshRef.current.scale.set(0, 0, 0)
-        }
+        hasStartedRef.current = true
+        
+        // Force animation completion after a reasonable time
+        const timer = setTimeout(() => {
+          if (!animationCompleted.current) {
+            animationCompleted.current = true
+            onAnimationComplete?.()
+          }
+        }, 1500) // Reasonable time for animation to complete
+        
+        return () => clearTimeout(timer)
       }
-    }, [inView])
+    }, [inView, onAnimationComplete])
 
     // Refined frame handler with elegant animation and spin-up effect
     useFrame((state, delta) => {
       if (!meshRef.current || !materialRef.current) return
 
-      // Skip animation if not in view
-      if (!inView) {
-        if (meshRef.current.scale.x > 0) {
-          meshRef.current.scale.set(0, 0, 0)
-        }
-        return
-      }
+      // Skip if not in view and animation hasn't started yet
+      if (!inView && !hasStartedRef.current) return
 
       const mesh = meshRef.current
       const material = materialRef.current
@@ -313,7 +313,7 @@ const StarMesh = React.memo(
       }),
       [quality],
     )
-7
+
     return (
       <mesh ref={meshRef} geometry={starGeometry}>
         <MeshTransmissionMaterial ref={materialRef} {...materialProps} />
@@ -332,6 +332,7 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
   const containerRef = useRef<HTMLDivElement>(null)
   const prefersReducedMotion = useReducedMotion()
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const completionTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // GPU detection with memoized quality setting
   const gpu = useDetectGPU()
@@ -350,17 +351,29 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
     hoverTimeoutRef.current = setTimeout(() => setIsHovered(false), 50)
   }, [])
 
+  // Ensure animation completes even if tab loses focus
+  useEffect(() => {
+    if (inView && !hasCompletedEntrance) {
+      // Force completion after a reasonable time
+      completionTimerRef.current = setTimeout(() => {
+        if (!hasCompletedEntrance) {
+          setHasCompletedEntrance(true)
+          onAnimationComplete?.()
+        }
+      }, 2000) // Reasonable time for the entire animation
+    }
+    
+    return () => {
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current)
+      }
+    }
+  }, [inView, hasCompletedEntrance, onAnimationComplete])
+
   const handleComplete = useCallback(() => {
     setHasCompletedEntrance(true)
     onAnimationComplete?.()
   }, [onAnimationComplete])
-
-  // Reset animation state when inView changes
-  useEffect(() => {
-    if (inView && !hasCompletedEntrance) {
-      setHasCompletedEntrance(false)
-    }
-  }, [inView, hasCompletedEntrance])
 
   // Set DPR once on mount
   useEffect(() => {
@@ -392,8 +405,8 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
     [dpr],
   )
 
-  // Don't render anything if not in view and not using reduced motion
-  if (!inView && !prefersReducedMotion && !hasCompletedEntrance) {
+  // Don't render anything if not in view and animation hasn't started
+  if (!inView && !hasCompletedEntrance) {
     return null
   }
 
@@ -402,7 +415,7 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
       ref={containerRef}
       initial={{ opacity: 0 }}
       animate={{
-        opacity: inView ? 1 : 0,
+        opacity: inView || hasCompletedEntrance ? 1 : 0,
       }}
       transition={{
         duration: 0.3,
@@ -440,7 +453,7 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
 
       {/* Subtle glow effect */}
       <AnimatePresence>
-        {isHovered && inView && (
+        {isHovered && (inView || hasCompletedEntrance) && (
           <motion.div
             className="absolute inset-0 rounded-full pointer-events-none"
             initial={{ scale: 0.8, opacity: 0 }}

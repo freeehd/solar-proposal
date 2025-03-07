@@ -3,7 +3,7 @@
 import { motion, useInView, AnimatePresence } from "framer-motion"
 import { StarAnimation } from "./star-animation"
 import { useRef, useState, useEffect } from "react"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight } from 'lucide-react'
 
 interface ReasonItemProps {
   reason: {
@@ -29,17 +29,21 @@ export function ReasonItem({
   const isInView = useInView(itemRef, { once: true, amount: 0.3 })
   const [shouldAnimate, setShouldAnimate] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const animationStartedRef = useRef(false)
 
-  // Start animation 1 second after coming into view
+  // Start animation ONLY when previousCompleted becomes true AND item is in view
   useEffect(() => {
-    if (isInView && !shouldAnimate) {
+    if (previousCompleted && isInView && !shouldAnimate) {
+      animationStartedRef.current = true
+      
+      // Short delay before starting animation
       const timer = setTimeout(() => {
         setShouldAnimate(true)
-      }, 1000)
+      }, 300)
 
       return () => clearTimeout(timer)
     }
-  }, [isInView, shouldAnimate])
+  }, [previousCompleted, shouldAnimate, isInView])
 
   // Determine if content should be visible
   const isContentVisible = prefersReducedMotion || hasCompleted
@@ -47,21 +51,21 @@ export function ReasonItem({
   return (
     <motion.li
       ref={itemRef}
-      className="flex items-start gap-6 md:gap-8 group relative "
-      initial={{ opacity: 0, y: 60 }}
+      className="flex items-start gap-4 md:gap-6 group relative"
+      initial={{ opacity: 0, y: 40 }}
       animate={{
-        opacity: shouldAnimate && (prefersReducedMotion || previousCompleted) ? 1 : 0,
-        y: shouldAnimate && (prefersReducedMotion || previousCompleted) ? 0 : 60,
+        opacity: shouldAnimate && previousCompleted ? 1 : 0,
+        y: shouldAnimate && previousCompleted ? 0 : 40,
       }}
       transition={{
-        duration: 0.8,
+        duration: 0.6,
         ease: [0.22, 1, 0.36, 1],
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Enhanced star container with subtle effects */}
-      <div className="relative flex-shrink-0 w-[100px] h-[100px] flex items-center justify-center premium-icon-wrapper">
+      {/* Smaller star container */}
+      <div className="relative flex-shrink-0 w-[70px] h-[70px] flex items-center justify-center premium-icon-wrapper">
         {/* Background glow effect */}
         <AnimatePresence>
           {isHovered && isContentVisible && (
@@ -70,18 +74,18 @@ export function ReasonItem({
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.2 }}
             />
           )}
         </AnimatePresence>
 
-        {/* Star animation */}
-        {shouldAnimate && (prefersReducedMotion || previousCompleted) && (
+        {/* Star animation - only render when shouldAnimate is true */}
+        {shouldAnimate && previousCompleted && (
           <StarAnimation
             delay={0}
             onAnimationComplete={onStarComplete}
             key={`star-${index}-${previousCompleted}`}
-            inView={shouldAnimate}
+            inView={true} // Always consider it in view once animation starts
           />
         )}
       </div>
@@ -89,27 +93,27 @@ export function ReasonItem({
       {/* Enhanced content container */}
       <div className="flex-grow overflow-hidden">
         <motion.div
-          className="relative py-6 "
+          className="relative py-4"
           initial={{ opacity: 0 }}
           animate={{
             opacity: isContentVisible ? 1 : 0,
           }}
           transition={{
-            duration: 0.6,
+            duration: 0.4,
             ease: "easeOut",
           }}
         >
           {/* Enhanced title with icon */}
           <div className="overflow-hidden">
             <motion.div
-              className="flex items-center gap-2 mb-3 text-xl md:text-2xl font-medium text-foreground"
-              initial={{ y: 20, opacity: 0 }}
+              className="flex items-center gap-2 mb-2 text-lg md:text-xl font-medium text-foreground"
+              initial={{ y: 15, opacity: 0 }}
               animate={{
-                y: hasCompleted ? 0 : 20,
+                y: hasCompleted ? 0 : 15,
                 opacity: hasCompleted ? 1 : 0,
               }}
               transition={{
-                duration: 0.5,
+                duration: 0.4,
                 ease: [0.22, 1, 0.36, 1],
               }}
             >
@@ -121,24 +125,24 @@ export function ReasonItem({
                 transition={{ duration: 0.2 }}
                 className="dark:text-sky-400"
               >
-                <ChevronRight size={20} className="text-sky-600/70 dark:text-sky-400/70" aria-hidden="true" />
+                <ChevronRight size={18} className="text-sky-600/70 dark:text-sky-400/70" aria-hidden="true" />
               </motion.span>
               <span>{reason.text}</span>
             </motion.div>
           </div>
 
           {/* Enhanced description with better typography */}
-          <div className="overflow-hidden pl-7">
+          <div className="overflow-hidden pl-6">
             <motion.p
-              className="text-base text-muted-foreground font-light tracking-wide leading-relaxed"
-              initial={{ y: 20, opacity: 0 }}
+              className="text-sm md:text-base text-muted-foreground font-light tracking-wide leading-relaxed"
+              initial={{ y: 15, opacity: 0 }}
               animate={{
-                y: hasCompleted ? 0 : 20,
+                y: hasCompleted ? 0 : 15,
                 opacity: hasCompleted ? 1 : 0,
               }}
               transition={{
-                duration: 0.5,
-                delay: 0.1,
+                duration: 0.4,
+                delay: 0.05,
                 ease: [0.22, 1, 0.36, 1],
               }}
             >
@@ -154,8 +158,8 @@ export function ReasonItem({
               scaleX: isContentVisible ? 1 : 0,
             }}
             transition={{
-              duration: 1.2,
-              delay: 0.4,
+              duration: 0.8,
+              delay: 0.2,
               ease: [0.22, 1, 0.36, 1],
             }}
           >
@@ -170,7 +174,7 @@ export function ReasonItem({
                 initial={{ scaleY: 0, opacity: 0 }}
                 animate={{ scaleY: 1, opacity: 1 }}
                 exit={{ scaleY: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.2 }}
               />
             )}
           </AnimatePresence>

@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, useInView, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Card } from "@/components/ui/card"
 import { ThemeToggle } from "./theme-toggle"
@@ -87,11 +87,20 @@ const reasons = [
 ]
 
 export default function WhySunStudiosImproved() {
-  const [completedAnimations, setCompletedAnimations] = useState(new Set())
+  const [completedAnimations, setCompletedAnimations] = useState(new Set<number>())
   const containerRef = useRef(null)
+  const sectionRef = useRef(null) // Separate ref for the entire section
   const titleRef = useRef(null)
-  const isInView = useInView(containerRef, { once: true, margin: "-100px" })
+  
+  // Use a more conservative threshold to ensure section is actually visible
+  const isSectionInView = useInView(sectionRef, { 
+    once: true,  // Only trigger once
+    amount: 0.3  // Require 30% of the section to be visible
+  })
+  
   const isTitleInView = useInView(titleRef, { once: true, amount: 0.5 })
+  const timersRef = useRef<NodeJS.Timeout[]>([])
+  const hasStartedAnimations = useRef(false)
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -101,8 +110,52 @@ export default function WhySunStudiosImproved() {
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.95, 1, 1, 0.95])
 
+  // Debug log to verify when section comes into view
+  useEffect(() => {
+    if (isSectionInView) {
+      console.log('Section is now in view - animation sequence can start')
+    }
+  }, [isSectionInView])
+
+  // Simple timer-based animation sequence - only starts when section is in view
+  useEffect(() => {
+    // Only start animations if section is in view and we haven't started them yet
+    if (isSectionInView && !hasStartedAnimations.current) {
+      console.log('Starting animation sequence')
+      hasStartedAnimations.current = true
+      
+      // Clear any existing timers
+      timersRef.current.forEach(timer => clearTimeout(timer))
+      timersRef.current = []
+      
+      // Set up a timer for each animation with fixed delays
+      reasons.forEach((_, index) => {
+        // First item starts at 500ms, then each subsequent item at 1.5s intervals
+        const delay = 500 + (index * 1500)
+        
+        const timer = setTimeout(() => {
+          console.log(`Completing animation ${index}`)
+          setCompletedAnimations(prev => {
+            const newSet = new Set(prev)
+            newSet.add(index)
+            return newSet
+          })
+        }, delay)
+        
+        timersRef.current.push(timer)
+      })
+    }
+    
+    return () => {
+      // Clean up timers on unmount
+      timersRef.current.forEach(timer => clearTimeout(timer))
+    }
+  }, [isSectionInView]) // Only depend on isSectionInView
+
+  // This is just a callback for the star animation, but we don't rely on it for sequence progression
   const handleStarComplete = (index: number) => {
-    setCompletedAnimations((prev) => {
+    console.log(`Star animation ${index} completed`)
+    setCompletedAnimations(prev => {
       const newSet = new Set(prev)
       newSet.add(index)
       return newSet
@@ -110,7 +163,10 @@ export default function WhySunStudiosImproved() {
   }
 
   return (
-    <section className="relative min-h-screen py-32 overflow-hidden bg-gradient-to-b from-background to-background/80">
+    <section 
+      ref={sectionRef} // Attach ref to the entire section
+      className="relative min-h-screen py-32 overflow-hidden bg-gradient-to-b from-background to-background/80"
+    >
       {/* Theme toggle in the top right corner */}
       <div className="absolute top-4 right-4 z-50">
         <ThemeToggle />
@@ -160,26 +216,29 @@ export default function WhySunStudiosImproved() {
 
             {/* Right column with reasons list */}
             <div className="lg:w-full pl-0 md:pl-2" ref={containerRef}>
-              <ul className="space-y-6">
-                <AnimatePresence>
-                  {reasons.map((reason, index) => {
-                    const previousCompleted = index === 0 || completedAnimations.has(index - 1)
-                    const shouldAnimate = isInView && previousCompleted
-                    const hasCompleted = completedAnimations.has(index)
-
-                    return (
-                      <ReasonItem
-                        key={index}
-                        reason={reason}
-                        index={index}
-                        previousCompleted={previousCompleted}
-                        hasCompleted={hasCompleted}
-                        onStarComplete={() => handleStarComplete(index)}
-                      />
-                    )
-                  })}
-                </AnimatePresence>
-              </ul>
+              {/* Only render the list when section is in view */}
+              {isSectionInView && (
+                <ul className="space-y-6">
+                  <AnimatePresence>
+                    {reasons.map((reason, index) => {
+                      // Simple logic: an item can animate if it's the first one or the previous one is completed
+                      const previousCompleted = index === 0 || completedAnimations.has(index - 1)
+                      const hasCompleted = completedAnimations.has(index)
+                      
+                      return (
+                        <ReasonItem
+                          key={index}
+                          reason={reason}
+                          index={index}
+                          previousCompleted={previousCompleted}
+                          hasCompleted={hasCompleted}
+                          onStarComplete={() => handleStarComplete(index)}
+                        />
+                      )
+                    })}
+                  </AnimatePresence>
+                </ul>
+              )}
             </div>
           </div>
         </Card>
