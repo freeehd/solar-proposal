@@ -9,6 +9,7 @@ import { PremiumIcon } from "@/components/premium-icon"
 import { BeamOverlay } from "./beam-overlay"
 import { IconPortalLayer } from "./icon-portal-layer"
 import Image from "next/image"
+import { CountUp } from "@/components/count-up"
 
 interface SolarDesignSectionProps {
   proposalData?: {
@@ -36,6 +37,7 @@ export default function SolarDesignSection({
   },
 }: SolarDesignSectionProps) {
   const energyOffset = Number.parseInt(proposalData.energyOffset || "0", 10)
+  const lifetimeSavings = Number.parseInt(proposalData.lifetimeSavings?.replace(/,/g, "") || "0", 10)
 
   // Refs for the icons and circle
   const icon1Ref = useRef<HTMLDivElement>(null)
@@ -194,8 +196,7 @@ export default function SolarDesignSection({
                 <Image
                   src={
                     // proposalData.solarPanelDesign ||
-                    "/solar.png?height=600&width=800"
-                    || "/placeholder.svg"
+                    "/solar.png?height=600&width=800" || "/placeholder.svg"
                   }
                   alt="Solar Panel Design"
                   fill
@@ -427,7 +428,7 @@ export default function SolarDesignSection({
                         transition={{ duration: 0.5, delay: 0.2 }}
                         className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-500"
                       >
-                        ${Number(proposalData.lifetimeSavings || 0).toLocaleString()}
+                        $<CountUp value={lifetimeSavings} isActive={textRevealStates.circleText} duration={4} />
                       </motion.p>
                     </motion.div>
                   </CardContent>
@@ -537,6 +538,7 @@ export default function SolarDesignSection({
           containerRef={containerRef}
           shouldAnimate={hasStarted}
           textRevealStates={textRevealStates}
+          lifetimeSavings={lifetimeSavings}
         />
       </div>
     </section>

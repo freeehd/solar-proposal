@@ -63,21 +63,23 @@ const ImprovedTextReveal = ({ text, className = "", delay = 0, staggerChildren =
 
 // Data for reasons to choose Sun Studios
 const reasons = [
+
+  {
+    text: "5 star rating better with Better Business Bureau",
+    description: " Accredited by the Better Business Bureau from our care and quality for our customers.",
+  },
   {
     text: "5 star rating on Google",
     description: "Join thousands of satisfied customers who have rated us 5 stars on Google.",
   },
-  {
-    text: "Accredited by Better Business Bureau",
-    description: "Our commitment to excellence has earned us accreditation from the Better Business Bureau.",
-  },
+
  
   {
     text: "5 star rating on Consumer Affairs",
     description: "Consistently rated 5 stars by Consumer Affairs for our exceptional service.",
   },
   {
-    text: "The best solar in 36 states",
+    text: "5 star rating on Trust Pilot",
     description: "Providing top-quality solar solutions across 36 states nationwide.",
   },
   {

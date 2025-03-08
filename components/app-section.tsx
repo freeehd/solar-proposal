@@ -1,47 +1,85 @@
-"use client";
+"use client"
 
-import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 
 const slides = [
   {
     id: 1,
-    description:
-      "Use analyze features to better understand the home's consumption trends.",
+    image: "/app/1.png",
+    description: "Use analyze features to better understand the home's consumption trends.",
   },
   {
     id: 2,
-    description:
-      "Tap and hold on the analyze graph to see more details about the home's consumption trends.",
+    image: "/app/2.png",
+    description: "Tap and hold on the analyze graph to see more details about the home's consumption trends.",
   },
   {
     id: 3,
+    image: "/app/3.png",
     description:
       "Monitor your home solar, storage and electricity use from virtually anywhere with the mySunPower™ Monitoring app.",
   },
-];
+]
 
 export default function AppSection() {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [direction, setDirection] = useState(0) // -1 for left, 1 for right
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
-  };
+    setDirection(1)
+    setCurrentSlide((prev) => (prev + 1) % slides.length)
+  }
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  };
+    setDirection(-1)
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)
+  }
 
   useEffect(() => {
-    const interval = setInterval(nextSlide, 5000); // Change slide every 5 seconds
-    return () => clearInterval(interval);
-  }, []); // Removed nextSlide from dependencies
+    const interval = setInterval(nextSlide, 5000) // Change slide every 5 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  // Calculate positions for all three phones
+  const getPhonePosition = (index: number) => {
+    // Calculate the relative index (position relative to current slide)
+    const relativeIndex = (index - currentSlide + slides.length) % slides.length
+
+    // Map the relative index to a position in the carousel
+    switch (relativeIndex) {
+      case 0: // Current slide (front center)
+        return {
+          zIndex: 30,
+          x: 0,
+          scale: 1,
+          opacity: 1,
+          rotateY: 0,
+        }
+      case 1: // Next slide (right back)
+        return {
+          zIndex: 20,
+          x: "40%",
+          scale: 0.85,
+          opacity: 0.9,
+          rotateY: 15,
+        }
+      default: // Previous slide (left back)
+        return {
+          zIndex: 20,
+          x: "-40%",
+          scale: 0.85,
+          opacity: 0.8,
+          rotateY: -15,
+        }
+    }
+  }
 
   return (
-    <section className="relative py-32 overflow-hidden ">
+    <section className="relative py-32 overflow-hidden">
       {/* Animated background shapes */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03]">
@@ -88,24 +126,44 @@ export default function AppSection() {
             </h2>
           </motion.div>
 
-          {/* Center Phone */}
+          {/* 3D Phone Carousel */}
           <motion.div
-            className="relative w-full lg:w-1/2 h-[700px] lg:h-[900px]"
+            className="relative w-full lg:w-1/2 h-[700px] lg:h-[900px] perspective-[1200px]"
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            <div className="relative w-full h-full flex items-center justify-center">
-              <div className="w-[350px] h-[700px] lg:w-[700px] lg:h-[800px] relative">
-                <Image
-                  src="/app/phone.png"
-                  alt="Solar app screen"
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </div>
+            <div className="relative w-full h-full flex items-center justify-center preserve-3d">
+              {/* Render all three phones */}
+              {slides.map((slide, index) => (
+                <motion.div
+                  key={slide.id}
+                  className="absolute w-[280px] h-[560px] lg:w-[350px] lg:h-[700px] transform-style-3d"
+                  initial={getPhonePosition(index)}
+                  animate={getPhonePosition(index)}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30,
+                    duration: 0.5,
+                  }}
+                  style={{
+                    transformStyle: "preserve-3d",
+                    transformOrigin: "center center",
+                  }}
+                >
+                  <div className="relative w-full h-full drop-shadow-xl">
+                    <Image
+                      src={slide.image || "/placeholder.svg"}
+                      alt={`Solar app screen ${slide.id}`}
+                      fill
+                      className="object-contain rounded-3xl"
+                      priority
+                    />
+                  </div>
+                </motion.div>
+              ))}
             </div>
 
             {/* Navigation Controls */}
@@ -115,15 +173,17 @@ export default function AppSection() {
                 {slides.map((_, index) => (
                   <button
                     key={index}
-                    onClick={() => setCurrentSlide(index)}
+                    onClick={() => {
+                      setDirection(index > currentSlide ? 1 : -1)
+                      setCurrentSlide(index)
+                    }}
                     className="w-3 h-3 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                   >
                     <motion.div
                       className="w-full h-full rounded-full"
                       initial={false}
                       animate={{
-                        backgroundColor:
-                          currentSlide === index ? "#f97316" : "#9ca3af",
+                        backgroundColor: currentSlide === index ? "#f97316" : "#9ca3af",
                       }}
                       transition={{ duration: 0.3 }}
                     />
@@ -177,5 +237,6 @@ export default function AppSection() {
         </div>
       </div>
     </section>
-  );
+  )
 }
+

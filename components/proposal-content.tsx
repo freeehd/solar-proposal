@@ -336,7 +336,10 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                         proposalData={{
                             numberOfSolarPanels: proposalData.numberOfSolarPanels,
                             yearlyEnergyProduced: proposalData.yearlyEnergyProduced,
+                            yearlyEnergyUsage: proposalData.yearlyEnergyProduced,
                             energyOffset: proposalData.energyOffset,
+                            solarPanelSize: proposalData.numberOfSolarPanels,
+                            lifetimeSavings: proposalData.lifetimeSavings,
                             solarPanelDesign: proposalData.solarPanelDesign,
                         }}
                     />

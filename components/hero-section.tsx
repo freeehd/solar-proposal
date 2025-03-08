@@ -122,7 +122,7 @@ export default function HeroSection({ name, address }: HeroSectionProps) {
                 })
               }}
             >
-              <source src="/video2.mp4" type="video/mp4" />
+              <source src="/new.mp4" type="video/mp4" />
               Your browser does not support the video tag.
             </video>
 

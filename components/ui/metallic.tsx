@@ -13,9 +13,9 @@ const MetallicEffect = () => {
     edge: 0.01,
     patternBlur: 0.0,
     patternScale: 2,
-    refraction: 0.04,
+    refraction: 0.02,
     speed: 0.3,
-    liquid: 0.07,
+    liquid: 0.02,
     color1: "#fafaFF", // 
     color2: "#1a1a1a", // 
   })

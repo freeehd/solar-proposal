@@ -1,144 +1,148 @@
-"use client";
+"use client"
 
-import type React from "react";
+import type React from "react"
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sun, Moon } from "lucide-react";
-import Particles, { initParticlesEngine } from "@tsparticles/react";
-import { loadSlim } from "@tsparticles/slim";
-import type { ISourceOptions } from "@tsparticles/engine";
+import { useState, useEffect, useRef, useCallback } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Sun, Moon } from "lucide-react"
+import Particles, { initParticlesEngine } from "@tsparticles/react"
+import { loadSlim } from "@tsparticles/slim"
+import type { ISourceOptions } from "@tsparticles/engine"
 
-type ScenarioType = "day" | "night";
+type ScenarioType = "day" | "night"
 
 interface ScenarioContent {
-  title: string;
-  description: string;
-  video: string;
-  icon: React.ElementType;
+  title: string
+  description: string
+  video: string
+  icon: React.ElementType
 }
 
 const scenarios: Record<ScenarioType, ScenarioContent> = {
   day: {
     title: "Daytime",
     description:
-      "Solar panels efficiently convert sunlight into clean electricity, powering your home and storing excess energy.",
+      "Excess energy produced gets sent back to the grid providing potential credits to offset future electric bills.",
     video: "/day.mp4",
     icon: Sun,
   },
   night: {
     title: "Nighttime",
-    description:
-      "Your home seamlessly switches to stored energy or the grid, ensuring continuous power.",
+    description: "At night, simply use grid energy to power your home.",
     video: "/night.mp4",
     icon: Moon,
   },
-};
+}
 
 export default function HowSolarWorks() {
-  const [scenario, setScenario] = useState<ScenarioType>("day");
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const currentVideoRef = useRef<HTMLVideoElement>(null);
-  const nextVideoRef = useRef<HTMLVideoElement>(null);
+  const [scenario, setScenario] = useState<ScenarioType>("day")
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [init, setInit] = useState(false)
+  const currentVideoRef = useRef<HTMLVideoElement>(null)
+  const nextVideoRef = useRef<HTMLVideoElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     // Initialize particles
     initParticlesEngine(async (engine) => {
-      await loadSlim(engine);
-    });
+      await loadSlim(engine)
+      setInit(true)
+    })
 
     // Preload videos
     Object.values(scenarios).forEach(({ video }) => {
-      const videoElement = document.createElement("video");
-      videoElement.src = video;
-      videoElement.load();
-    });
-  }, []);
+      const videoElement = document.createElement("video")
+      videoElement.src = video
+      videoElement.load()
+    })
+  }, [])
 
   const switchScenario = useCallback(
     async (targetScenario?: ScenarioType) => {
-      if (isTransitioning) return;
-      setIsTransitioning(true);
+      if (isTransitioning) return
+      setIsTransitioning(true)
 
-      const nextScenario =
-        targetScenario || (scenario === "day" ? "night" : "day");
-      const nextVideo = nextVideoRef.current;
-      const currentVideo = currentVideoRef.current;
+      const nextScenario = targetScenario || (scenario === "day" ? "night" : "day")
+      const nextVideo = nextVideoRef.current
+      const currentVideo = currentVideoRef.current
 
       if (nextVideo && currentVideo) {
         // Prepare next video
-        nextVideo.src = scenarios[nextScenario].video;
-        nextVideo.currentTime = 0;
+        nextVideo.src = scenarios[nextScenario].video
+        nextVideo.currentTime = 0
 
         try {
           // Load and play the next video
-          await nextVideo.load();
-          await nextVideo.play();
+          await nextVideo.load()
+          await nextVideo.play()
 
           // Update scenario after ensuring next video is playing
-          setScenario(nextScenario);
+          setScenario(nextScenario)
 
           // Reset transition state after animation completes
           setTimeout(() => {
-            setIsTransitioning(false);
+            setIsTransitioning(false)
             // Update current video source after transition
-            currentVideo.src = scenarios[nextScenario].video;
-            currentVideo.load();
-          }, 1000);
+            currentVideo.src = scenarios[nextScenario].video
+            currentVideo.load()
+          }, 1000)
         } catch (error) {
-          console.error("Error during video transition:", error);
-          setIsTransitioning(false);
+          console.error("Error during video transition:", error)
+          setIsTransitioning(false)
         }
       }
     },
-    [isTransitioning, scenario]
-  );
+    [isTransitioning, scenario],
+  )
 
   useEffect(() => {
-    const currentVideo = currentVideoRef.current;
-    const nextVideo = nextVideoRef.current;
+    const currentVideo = currentVideoRef.current
+    const nextVideo = nextVideoRef.current
 
-    if (!currentVideo || !nextVideo) return;
+    if (!currentVideo || !nextVideo) return
 
     const handleVideoEnd = () => {
       if (!isTransitioning) {
-        switchScenario();
+        switchScenario()
       }
-    };
+    }
 
     const handleCanPlay = () => {
-      setIsLoaded(true);
-      currentVideo.play().catch(console.error);
-    };
+      setIsLoaded(true)
+      currentVideo.play().catch(console.error)
+    }
 
-    currentVideo.addEventListener("ended", handleVideoEnd);
-    currentVideo.addEventListener("canplay", handleCanPlay);
-    nextVideo.addEventListener("ended", handleVideoEnd);
+    currentVideo.addEventListener("ended", handleVideoEnd)
+    currentVideo.addEventListener("canplay", handleCanPlay)
+    nextVideo.addEventListener("ended", handleVideoEnd)
 
     // Start playing when mounted
     if (currentVideo.readyState >= 3) {
       // HAVE_FUTURE_DATA or higher
-      handleCanPlay();
+      handleCanPlay()
     }
 
     return () => {
-      currentVideo.removeEventListener("ended", handleVideoEnd);
-      currentVideo.removeEventListener("canplay", handleCanPlay);
-      nextVideo.removeEventListener("ended", handleVideoEnd);
-    };
-  }, [isTransitioning, switchScenario]);
+      currentVideo.removeEventListener("ended", handleVideoEnd)
+      currentVideo.removeEventListener("canplay", handleCanPlay)
+      nextVideo.removeEventListener("ended", handleVideoEnd)
+    }
+  }, [isTransitioning, switchScenario])
 
   const particlesOptions: ISourceOptions = {
     particles: {
-      number: { value: 100, density: { enable: true } },
+      number: { value: 100, density: { enable: true, value_area: 800 } },
       color: { value: "#ffffff" },
       shape: { type: "circle" },
       opacity: {
         value: 0.5,
+        random: true,
+        anim: { enable: false },
       },
       size: {
         value: 1,
+        random: true,
       },
       move: {
         enable: true,
@@ -146,18 +150,27 @@ export default function HowSolarWorks() {
         direction: "none",
         random: false,
         straight: false,
+        out_mode: "out", // Changed from "out" to "bounce" to keep particles inside
+        bounce: false,
       },
     },
     interactivity: {
       detect_on: "canvas",
+      events: {
+        onhover: { enable: false },
+        onclick: { enable: false },
+        resize: true,
+      },
     },
+    retina_detect: true,
     background: {
       color: { value: "transparent" },
     },
-  };
+    fullScreen: { enable: false }, // This is crucial - disable fullScreen mode
+  }
 
   return (
-    <section className="relative h-screen flex items-center justify-center overflow-hidden">
+    <section ref={sectionRef} className="relative h-screen flex items-center justify-center overflow-hidden">
       {/* Background transitions */}
       <motion.div
         className="absolute inset-0 bg-[url('/day1.png')] bg-cover bg-center"
@@ -174,15 +187,21 @@ export default function HowSolarWorks() {
 
       {/* Night particles */}
       <AnimatePresence>
-        {scenario === "night" && (
+        {scenario === "night" && init && (
           <motion.div
-            className="absolute inset-0 z-10"
+            className="absolute inset-0 z-10 h-full w-full"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 2 }}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
           >
-            <Particles id="tsparticles" options={particlesOptions} />
+            <Particles
+              id="tsparticles-solar"
+              className="h-full w-full"
+              options={particlesOptions}
+              container={sectionRef}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -191,7 +210,7 @@ export default function HowSolarWorks() {
       <div className="relative z-20 w-screen h-full flex flex-col justify-between py-10 px-6 ">
         <div className="w-full mx-auto flex-grow flex flex-col md:flex-row items-center justify-center gap-8">
           {/* Left text */}
-          <div className="md:w-1/4 text-center md:text-left">
+          <div className="md:w-1/4 text-right  md:text-left">
             <motion.h2
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -208,7 +227,6 @@ export default function HowSolarWorks() {
               className={`text-3xl md:text-4xl font-normal leading-tight transition-colors duration-1000
                 ${scenario === "day" ? "text-black" : "text-white"}`}
             >
-              {scenarios[scenario].title}
             </motion.h3>
           </div>
 
@@ -237,10 +255,7 @@ export default function HowSolarWorks() {
                   muted
                   playsInline
                 >
-                  <source
-                    src={scenarios[scenario === "day" ? "night" : "day"].video}
-                    type="video/mp4"
-                  />
+                  <source src={scenarios[scenario === "day" ? "night" : "day"].video} type="video/mp4" />
                 </video>
               </div>
             </motion.div>
@@ -256,10 +271,7 @@ export default function HowSolarWorks() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
                 className={`text-xl md:text-2xl transition-colors duration-1000
-                  ${scenario === "day"
-                    ? "text-black text-opacity-80"
-                    : "text-white text-opacity-80"
-                  }`}
+                  ${scenario === "day" ? "text-black text-opacity-80" : "text-white text-opacity-80"}`}
               >
                 {scenarios[scenario].description}
               </motion.p>
@@ -269,52 +281,46 @@ export default function HowSolarWorks() {
 
         {/* Scenario indicators */}
         <div className="flex justify-center gap-6 mt-8">
-          {(Object.entries(scenarios) as [ScenarioType, ScenarioContent][]).map(
-            ([key, { title, icon: Icon }]) => (
-              <button
-                key={key}
-                onClick={() => {
-                  if (!isTransitioning && scenario !== key) {
-                    switchScenario();
-                  }
-                }}
-                disabled={isTransitioning}
-                aria-label={`Switch to ${title} scenario`}
-                aria-pressed={scenario === key}
-                className={`
+          {(Object.entries(scenarios) as [ScenarioType, ScenarioContent][]).map(([key, { title, icon: Icon }]) => (
+            <button
+              key={key}
+              onClick={() => {
+                if (!isTransitioning && scenario !== key) {
+                  switchScenario(key)
+                }
+              }}
+              disabled={isTransitioning}
+              aria-label={`Switch to ${title} scenario`}
+              aria-pressed={scenario === key}
+              className={`
                   flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-500
                   disabled:opacity-50 disabled:cursor-not-allowed
-                  ${scenario === key
-                    ? scenario === "day"
-                      ? "bg-amber-200 text-black"
-                      : "bg-violet-200 text-black"
-                    : "bg-gray-800 bg-opacity-50 text-white hover:bg-opacity-70"
+                  ${
+                    scenario === key
+                      ? scenario === "day"
+                        ? "bg-amber-200 text-black"
+                        : "bg-violet-200 text-black"
+                      : "bg-gray-800 bg-opacity-50 text-white hover:bg-opacity-70"
                   }
                 `}
+            >
+              <Icon
+                className={`w-6 h-6 ${
+                  scenario === key ? (scenario === "day" ? "text-black" : "text-gray-800") : "text-white opacity-60"
+                }`}
+              />
+              <span
+                className={`text-lg font-normal leading-tight ${
+                  scenario === key ? (scenario === "day" ? "text-black" : "text-gray-800") : "text-white opacity-60"
+                }`}
               >
-                <Icon
-                  className={`w-6 h-6 ${scenario === key
-                    ? scenario === "day"
-                      ? "text-black"
-                      : "text-gray-800"
-                    : "text-white opacity-60"
-                    }`}
-                />
-                <span
-                  className={`text-lg font-normal leading-tight ${scenario === key
-                    ? scenario === "day"
-                      ? "text-black"
-                      : "text-gray-800"
-                    : "text-white opacity-60"
-                    }`}
-                >
-                  {title}
-                </span>
-              </button>
-            )
-          )}
+                {title}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </section>
-  );
+  )
 }
+
