@@ -16,8 +16,8 @@ const MetallicEffect = () => {
     refraction: 0.04,
     speed: 0.3,
     liquid: 0.07,
-    color1: "#f5e6c0", // Gold light color
-    color2: "#5c4a1d", // Gold dark color
+    color1: "#fafaFF", // 
+    color2: "#1a1a1a", // 
   })
 
   useEffect(() => {
