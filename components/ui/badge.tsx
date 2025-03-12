@@ -9,11 +9,11 @@ const badgeVariants = cva(
         variants: {
             variant: {
                 default: "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100",
-                primary: "bg-primary-600 text-white",
-                secondary: "bg-secondary-600 text-white",
-                accent: "bg-accent-600 text-white",
-                destructive: "bg-destructive-600 text-white",
-                warning: "bg-warning-600 text-white",
+                primary: "bg-primary-600 text-green",
+                secondary: "bg-secondary-600 text-green",
+                accent: "bg-accent-600 text-green",
+                destructive: "bg-destructive-600 text-black",
+                warning: "bg-red text-black",
             },
         },
         defaultVariants: {

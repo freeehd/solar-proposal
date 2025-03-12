@@ -121,7 +121,7 @@ export default function ProposalDashboard() {
             <TableCell className="text-black dark:text-black">
               {proposal.address}
             </TableCell>
-            <TableCell>
+            <TableCell className="text-black">
               <Badge
                 variant={
                   proposal.status === "completed"

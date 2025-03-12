@@ -21,6 +21,17 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  // Add webpack configuration to handle pg-native
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Don't resolve 'pg-native' module on the client
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        'pg-native': false,
+      };
+    }
+    return config;
+  },
 }
 
 mergeConfig(nextConfig, userConfig)
