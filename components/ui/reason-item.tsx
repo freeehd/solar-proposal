@@ -1,15 +1,18 @@
 "use client"
 
-import { motion, useInView, AnimatePresence } from "framer-motion"
+import { memo, useRef, useState, useEffect, useMemo } from "react"
+import { motion, useInView, AnimatePresence, useAnimate } from "framer-motion"
+import { ChevronRight } from "lucide-react"
 import { StarAnimation } from "./star-animation"
-import { useRef, useState, useEffect } from "react"
-import { ChevronRight } from 'lucide-react'
+
+// Extracted types for better organization and reusability
+interface Reason {
+  text: string
+  description: string
+}
 
 interface ReasonItemProps {
-  reason: {
-    text: string
-    description: string
-  }
+  reason: Reason
   index: number
   previousCompleted: boolean
   hasCompleted: boolean
@@ -17,7 +20,31 @@ interface ReasonItemProps {
   prefersReducedMotion?: boolean
 }
 
-export function ReasonItem({
+// Animation variants with transform optimizations for better performance
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+}
+
+const revealVariants = {
+  hidden: { transform: "translateX(-100%)" },
+  visible: { transform: "translateX(100%)", transition: { duration: 0.5, ease: [0.76, 0, 0.24, 1] } },
+}
+
+const textVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+}
+
+const chevronVariants = {
+  hidden: { scale: 0.5 },
+  visible: {
+    scale: [0.5, 1.3, 1],
+    transition: { duration: 0.4, times: [0, 0.6, 1] },
+  },
+}
+
+export const ReasonItem = memo(function ReasonItem({
   reason,
   index,
   previousCompleted,
@@ -25,162 +52,210 @@ export function ReasonItem({
   onStarComplete,
   prefersReducedMotion = false,
 }: ReasonItemProps) {
-  const itemRef = useRef(null)
-  const isInView = useInView(itemRef, { once: true, amount: 0.3 })
-  const [shouldAnimate, setShouldAnimate] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
-  const animationStartedRef = useRef(false)
+  const itemRef = useRef<HTMLLIElement>(null)
+  const [animateRef, animate] = useAnimate()
 
-  // Start animation ONLY when previousCompleted becomes true AND item is in view
+  // Use a more efficient inView detection with margin to preload
+  const isInView = useInView(itemRef, {
+    once: true,
+    amount: 0.3,
+    margin: "0px 0px 100px 0px", // Start preparing animation before fully in view
+  })
+
+  // Memoize state to prevent unnecessary re-renders
+  const [state, setState] = useState({
+    shouldAnimate: false,
+    isHovered: false,
+  })
+
+  // Destructure for cleaner code
+  const { shouldAnimate, isHovered } = state
+
+  // Memoized handlers with object method syntax
+  const handlers = useMemo(
+    () => ({
+      mouseEnter: () => setState((prev) => ({ ...prev, isHovered: true })),
+      mouseLeave: () => setState((prev) => ({ ...prev, isHovered: false })),
+    }),
+    [],
+  )
+
+  // Optimize animation trigger with cleanup
   useEffect(() => {
-    if (previousCompleted && isInView && !shouldAnimate) {
-      animationStartedRef.current = true
-      
-      // Short delay before starting animation
+    if (!previousCompleted || !isInView || shouldAnimate) return
+
+    // Use requestAnimationFrame for better timing with browser paint cycle
+    const animationId = requestAnimationFrame(() => {
       const timer = setTimeout(() => {
-        setShouldAnimate(true)
-      }, 300)
+        setState((prev) => ({ ...prev, shouldAnimate: true }))
+      }, 150)
 
       return () => clearTimeout(timer)
-    }
-  }, [previousCompleted, shouldAnimate, isInView])
+    })
 
-  // Determine if content should be visible
+    return () => cancelAnimationFrame(animationId)
+  }, [previousCompleted, isInView, shouldAnimate])
+
+  // Precompute animation states
+  const shouldShowAnimation = shouldAnimate && previousCompleted
   const isContentVisible = prefersReducedMotion || hasCompleted
+
+  // Memoize animation states to prevent recalculation
+  const animationState = useMemo(
+    () => ({
+      container: shouldShowAnimation ? "visible" : "hidden",
+      content: hasCompleted ? "visible" : "hidden",
+    }),
+    [shouldShowAnimation, hasCompleted],
+  )
 
   return (
     <motion.li
       ref={itemRef}
       className="flex items-start gap-4 md:gap-6 group relative"
-      initial={{ opacity: 0, y: 40 }}
-      animate={{
-        opacity: shouldAnimate && previousCompleted ? 1 : 0,
-        y: shouldAnimate && previousCompleted ? 0 : 40,
-      }}
-      transition={{
-        duration: 0.6,
-        ease: [0.22, 1, 0.36, 1],
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      style={{ willChange: "transform, opacity" }}
+      variants={containerVariants}
+      initial="hidden"
+      animate={animationState.container}
+      onMouseEnter={handlers.mouseEnter}
+      onMouseLeave={handlers.mouseLeave}
+      data-state={hasCompleted ? "completed" : "pending"}
+      aria-busy={!hasCompleted}
     >
-      {/* Smaller star container */}
-      <div className="relative flex-shrink-0 w-[70px] h-[70px] flex items-center justify-center premium-icon-wrapper">
-        {/* Background glow effect */}
-        <AnimatePresence>
-          {isHovered && isContentVisible && (
+      {/* Star animation container with hardware acceleration */}
+      <div
+        className="relative flex-shrink-0 w-[50px] h-[50px] flex items-center justify-center premium-icon-wrapper overflow-hidden"
+        style={{
+          willChange: "transform",
+          transform: "translateZ(0)", // Force GPU acceleration
+          backfaceVisibility: "hidden",
+        }}
+      >
+        {shouldShowAnimation && (
+          <>
             <motion.div
-              className="absolute inset-0 rounded-full bg-gradient-to-r from-sky-600/10 to-blue-600/10 dark:from-sky-400/10 dark:to-blue-400/10"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-white dark:bg-yellow-300 rounded-full"
+              style={{ willChange: "transform" }}
+              initial={{ scale: 1.5 }}
+              animate={{ scale: 0 }}
+              transition={{
+                duration: 0.5,
+                ease: [0.76, 0, 0.24, 1],
+              }}
             />
-          )}
-        </AnimatePresence>
 
-        {/* Star animation - only render when shouldAnimate is true */}
-        {shouldAnimate && previousCompleted && (
-          <StarAnimation
-            delay={0}
-            onAnimationComplete={onStarComplete}
-            key={`star-${index}-${previousCompleted}`}
-            inView={true} // Always consider it in view once animation starts
-          />
+            <StarAnimation
+              delay={0}
+              onAnimationComplete={onStarComplete}
+              key={`star-${index}-${previousCompleted}`}
+              inView={true}
+            />
+          </>
         )}
       </div>
 
-      {/* Enhanced content container */}
-      <div className="flex-grow overflow-hidden">
-        <motion.div
-          className="relative py-4"
-          initial={{ opacity: 0 }}
-          animate={{
-            opacity: isContentVisible ? 1 : 0,
-          }}
-          transition={{
-            duration: 0.4,
-            ease: "easeOut",
-          }}
-        >
-          {/* Enhanced title with icon */}
-          <div className="overflow-hidden">
+      {/* Content container with optimized animations */}
+      <div className="flex-grow overflow-hidden" ref={animateRef}>
+        <div className="relative py-2">
+          {/* Title with optimized box reveal */}
+          <div className="overflow-hidden relative mb-1">
+            {shouldShowAnimation && (
+              <motion.div
+                className="absolute inset-0 bg-white dark:bg-indigo-dye-800 z-10"
+                style={{ willChange: "transform" }}
+                variants={revealVariants}
+                initial="hidden"
+                animate="visible"
+              />
+            )}
+
             <motion.div
-              className="flex items-center gap-2 mb-2 text-lg md:text-xl font-medium text-foreground"
-              initial={{ y: 15, opacity: 0 }}
-              animate={{
-                y: hasCompleted ? 0 : 15,
-                opacity: hasCompleted ? 1 : 0,
-              }}
+              className="flex items-center gap-2 text-lg md:text-xl font-medium text-foreground relative z-0"
+              variants={textVariants}
+              initial="hidden"
+              animate={animationState.content}
               transition={{
-                duration: 0.4,
-                ease: [0.22, 1, 0.36, 1],
+                delay: 0.1,
               }}
             >
               <motion.span
-                animate={{
-                  x: isHovered && isContentVisible ? 4 : 0,
-                  color: isHovered && isContentVisible ? "var(--sky-600)" : "currentColor",
+                variants={chevronVariants}
+                initial="hidden"
+                animate={animationState.content}
+                transition={{
+                  delay: 0.15,
                 }}
-                transition={{ duration: 0.2 }}
-                className="dark:text-sky-400"
+                className="text-primary"
+                style={{ willChange: "transform" }}
               >
-                <ChevronRight size={18} className="text-sky-600/70 dark:text-sky-400/70" aria-hidden="true" />
+                <ChevronRight size={18} className="text-black" aria-hidden="true" />
               </motion.span>
-              <span>{reason.text}</span>
+              <span className="text-foreground/90 font-semibold">{reason.text}</span>
             </motion.div>
           </div>
 
-          {/* Enhanced description with better typography */}
-          <div className="overflow-hidden pl-6">
+          {/* Description with optimized box reveal */}
+          <div className="overflow-hidden pl-6 relative">
+            {shouldShowAnimation && (
+              <motion.div
+                className="absolute inset-0 bg-white dark:bg-indigo-200 z-10"
+                style={{ willChange: "transform" }}
+                variants={revealVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{
+                  delay: 0.05,
+                }}
+              />
+            )}
+
             <motion.p
-              className="text-sm md:text-base text-muted-foreground font-light tracking-wide leading-relaxed"
-              initial={{ y: 15, opacity: 0 }}
-              animate={{
-                y: hasCompleted ? 0 : 15,
-                opacity: hasCompleted ? 1 : 0,
-              }}
+              className="text-sm md:text-base text-muted-foreground font-light tracking-wide leading-relaxed relative z-0"
+              variants={textVariants}
+              initial="hidden"
+              animate={animationState.content}
               transition={{
-                duration: 0.4,
-                delay: 0.05,
-                ease: [0.22, 1, 0.36, 1],
+                delay: 0.15,
               }}
             >
               {reason.description}
             </motion.p>
           </div>
 
-          {/* Enhanced divider with gradient and animation */}
-          <motion.div
-            className="absolute bottom-0 left-0 h-[1px] w-full origin-left"
-            initial={{ scaleX: 0 }}
-            animate={{
-              scaleX: isContentVisible ? 1 : 0,
-            }}
-            transition={{
-              duration: 0.8,
-              delay: 0.2,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-          >
-            <div className="h-full bg-gradient-to-r from-sky-600/40 via-blue-600/30 to-transparent dark:from-sky-400/40 dark:via-blue-400/30 dark:to-transparent" />
-          </motion.div>
-
-          {/* Hover indicator */}
+          {/* Optimized hover effects with AnimatePresence for proper cleanup */}
           <AnimatePresence>
             {isHovered && isContentVisible && (
               <motion.div
-                className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-sky-600/40 to-blue-600/40 dark:from-sky-400/40 dark:to-blue-400/40 rounded-full"
-                initial={{ scaleY: 0, opacity: 0 }}
-                animate={{ scaleY: 1, opacity: 1 }}
-                exit={{ scaleY: 0, opacity: 0 }}
+                className="absolute bottom-0 left-0 h-[1px] w-full origin-left"
+                style={{ willChange: "transform, opacity" }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                exit={{ scaleX: 0, opacity: 0, transition: { duration: 0.2 } }}
+                transition={{
+                  duration: 0.3,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                <div className="h-full bg-gradient-to-r from-gray-500/80 via-gray-500/60 to-transparent dark:to-transparent" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Optimized glow effect with reduced opacity for better performance */}
+          <AnimatePresence mode="wait">
+            {isHovered && isContentVisible && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-transparent dark:from-sky-400/8 dark:to-transparent pointer-events-none rounded-lg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               />
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
       </div>
     </motion.li>
   )
-}
+})
 

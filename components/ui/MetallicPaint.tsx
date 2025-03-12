@@ -21,8 +21,8 @@ const defaultParams: ShaderParams = {
   patternBlur: 0.005,
   liquid: 0.07,
   speed: 0.3,
-  color1: "#fafaFF",
-  color2: "#1a1a1a",
+  color1: "#aa0000",
+  color2: "#aa0000",
 }
 
 export function parseLogoImage(
@@ -696,7 +696,7 @@ export default function MetallicPaint({
   return (
     <canvas
       ref={canvasRef}
-      className="block w-10 h-full "
+      className="block w-12 h-full "
       style={{
         width: width,
         height: height,

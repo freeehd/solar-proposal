@@ -1,13 +1,14 @@
 "use client"
 
-import { useRef, useCallback, useState, useEffect } from "react"
-import { motion, useAnimation } from "framer-motion"
+import { useRef, useEffect, useState } from "react"
+import { motion, useAnimationControls, AnimatePresence } from "framer-motion"
 
 interface CircularProgressProps {
   percentage: number
   isCharging?: boolean
   onChargingComplete?: () => void
-  onProgressUpdate?: (progress: number) => void // New callback for progress updates
+  onProgressUpdate?: (progress: number) => void
+  className?: string
 }
 
 export function CircularProgress({
@@ -15,438 +16,361 @@ export function CircularProgress({
   isCharging,
   onChargingComplete,
   onProgressUpdate,
+  className,
 }: CircularProgressProps) {
-  // Use refs for values that don't need to trigger re-renders
-  const progressRef = useRef(0)
-  const animationFrameRef = useRef<number | null>(null)
-  const startTimeRef = useRef<number>(0)
-  const startPercentageRef = useRef<number>(0)
-  const isGrowingRef = useRef(false) // Use ref instead of state to avoid re-renders
-  const scaleRef = useRef(1)
-  const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastMilestoneRef = useRef(0) // Track the last milestone we hit
+  // Animation controls
+  const progressControls = useAnimationControls()
+  const pulseControls = useAnimationControls()
+  const textControls = useAnimationControls()
+  const particlesControls = useAnimationControls()
 
-  // Controls for animations
-  const circleControls = useAnimation()
-  const pulseControls = useAnimation() // Separate controls for pulse
-  const textControls = useAnimation()
-  const glowControls = useAnimation()
+  // Refs to avoid unnecessary re-renders
+  const animationRef = useRef<number | null>(null)
+  const isAnimatingRef = useRef(false)
 
-  // States that require re-renders
+  // State
   const [currentPercentage, setCurrentPercentage] = useState(0)
-  const [isComplete, setIsComplete] = useState(false)
-  const [showRipple, setShowRipple] = useState(false)
-  const [showPulse, setShowPulse] = useState(false)
+  const [showCompletionEffects, setShowCompletionEffects] = useState(false)
+  const [particles, setParticles] = useState<
+    Array<{
+      id: number
+      x: number
+      y: number
+      size: number
+      delay: number
+      duration: number
+      opacity: number
+    }>
+  >([])
 
   // Constants
-  const circumference = 2 * Math.PI * 60
+  const radius = 60
+  const circumference = 2 * Math.PI * radius
+  const animationDuration = 1500 // Animation duration in ms
+  const particleCount = 8 // Number of particles
 
-  // Define milestone percentages and their corresponding scales
-  const milestones = [
-    { percentage: 0, scale: 0.85 },
-    { percentage: 20, scale: 0.92 },
-    { percentage: 40, scale: 0.98 },
-    { percentage: 60, scale: 1.05 },
-    { percentage: 80, scale: 1.12 },
-    { percentage: 100, scale: 1.2 },
-  ]
-
-  // Helper function to get color based on percentage - premium gradients
-  const getColorGradient = useCallback((percentage: number) => {
-    if (percentage <= 25) {
+  // Get color based on percentage
+  const getColors = (percent: number) => {
+    if (percent <= 25) {
       return {
-        start: "rgb(239, 68, 68)", // red-500
-        end: "rgb(249, 115, 22)", // orange-500
-        text: "rgb(239, 68, 68)", // red-500
+        start: "#ef4444", // red-500
+        end: "#f97316", // orange-500
+        text: "#ef4444",
       }
-    } else if (percentage <= 50) {
+    } else if (percent <= 50) {
       return {
-        start: "rgb(249, 115, 22)", // orange-500
-        end: "rgb(234, 179, 8)", // yellow-500
-        text: "rgb(249, 115, 22)", // orange-500
+        start: "#f97316", // orange-500
+        end: "#eab308", // yellow-500
+        text: "#f97316",
       }
-    } else if (percentage <= 75) {
+    } else if (percent <= 75) {
       return {
-        start: "rgb(234, 179, 8)", // yellow-500
-        end: "rgb(34, 197, 94)", // green-500
-        text: "rgb(234, 179, 8)", // yellow-500
+        start: "#eab308", // yellow-500
+        end: "#22c55e", // green-500
+        text: "#eab308",
       }
     } else {
       return {
-        start: "rgb(34, 197, 94)", // green-500
-        end: "rgb(21, 128, 61)", // green-700
-        text: "rgb(34, 197, 94)", // green-500
+        start: "#22c55e", // green-500
+        end: "#15803d", // green-700
+        text: "#22c55e",
       }
     }
-  }, [])
+  }
 
-  const colors = getColorGradient(currentPercentage)
+  const colors = getColors(currentPercentage)
 
-  // Clean up animation frame and timeouts on unmount
+  // Generate particles at different positions along the circle
+  useEffect(() => {
+    if (isCharging) {
+      const newParticles = Array.from({ length: particleCount }, (_, i) => {
+        // Calculate position on the circle
+        const angle = (i / particleCount) * Math.PI * 2
+        const x = 70 + Math.cos(angle) * radius
+        const y = 70 + Math.sin(angle) * radius
+
+        return {
+          id: i,
+          x,
+          y,
+          size: 2 + Math.random() * 4, // Random size between 2-6
+          delay: Math.random() * 2, // Random delay
+          duration: 0.8 + Math.random() * 1.2, // Random duration
+          opacity: 0.6 + Math.random() * 0.4, // Random opacity
+        }
+      })
+
+      setParticles(newParticles)
+    }
+  }, [isCharging, radius])
+
+  // Clean up on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-      if (pulseTimeoutRef.current !== null) {
-        clearTimeout(pulseTimeoutRef.current)
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
       }
     }
   }, [])
 
-  // Function to trigger a subtle pulse animation
-  const triggerPulse = useCallback(
-    (continuous = false, intensity = 1) => {
-      // Get the current base scale
-      const baseScale = scaleRef.current
-
-      if (continuous) {
-        // Continuous subtle pulsing effect
-        pulseControls.start({
-          scale: [1, 1.02, 1],
-          transition: {
-            duration: 1.2,
-            ease: "easeInOut",
-            repeat: Number.POSITIVE_INFINITY,
-            repeatType: "reverse",
-          },
-        })
-      } else {
-        // One-time more noticeable pulse effect for milestones
-        // Intensity factor allows for stronger pulses at higher milestones
-        const pulseAmount = 0.05 * intensity
-
-        pulseControls.start({
-          scale: [1, 1 + pulseAmount, 1],
-          transition: {
-            duration: 0.6,
-            ease: "easeInOut",
-          },
-        })
+  // Handle charging state changes
+  useEffect(() => {
+    if (isCharging && !isAnimatingRef.current) {
+      // Start animation
+      startAnimation()
+    } else if (!isCharging && isAnimatingRef.current) {
+      // Stop animation
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = null
       }
-    },
-    [pulseControls],
-  )
+      isAnimatingRef.current = false
+    }
+  }, [isCharging])
 
-  // Function to find the appropriate scale for a given percentage
-  const getScaleForPercentage = useCallback((percentage: number) => {
-    // Find the two milestones that this percentage falls between
-    let lowerMilestone = milestones[0]
-    let upperMilestone = milestones[milestones.length - 1]
+  // Animation function
+  const startAnimation = () => {
+    isAnimatingRef.current = true
+    setCurrentPercentage(0) // Start from 0
 
-    for (let i = 0; i < milestones.length - 1; i++) {
-      if (percentage >= milestones[i].percentage && percentage < milestones[i + 1].percentage) {
-        lowerMilestone = milestones[i]
-        upperMilestone = milestones[i + 1]
-        break
-      }
+    // Reset animation state
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current)
     }
 
-    // If we're at exactly 100%, use the final milestone
-    if (percentage === 100) {
-      return milestones[milestones.length - 1].scale
-    }
-
-    // Calculate how far we are between the two milestones (0 to 1)
-    const range = upperMilestone.percentage - lowerMilestone.percentage
-    const progress = range === 0 ? 0 : (percentage - lowerMilestone.percentage) / range
-
-    // Interpolate between the two scales using easeInOut for a nice curve
-    // This creates a slow start, fast middle, slow end effect
-    const easedProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
-
-    return lowerMilestone.scale + (upperMilestone.scale - lowerMilestone.scale) * easedProgress
-  }, [])
-
-  // Function to animate completion effect - more dramatic and elastic BOOM
-  const animateCompletion = useCallback(async () => {
-    // Cancel any ongoing animation frame
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
-    }
-
-    pulseControls.stop() // Stop the continuous pulsing
-
-    // Clear any pending pulse timeouts
-    if (pulseTimeoutRef.current !== null) {
-      clearTimeout(pulseTimeoutRef.current)
-      pulseTimeoutRef.current = null
-    }
-
-    setIsComplete(true)
-    setShowRipple(true)
-    setShowPulse(true)
-
-    // Prepare for the BOOM - initial build-up
-    await circleControls.start({
-      scale: [scaleRef.current, scaleRef.current + 0.05, scaleRef.current + 0.1],
+    // Start pulse animation
+    pulseControls.start({
+      scale: [1, 1.03, 1],
       transition: {
-        duration: 0.4,
-        ease: "easeIn",
+        duration: 1.2,
+        repeat: Number.POSITIVE_INFINITY,
+        repeatType: "reverse",
       },
     })
 
-    // BOOM effect - super dramatic elastic effect
-    await circleControls.start({
-      scale: [scaleRef.current + 0.1, scaleRef.current + 0.2, 0.9, 1.05, 1],
+    // Start particles animation
+    particlesControls.start({
+      opacity: 1,
+      transition: { duration: 0.5 },
+    })
+
+    // Start progress animation
+    const startTime = performance.now()
+
+    const animate = (time: number) => {
+      const elapsed = time - startTime
+      const progress = Math.min(elapsed / animationDuration, 1)
+
+      // Use a custom easing function for more dynamic animation
+      // This creates a fast start, slower middle, fast end effect
+      const easedProgress = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2
+
+      const newPercentage = Math.round(easedProgress * percentage)
+
+      if (newPercentage !== currentPercentage) {
+        setCurrentPercentage(newPercentage)
+        onProgressUpdate?.(newPercentage / 100)
+
+        // Add milestone effects at 25%, 50%, 75%
+        if ([25, 50, 75].includes(newPercentage)) {
+          addMilestoneEffect(newPercentage)
+        }
+
+        // Add micro effects at every 10% increment
+        if (newPercentage % 10 === 0 && newPercentage > 0) {
+          addMicroEffect()
+        }
+      }
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate)
+      } else {
+        // Animation complete
+        completeAnimation()
+      }
+    }
+
+    animationRef.current = requestAnimationFrame(animate)
+  }
+
+  // Add a micro visual effect for smaller increments
+  const addMicroEffect = () => {
+    // Subtle text pulse
+    textControls.start({
+      scale: [1, 1.05, 1],
+      transition: { duration: 0.3, ease: "easeOut" },
+    })
+  }
+
+  // Add a visual effect at milestone percentages
+  const addMilestoneEffect = (milestone: number) => {
+    // Quick pulse effect
+    pulseControls.start({
+      scale: [1, 1.08, 1],
+      transition: { duration: 0.4, ease: "easeOut" },
+    })
+
+    // Text effect
+    textControls.start({
+      scale: [1, 1.15, 1],
+      color: [colors.text, "#ffffff", colors.text],
+      transition: { duration: 0.4, ease: "easeOut" },
+    })
+
+    // Create milestone-specific particles
+    const newParticles = Array.from({ length: 4 }, (_, i) => {
+      // Calculate position on the circle based on the milestone percentage
+      const angle = (milestone / 100) * Math.PI * 2 - Math.PI / 2 // Adjust for SVG rotation
+      const x = 70 + Math.cos(angle) * radius
+      const y = 70 + Math.sin(angle) * radius
+
+      return {
+        id: i + 100 + milestone, // Ensure unique IDs
+        x,
+        y,
+        size: 4 + Math.random() * 6, // Larger size for milestone particles
+        delay: Math.random() * 0.3,
+        duration: 0.6 + Math.random() * 0.8,
+        opacity: 0.8 + Math.random() * 0.2,
+      }
+    })
+
+    setParticles((prev) => [...prev, ...newParticles])
+  }
+
+  // Handle animation completion
+  const completeAnimation = () => {
+    setShowCompletionEffects(true)
+
+    // Final pulse effect
+    pulseControls.start({
+      scale: [1, 1.15, 0.95, 1.05, 1],
       transition: {
-        duration: 1,
-        ease: [0.22, 1.2, 0.36, 1], // Less extreme bounce
+        duration: 0.8,
+        ease: [0.22, 1.2, 0.36, 1],
         times: [0, 0.2, 0.5, 0.8, 1],
       },
     })
 
-    // Text animation with dramatic bounce
-    await textControls.start({
+    // Text effect
+    textControls.start({
       scale: [1, 1.2, 0.9, 1],
-      opacity: [1, 1, 1, 1],
-      transition: {
-        duration: 0.8,
-        ease: "easeOut",
-        times: [0, 0.3, 0.7, 1],
-      },
+      color: [colors.text, "#ffffff", colors.text],
+      transition: { duration: 0.6, ease: "easeOut" },
     })
 
-    // Glow pulse effect
-    glowControls.start({
-      opacity: [0.2, 0.8, 0.2],
-      scale: [1, 1.3, 1],
-      transition: {
-        duration: 0.8,
-        ease: "easeOut",
-      },
+    // Particles explosion
+    const explosionParticles = Array.from({ length: 20 }, (_, i) => {
+      const angle = (i / 20) * Math.PI * 2
+      const distance = radius * (0.7 + Math.random() * 0.6)
+      const x = 70 + Math.cos(angle) * distance
+      const y = 70 + Math.sin(angle) * distance
+
+      return {
+        id: i + 200, // Ensure unique IDs
+        x,
+        y,
+        size: 3 + Math.random() * 5,
+        delay: Math.random() * 0.2,
+        duration: 0.8 + Math.random() * 1.2,
+        opacity: 0.7 + Math.random() * 0.3,
+      }
     })
 
-    // Cleanup and callback
+    setParticles(explosionParticles)
+
+    // Clean up after effects
     setTimeout(() => {
-      setShowRipple(false)
-      setShowPulse(false)
-      setIsComplete(false)
-      isGrowingRef.current = false // Reset for next time
-      scaleRef.current = 1 // Reset scale
-      lastMilestoneRef.current = 0 // Reset milestone tracker
+      setShowCompletionEffects(false)
+      isAnimatingRef.current = false
       onChargingComplete?.()
-    }, 1200)
-  }, [circleControls, textControls, glowControls, pulseControls, onChargingComplete])
+    }, 1000)
+  }
 
-  // Effect to handle initial animation when charging starts
-  useEffect(() => {
-    if (isCharging && !isGrowingRef.current) {
-      isGrowingRef.current = true
-      scaleRef.current = milestones[0].scale // Start from the first milestone scale
-      lastMilestoneRef.current = 0 // Reset milestone tracker
-
-      // Simple grow from small to normal size - ONE TIME ONLY
-      circleControls.start({
-        scale: milestones[0].scale,
-        transition: {
-          duration: 0.1, // Quick transition to starting scale
-          ease: "easeOut",
-        },
-      })
-
-      // Start continuous pulsing immediately
-      triggerPulse(true)
-
-      // Notify about initial progress
-      onProgressUpdate?.(0)
-    } else if (!isCharging) {
-      isGrowingRef.current = false
-      scaleRef.current = 1
-      lastMilestoneRef.current = 0
-
-      // Clear any pending pulse timeouts
-      if (pulseTimeoutRef.current !== null) {
-        clearTimeout(pulseTimeoutRef.current)
-        pulseTimeoutRef.current = null
-      }
+  // Calculate point on circle for ticks
+  const getPointOnCircle = (percentage: number) => {
+    const angle = (percentage / 100) * Math.PI * 2 - Math.PI / 2 // Adjust for SVG rotation
+    return {
+      x: 70 + Math.cos(angle) * radius,
+      y: 70 + Math.sin(angle) * radius,
     }
-  }, [isCharging, circleControls, triggerPulse, onProgressUpdate])
-
-  // Main charging animation effect - with incremental growth at milestones
-  useEffect(() => {
-    if (!isCharging) return
-
-    // Reset animation state
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
-    }
-
-    // Initialize charging state
-    setShowRipple(false) // Don't show ripple during charging
-    startTimeRef.current = 0 // Reset to 0 to ensure proper initialization
-    startPercentageRef.current = currentPercentage
-    progressRef.current = currentPercentage
-
-    // Fast but smooth progress animation
-    const duration = 600 // 0.6 seconds
-
-    const animateProgress = (timestamp: number) => {
-      // Initialize start time on first frame
-      if (startTimeRef.current === 0) {
-        startTimeRef.current = timestamp
-      }
-
-      const elapsed = timestamp - startTimeRef.current
-      const progress = Math.min(elapsed / duration, 1)
-
-      // Linear progress - no easing
-      const targetPercentage = startPercentageRef.current + (percentage - startPercentageRef.current) * progress
-
-      // Only update state when there's a meaningful change (integer change)
-      if (Math.floor(targetPercentage) !== Math.floor(progressRef.current)) {
-        const newPercentage = Math.floor(targetPercentage)
-        setCurrentPercentage(newPercentage)
-
-        // Call the progress update callback with normalized progress (0-1)
-        onProgressUpdate?.(newPercentage / 100)
-
-        // Get the appropriate scale for this percentage using our milestone-based calculation
-        const newScale = getScaleForPercentage(newPercentage)
-        scaleRef.current = newScale
-
-        // Update the scale animation
-        circleControls.set({
-          scale: newScale,
-        })
-
-        // Check if we've hit a new milestone
-        const currentMilestone = Math.floor(newPercentage / 20) * 20
-        if (currentMilestone > lastMilestoneRef.current && currentMilestone > 0) {
-          // We've hit a new milestone!
-          lastMilestoneRef.current = currentMilestone
-
-          // Calculate intensity based on milestone (higher milestones get stronger pulses)
-          const intensity = 1 + currentMilestone / 100
-
-          // Clear any existing timeout
-          if (pulseTimeoutRef.current !== null) {
-            clearTimeout(pulseTimeoutRef.current)
-          }
-
-          // Trigger a stronger one-time pulse with a small delay
-          pulseTimeoutRef.current = setTimeout(() => {
-            // Temporarily stop continuous pulse
-            pulseControls.stop()
-
-            // Trigger stronger pulse with increasing intensity
-            triggerPulse(false, intensity)
-
-            // Resume continuous pulse after the stronger pulse
-            setTimeout(() => {
-              triggerPulse(true)
-            }, 700)
-          }, 50)
-
-          // Animate the growth step more dramatically
-          circleControls.start({
-            scale: newScale,
-            transition: {
-              type: "spring",
-              stiffness: 300,
-              damping: 15,
-              duration: 0.5,
-            },
-          })
-        }
-      }
-
-      progressRef.current = targetPercentage
-
-      if (progress < 1) {
-        // Continue animation
-        animationFrameRef.current = requestAnimationFrame(animateProgress)
-      } else {
-        // Animation complete
-        animationFrameRef.current = null
-
-        // Final progress update
-        onProgressUpdate?.(1)
-
-        animateCompletion()
-      }
-    }
-
-    // Start the animation
-    animationFrameRef.current = requestAnimationFrame(animateProgress)
-
-    // Cleanup function
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
-      if (pulseTimeoutRef.current !== null) {
-        clearTimeout(pulseTimeoutRef.current)
-        pulseTimeoutRef.current = null
-      }
-      circleControls.stop()
-      pulseControls.stop()
-      textControls.stop()
-      glowControls.stop()
-    }
-  }, [
-    isCharging,
-    percentage,
-    circleControls,
-    pulseControls,
-    animateCompletion,
-    currentPercentage,
-    textControls,
-    glowControls,
-    triggerPulse,
-    getScaleForPercentage,
-    onProgressUpdate,
-  ])
+  }
 
   return (
-    <div className="relative w-52 h-52 flex items-center justify-center">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white rounded-full shadow-md">
-        <motion.div className="absolute inset-0" animate={circleControls} style={{ zIndex: 30 }}>
-          <motion.div className="absolute inset-0" animate={pulseControls}>
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140" style={{ overflow: "visible" }}>
+    <div
+      className={`relative w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-52 lg:h-52 flex items-center justify-center ${className || ""}`}
+      style={{ zIndex: 30 }}
+    >
+      {/* Main circle container with extended padding to prevent clipping */}
+      <div className="absolute inset-[-20px] sm:inset-[-25px] md:inset-[-30px] flex items-center justify-center">
+        <div className="relative w-40 h-40 sm:w-44 sm:h-44 md:w-52 md:h-52 bg-gradient-to-br from-blue-50 to-white rounded-full shadow-md overflow-visible">
+          <motion.div className="absolute inset-0 overflow-visible" animate={pulseControls}>
+            {/* Increased viewBox to prevent clipping */}
+            <svg
+              className="w-full h-full -rotate-90 overflow-visible"
+              viewBox="0 0 140 140"
+              style={{ overflow: "visible" }}
+            >
               <defs>
                 <linearGradient id={`progressGradient-${currentPercentage}`} x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor={colors.start} />
                   <stop offset="100%" stopColor={colors.end} />
                 </linearGradient>
 
-                {/* Premium glow effect */}
                 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="4" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
 
-                {/* Super enhanced glow for completion - SIMPLIFIED */}
-                <filter id="super-glow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="8" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
+                {/* Enhanced glow for particles */}
+                <filter id="particleGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
+
+                {/* Radial gradient for particles */}
+                <radialGradient id="particleGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                  <stop offset="0%" stopColor={`${colors.start}ff`} />
+                  <stop offset="100%" stopColor={`${colors.start}00`} />
+                </radialGradient>
               </defs>
 
-              {/* Background track */}
+              {/* Background track with tick marks */}
               <circle
                 className="text-slate-100"
                 strokeWidth="10"
                 stroke="currentColor"
                 fill="none"
-                r="60"
+                r={radius}
                 cx="70"
                 cy="70"
               />
+
+              {/* Tick marks every 10% */}
+              {Array.from({ length: 10 }).map((_, i) => {
+                const percentage = (i + 1) * 10
+                const point = getPointOnCircle(percentage)
+                const isQuarter = percentage % 25 === 0
+
+                return (
+                  <circle
+                    key={`tick-${percentage}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r={isQuarter ? 2 : 1}
+                    fill={percentage <= currentPercentage ? colors.start : "#cbd5e1"}
+                    opacity={percentage <= currentPercentage ? 1 : 0.5}
+                  />
+                )
+              })}
 
               {/* Progress circle */}
               <motion.circle
                 stroke={`url(#progressGradient-${currentPercentage})`}
                 strokeWidth="15"
                 strokeLinecap="round"
-                fill="white"
-                r="60"
+                fill="none"
+                r={radius}
                 cx="70"
                 cy="70"
                 strokeDasharray={circumference}
@@ -454,89 +378,167 @@ export function CircularProgress({
                 animate={{
                   strokeDashoffset: circumference - (currentPercentage / 100) * circumference,
                 }}
-                transition={{
-                  duration: 0.5,
-                  ease: "easeOut",
-                }}
-                filter={isComplete ? "url(#super-glow)" : "url(#glow)"}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                filter="url(#glow)"
               />
 
-              {/* Ripple effect - ONLY SHOWN AT COMPLETION */}
-              {showRipple && isComplete && (
-                <motion.circle
-                  r="60"
-                  cx="70"
-                  cy="70"
-                  fill="none"
-                  stroke={`url(#progressGradient-${currentPercentage})`}
-                  strokeWidth="2"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{
-                    opacity: [0, 0.5, 0],
-                    scale: [0.8, 1.3, 1.5],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    ease: "easeOut",
-                  }}
-                />
+              {/* Progress indicator dot */}
+              {currentPercentage > 0 && (
+                <motion.g>
+                  {/* Calculate position based on current percentage */}
+                  {(() => {
+                    const angle = (currentPercentage / 100) * Math.PI * 2 - Math.PI / 2
+                    const x = 70 + Math.cos(angle) * radius
+                    const y = 70 + Math.sin(angle) * radius
+
+                    return (
+                      <>
+                        {/* Outer glow */}
+                        <circle cx={x} cy={y} r={5} fill={`${colors.start}40`} filter="url(#glow)" />
+                        {/* Inner dot */}
+                        <circle cx={x} cy={y} r={3} fill={colors.start} />
+                      </>
+                    )
+                  })()}
+                </motion.g>
               )}
+
+              {/* Animated particles */}
+              <motion.g animate={particlesControls}>
+                {particles.map((particle) => (
+                  <motion.circle
+                    key={`particle-${particle.id}`}
+                    cx={particle.x}
+                    cy={particle.y}
+                    r={particle.size}
+                    fill={`${colors.start}`}
+                    filter="url(#particleGlow)"
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{
+                      opacity: [0, particle.opacity, 0],
+                      scale: [0, 1, 0],
+                      x: [particle.x, particle.x + (Math.random() * 20 - 10)],
+                      y: [particle.y, particle.y + (Math.random() * 20 - 10)],
+                    }}
+                    transition={{
+                      duration: particle.duration,
+                      delay: particle.delay,
+                      ease: "easeOut",
+                      times: [0, 0.4, 1],
+                    }}
+                  />
+                ))}
+              </motion.g>
             </svg>
           </motion.div>
-        </motion.div>
 
-        {/* Percentage text and label */}
-        <motion.div
-          className="absolute inset-0 flex flex-col items-center justify-center"
-          animate={textControls}
-          style={{ zIndex: 40 }}
-        >
-          <motion.span
-            className="text-5xl font-medium leading-tight"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            style={{ color: colors.text }}
+          {/* Percentage text */}
+          <motion.div
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            animate={textControls}
+            style={{ zIndex: 40 }}
           >
-            {currentPercentage}%
-          </motion.span>
-          <motion.span
-            className="text-sm text-slate-500 font-normal leading-tight"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            Energy Offset
-          </motion.span>
-        </motion.div>
+            <motion.span
+              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-medium leading-tight"
+              style={{ color: colors.text }}
+            >
+              {currentPercentage}%
+            </motion.span>
+            <span className="text-[10px] xs:text-xs sm:text-sm text-slate-500 font-normal leading-tight">
+              Energy Offset
+            </span>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Enhanced glow effect on completion */}
-      {showPulse && (
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={glowControls}
-          style={{
-            background: `radial-gradient(circle, ${colors.start}40 0%, ${colors.end}00 70%)`,
-            zIndex: 25,
-          }}
-        />
-      )}
+      {/* Completion effects - moved outside the main circle for better visibility */}
+      <AnimatePresence>
+        {showCompletionEffects && (
+          <div className="absolute inset-[-50px] overflow-visible pointer-events-none">
+            {/* Multiple ripple effects */}
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={`ripple-${i}`}
+                className="absolute inset-[20px] rounded-full"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [0, 0.4, 0], scale: [0.8, 1.3, 1.5] }}
+                exit={{ opacity: 0 }}
+                transition={{
+                  duration: 1,
+                  ease: "easeOut",
+                  delay: i * 0.15, // Staggered delay
+                }}
+                style={{
+                  border: `2px solid ${colors.start}`,
+                }}
+              />
+            ))}
 
-      {/* Flash effect on completion */}
-      {isComplete && (
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.9, 0] }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-          style={{
-            background: colors.start,
-            zIndex: 45,
-          }}
-        />
-      )}
+            {/* Enhanced glow effect */}
+            <motion.div
+              className="absolute inset-[20px] rounded-full"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.2, 1.4] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+              style={{
+                background: `radial-gradient(circle, ${colors.start}60 0%, ${colors.end}00 70%)`,
+              }}
+            />
+
+            {/* Flash effect */}
+            <motion.div
+              className="absolute inset-[20px] rounded-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.7, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              style={{
+                background: colors.start,
+              }}
+            />
+
+            {/* Radial lines burst effect */}
+            <svg className="absolute inset-0 w-full h-full overflow-visible" style={{ overflow: "visible" }}>
+              {Array.from({ length: 12 }).map((_, i) => {
+                const angle = (i / 12) * Math.PI * 2
+                const centerX = 104
+                const centerY = 104
+                const innerRadius = 60
+                const outerRadius = 100
+
+                const x1 = centerX + Math.cos(angle) * innerRadius
+                const y1 = centerY + Math.sin(angle) * innerRadius
+                const x2 = centerX + Math.cos(angle) * outerRadius
+                const y2 = centerY + Math.sin(angle) * outerRadius
+
+                return (
+                  <motion.line
+                    key={`burst-${i}`}
+                    x1={x1}
+                    y1={y1}
+                    x2={x1} // Start at same point
+                    y2={y1}
+                    stroke={colors.start}
+                    strokeWidth="2"
+                    initial={{ opacity: 0 }}
+                    animate={{
+                      opacity: [0, 0.8, 0],
+                      x2: [x1, x2],
+                      y2: [y1, y2],
+                    }}
+                    transition={{
+                      duration: 0.6,
+                      delay: 0.1 + i * 0.03,
+                      ease: "easeOut",
+                    }}
+                  />
+                )
+              })}
+            </svg>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

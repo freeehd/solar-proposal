@@ -1,35 +1,68 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { cn } from "@/lib/utils"
+import { motion, useInView } from "framer-motion"
+import { useRef } from "react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
-interface TextRevealProps {
+interface ImprovedTextRevealProps {
   text: string
-  delay?: number
   className?: string
-  prefersReducedMotion?: boolean
+  delay?: number
+  staggerChildren?: number
 }
 
-export function TextReveal({ text, delay = 0, className = "", prefersReducedMotion = false }: TextRevealProps) {
-  if (prefersReducedMotion) {
-    return <span className={cn(" visible", className)}>{text}</span>
+export function ImprovedTextReveal({
+  text,
+  className = "",
+  delay = 0,
+  staggerChildren = 0.02,
+}: ImprovedTextRevealProps) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, amount: 0.5 })
+  const isMobile = useMediaQuery("(max-width: 640px)")
+
+  // For mobile, we'll split into fewer chunks to improve performance
+  const words = isMobile ? text.split(". ").join(".").split(" ") : text.split(" ")
+
+  // Simple container animation - just controls the staggering
+  const container = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: isMobile ? staggerChildren * 1.5 : staggerChildren,
+        delayChildren: delay,
+      },
+    },
+  }
+
+  // Simple fade-in animation for each word
+  const child = {
+    hidden: {
+      opacity: 0,
+    },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut",
+      },
+    },
   }
 
   return (
-    <span className="overflow-visible relative">
-      <motion.span
-        className={cn("inline-block", className)}
-        initial={{ clipPath: "inset(0 100% 0 0)" }}
-        animate={{ clipPath: "inset(0 0% 0 0)" }}
-        transition={{
-          duration: 0.8,
-          delay,
-          ease: [0.22, 1, 0.36, 1],
-        }}
-      >
-        {text}
-      </motion.span>
-    </span>
+    <motion.div
+      ref={ref}
+      className={`inline-block ${className}`}
+      variants={container}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+    >
+      {words.map((word, index) => (
+        <motion.span key={index} className="inline-block mr-[0.25em] whitespace-nowrap" variants={child}>
+          {word}
+        </motion.span>
+      ))}
+    </motion.div>
   )
 }
 

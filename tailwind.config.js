@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ["class"],
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -15,6 +14,14 @@ module.exports = {
       screens: {
         "2xl": "1400px",
       },
+    },
+    screens: {
+      xs: "375px",
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
     },
     extend: {
       colors: {
@@ -51,6 +58,58 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // New color palette
+        "indigo-dye": {
+          DEFAULT: "#125170",
+          100: "#031016",
+          200: "#06202c",
+          300: "#093042",
+          400: "#0c4058",
+          500: "#125170",
+          600: "#1a7aaa",
+          700: "#2aa3e4",
+          800: "#6ac0ec",
+          900: "#b4dff5",
+        },
+        "french-gray": {
+          DEFAULT: "#c2cadc",
+          100: "#1e2333",
+          200: "#3c4666",
+          300: "#5a6999",
+          400: "#8a95b7",
+          500: "#c2cadc",
+          600: "#cdd4e3",
+          700: "#d9deea",
+          800: "#e6e9f1",
+          900: "#f2f4f8",
+        },
+        "smoky-black": {
+          DEFAULT: "#0b0a08",
+          100: "#020201",
+          200: "#040403",
+          300: "#060604",
+          400: "#080806",
+          500: "#0b0a08",
+          600: "#3a3525",
+          700: "#6a6042",
+          800: "#9a8c60",
+          900: "#c9b99f",
+        },
+        white: {
+          DEFAULT: "#ffffff",
+        },
+        olive: {
+          DEFAULT: "#D2D981",
+          100: "#161707",
+          200: "#2c2e0e",
+          300: "#424515",
+          400: "#585c1c",
+          500: "#6b7222",
+          600: "#97a12f",
+          700: "#bfca3c",
+          800: "#d2d973",
+          900: "#e8ecb9",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -74,4 +133,5 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-};
+}
+

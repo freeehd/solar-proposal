@@ -8,7 +8,6 @@ import Navbar from "@/components/navbar";
 export default function Home() {
   return (
     <>
-      <Loading />
 
       <Navbar />
       <div className="container mx-auto py-10">
@@ -20,9 +19,7 @@ export default function Home() {
             <Button>Create New Proposal</Button>
           </Link>
         </header>
-        <Suspense fallback={<Loading />}>
           <ProposalDashboard />
-        </Suspense>
       </div>
     </>
   );

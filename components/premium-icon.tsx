@@ -106,13 +106,15 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
     >
       <motion.div
         className={cn(
-          "relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-white shadow-xl p-5 border border-blue-100/50",
+          "relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-white shadow-xl border border-blue-100/50",
+          // Responsive padding based on screen size - reduced for mobile
+          "p-1.5 xs:p-2 sm:p-3 md:p-3.5 lg:p-5",
           className,
         )}
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={{ scale: 1, opacity: 0 }}
         animate={controls}
         whileHover={{
-          scale: 1.05,
+          scale: 1.09,
           boxShadow: "0 15px 30px -10px rgba(0, 0, 0, 0.15)",
         }}
       >
@@ -142,7 +144,7 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
         <AnimatePresence>
           {isCharging && !hasAppeared && (
             <motion.div
-              className="absolute inset-[-8px] pointer-events-none"
+              className="absolute inset-[-3px] sm:inset-[-4px] md:inset-[-5px] lg:inset-[-8px] pointer-events-none"
               style={{ zIndex: 10 }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -190,21 +192,14 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
         <AnimatePresence>
           {isCharged && (
             <motion.div
-              className="absolute inset-[-4px] pointer-events-none"
+              className="absolute inset-[-1px] xs:inset-[-1.5px] sm:inset-[-2px] md:inset-[-3px] lg:inset-[-4px] pointer-events-none"
               style={{ zIndex: 5 }}
               initial={{ opacity: 0, scale: 1.1 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
             >
               <svg className="w-full h-full" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="48"
-                  fill="none"
-                  stroke="rgba(52, 211, 153, 0.8)"
-                  strokeWidth="3"
-                />
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(52, 211, 153, 0.8)" strokeWidth="3" />
               </svg>
             </motion.div>
           )}
@@ -225,7 +220,7 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
           )}
         </AnimatePresence>
 
-        {/* Icon content */}
+        {/* Icon content - make the children responsive */}
         <motion.div
           className="relative"
           style={{
@@ -242,7 +237,10 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
             ease: "easeInOut",
           }}
         >
-          {children}
+          {/* Wrap children to ensure they scale properly */}
+          <div className="transform scale-[0.75] xs:scale-[0.8] sm:scale-[0.9] md:scale-[0.95] lg:scale-100">
+            {children}
+          </div>
         </motion.div>
       </motion.div>
     </div>

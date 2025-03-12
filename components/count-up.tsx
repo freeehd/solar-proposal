@@ -15,7 +15,7 @@ interface CountUpProps {
 
 export function CountUp({
   value,
-  duration = 2.5,
+  duration = 1.5,
   isActive = true,
   prefix = "",
   suffix = "",
@@ -28,7 +28,9 @@ export function CountUp({
   // Use motion value for more direct control
   const count = useMotionValue(0)
   const roundedCount = useTransform(count, (latest) => {
-    return formatter(Math.round(latest))
+    // Ensure we never exceed the target value
+    const cappedValue = Math.min(latest, value)
+    return formatter(Math.round(cappedValue))
   })
 
   // Reset and start animation when isActive changes
@@ -41,16 +43,27 @@ export function CountUp({
       // Explicitly set to 0 first
       count.set(0)
 
-      // Use a more significant delay to ensure 0 is visible
-      const animationTimeout = setTimeout(() => {
-        // Use Framer's animate function for more control
+      // Start the animation with a slight delay
+      const timer = setTimeout(() => {
+        // Use Framer's animate function with a non-overshooting easing curve
         animate(count, value, {
           duration,
+          // Use a standard easeOut curve that doesn't overshoot
           ease: "easeOut",
+          // Ensure we never exceed the target value
+          onUpdate: (latest) => {
+            if (latest > value) {
+              count.set(value)
+            }
+          },
+          onComplete: () => {
+            // Make sure we end exactly at the target value
+            count.set(value)
+          },
         })
-      }, 300) // Longer delay to ensure 0 is visible
+      }, 300)
 
-      return () => clearTimeout(animationTimeout)
+      return () => clearTimeout(timer)
     } else if (!isActive && hasAnimatedRef.current) {
       // Reset when becoming inactive
       count.set(0)
@@ -61,7 +74,14 @@ export function CountUp({
   return (
     <span className={className}>
       {prefix}
-      <motion.span>{roundedCount}</motion.span>
+      <motion.span
+        style={{
+          display: "inline-block",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {roundedCount}
+      </motion.span>
       {suffix}
     </span>
   )

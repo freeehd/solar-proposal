@@ -1,8 +1,7 @@
 "use client"
 
 import React from "react"
-
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { Center, Float, useDetectGPU, Environment, MeshTransmissionMaterial } from "@react-three/drei"
@@ -33,7 +32,7 @@ type CustomMaterial = THREE.MeshPhysicalMaterial & {
   temporalDistortion?: number
 }
 
-// Memoized star geometry creation - moved outside component to prevent recreation
+// Memoized star geometry creation - created once and reused
 const starGeometry = (() => {
   const shape = new THREE.Shape()
   const numPoints = 5 // Number of star points
@@ -66,12 +65,12 @@ const starGeometry = (() => {
   })
 })()
 
-// Memoized color objects to prevent recreation on each frame
+// Pre-created color objects to prevent garbage collection
 const hoverColor = new THREE.Color("#ffd700")
 const defaultColor = new THREE.Color("#daa520")
 const accentColor = new THREE.Color("#f8f0e3")
 
-// Separated component for better performance isolation
+// Optimized StarMesh component with better performance
 const StarMesh = React.memo(
   ({
     isHovered,
@@ -84,64 +83,70 @@ const StarMesh = React.memo(
   }: StarMeshProps) => {
     const meshRef = useRef<Mesh>(null)
     const materialRef = useRef<CustomMaterial>(null)
-    const targetRotation = useRef({ x: 0, y: 0 })
-    const currentRotation = useRef({ x: 0, y: 0 })
-    const startTime = useRef<number | null>(null)
-    const animationCompleted = useRef(false)
-    const hasStartedRef = useRef(false)
+
+    // Use refs for animation state to avoid re-renders
+    const animationState = useRef({
+      targetRotation: { x: 0, y: 0 },
+      currentRotation: { x: 0, y: 0 },
+      startTime: null as number | null,
+      animationCompleted: false,
+      hasStarted: false,
+      lastUpdateTime: 0,
+    })
 
     // Fixed final scale to ensure consistency
     const FINAL_SCALE = 1.0
 
     // Ensure animation completes even if tab loses focus
     useEffect(() => {
-      if (inView && !animationCompleted.current) {
-        hasStartedRef.current = true
-        
-        // Force animation completion after a reasonable time
-        const timer = setTimeout(() => {
-          if (!animationCompleted.current) {
-            animationCompleted.current = true
-            onAnimationComplete?.()
-          }
-        }, 1500) // Reasonable time for animation to complete
-        
-        return () => clearTimeout(timer)
-      }
+      if (!inView || animationState.current.animationCompleted) return
+
+      animationState.current.hasStarted = true
+
+      // Force animation completion after a reasonable time
+      const timer = setTimeout(() => {
+        if (!animationState.current.animationCompleted) {
+          animationState.current.animationCompleted = true
+          onAnimationComplete?.()
+        }
+      }, 1500)
+
+      return () => clearTimeout(timer)
     }, [inView, onAnimationComplete])
 
-    // Refined frame handler with elegant animation and spin-up effect
+    // Optimized frame handler with reduced calculations
     useFrame((state, delta) => {
       if (!meshRef.current || !materialRef.current) return
 
       // Skip if not in view and animation hasn't started yet
-      if (!inView && !hasStartedRef.current) return
+      if (!inView && !animationState.current.hasStarted) return
 
       const mesh = meshRef.current
       const material = materialRef.current
+      const anim = animationState.current
 
       // Skip animations for users who prefer reduced motion
       if (prefersReducedMotion) {
-        if (!animationCompleted.current) {
+        if (!anim.animationCompleted) {
           mesh.scale.setScalar(FINAL_SCALE)
           mesh.position.y = 0
           mesh.rotation.set(0, 0, 0)
           if (!hasCompletedEntrance) {
-            animationCompleted.current = true
+            anim.animationCompleted = true
             onAnimationComplete?.()
           }
         }
         return
       }
 
-      if (startTime.current === null) {
-        startTime.current = state.clock.elapsedTime + delay
+      if (anim.startTime === null) {
+        anim.startTime = state.clock.elapsedTime + delay
         // Explicitly set scale to 0 at the start
         mesh.scale.set(0, 0, 0)
         return
       }
 
-      const timeSinceStart = state.clock.elapsedTime - startTime.current
+      const timeSinceStart = state.clock.elapsedTime - anim.startTime
       const entryDuration = 1.5 // Slower, more elegant animation
 
       if (timeSinceStart < 0) {
@@ -150,7 +155,7 @@ const StarMesh = React.memo(
         return
       }
 
-      // Elegant entrance animation with spin-up effect
+      // Entrance animation
       if (timeSinceStart < entryDuration) {
         const progress = timeSinceStart / entryDuration
 
@@ -158,7 +163,7 @@ const StarMesh = React.memo(
         const easeOutCubic = 1 - Math.pow(1 - progress, 3)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5)
 
-        // Gradual scale up with NO overshoot to ensure consistent final size
+        // Gradual scale up with NO overshoot
         let scaleProgress = 0
 
         if (progress < 0.95) {
@@ -174,7 +179,6 @@ const StarMesh = React.memo(
         mesh.scale.setScalar(scaleProgress)
 
         // Enhanced spin-up effect during reveal
-        // More rotation at the beginning that gradually slows down
         const spinRotations = 2 // Number of full rotations during entrance
         const spinEasing = 1 - Math.pow(1 - progress, 4) // Accelerated easing for spin
 
@@ -184,13 +188,12 @@ const StarMesh = React.memo(
         // Subtle X-axis tilt that settles
         mesh.rotation.x = (1 - easeOutQuint) * Math.PI * 0.25
 
-        // Subtle color transition
+        // Optimize material updates by batching them
         if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
           const currentColor = (material as THREE.MeshStandardMaterial).color
 
           // Start with accent color and transition to default
           if (progress < 0.7) {
-            const colorProgress = progress / 0.7
             currentColor.copy(accentColor).lerp(defaultColor, easeOutCubic)
           } else {
             currentColor.copy(defaultColor)
@@ -202,7 +205,7 @@ const StarMesh = React.memo(
           }
         }
 
-        // Subtle material transitions
+        // Batch material property updates
         if (material.transmission !== undefined) {
           material.transmission = THREE.MathUtils.lerp(0.7, 1, easeOutCubic)
         }
@@ -211,10 +214,10 @@ const StarMesh = React.memo(
           material.distortion = THREE.MathUtils.lerp(0.6, 0.4, easeOutCubic)
         }
 
-        if (progress > 0.95 && !hasCompletedEntrance && !animationCompleted.current) {
+        if (progress > 0.95 && !hasCompletedEntrance && !anim.animationCompleted) {
           // Explicitly set final scale to ensure consistency
           mesh.scale.setScalar(FINAL_SCALE)
-          animationCompleted.current = true
+          anim.animationCompleted = true
           onAnimationComplete?.()
         }
       } else {
@@ -223,86 +226,81 @@ const StarMesh = React.memo(
           mesh.scale.setScalar(FINAL_SCALE)
         }
 
-        // Refined idle animation after entrance
-        const time = state.clock.getElapsedTime()
+        // Throttle idle animation updates for better performance
+        // Only update every ~100ms instead of every frame
+        const now = state.clock.elapsedTime
+        const updateInterval = 0.1 // seconds
 
-        // Only update target rotation every few frames for better performance
-        if (state.clock.elapsedTime % 0.1 < delta) {
+        if (now - anim.lastUpdateTime > updateInterval) {
+          anim.lastUpdateTime = now
+
+          // Update target rotation less frequently
           if (isHovered) {
-            targetRotation.current.y = Math.sin(time * 1.2) * 0.15
-            targetRotation.current.x = Math.cos(time * 1.0) * 0.1
+            anim.targetRotation.y = Math.sin(now * 1.2) * 0.15
+            anim.targetRotation.x = Math.cos(now * 1.0) * 0.1
           } else {
-            targetRotation.current.y = Math.sin(time * 0.3) * 0.03
-            targetRotation.current.x = Math.cos(time * 0.4) * 0.02
+            anim.targetRotation.y = Math.sin(now * 0.3) * 0.03
+            anim.targetRotation.x = Math.cos(now * 0.4) * 0.02
+          }
+
+          // Batch material updates
+          if (isHovered) {
+            if (material.transmission !== undefined) {
+              material.transmission = THREE.MathUtils.lerp(material.transmission, 0.85, 0.1)
+            }
+            if (material.distortion !== undefined) {
+              material.distortion = THREE.MathUtils.lerp(material.distortion, 0.5, 0.1)
+            }
+          } else {
+            if (material.transmission !== undefined) {
+              material.transmission = THREE.MathUtils.lerp(material.transmission, 1, 0.1)
+            }
+            if (material.distortion !== undefined) {
+              material.distortion = THREE.MathUtils.lerp(material.distortion, 0.4, 0.1)
+            }
+          }
+
+          // Batch color updates
+          if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
+            const targetColor = isHovered ? hoverColor : defaultColor
+            const currentColor = (material as THREE.MeshStandardMaterial).color
+
+            if (!currentColor.equals(targetColor)) {
+              currentColor.lerp(targetColor, 0.1)
+            }
           }
         }
 
-        // Optimize material updates by checking if they need to change
-        if (isHovered) {
-          if (material.transmission !== undefined && Math.abs(material.transmission - 0.85) > 0.01) {
-            material.transmission = THREE.MathUtils.lerp(material.transmission, 0.85, 0.05)
-          }
-          if (material.distortion !== undefined && Math.abs(material.distortion - 0.5) > 0.01) {
-            material.distortion = THREE.MathUtils.lerp(material.distortion, 0.5, 0.05)
-          }
-        } else {
-          if (material.transmission !== undefined && Math.abs(material.transmission - 1) > 0.01) {
-            material.transmission = THREE.MathUtils.lerp(material.transmission, 1, 0.05)
-          }
-          if (material.distortion !== undefined && Math.abs(material.distortion - 0.4) > 0.01) {
-            material.distortion = THREE.MathUtils.lerp(material.distortion, 0.4, 0.05)
-          }
-        }
-
-        // Optimize rotation updates with threshold check and smoother damping
-        const rotXDiff = Math.abs(currentRotation.current.x - targetRotation.current.x)
-        const rotYDiff = Math.abs(currentRotation.current.y - targetRotation.current.y)
+        // Apply rotation with threshold check to avoid tiny updates
+        const rotXDiff = Math.abs(anim.currentRotation.x - anim.targetRotation.x)
+        const rotYDiff = Math.abs(anim.currentRotation.y - anim.targetRotation.y)
 
         if (rotXDiff > 0.0005) {
-          currentRotation.current.x = THREE.MathUtils.lerp(
-            currentRotation.current.x,
-            targetRotation.current.x,
-            delta * 2.5, // Slower, more elegant movement
-          )
-          mesh.rotation.x = currentRotation.current.x
+          anim.currentRotation.x = THREE.MathUtils.lerp(anim.currentRotation.x, anim.targetRotation.x, delta * 2.5)
+          mesh.rotation.x = anim.currentRotation.x
         }
 
         if (rotYDiff > 0.0005) {
-          currentRotation.current.y = THREE.MathUtils.lerp(
-            currentRotation.current.y,
-            targetRotation.current.y,
-            delta * 2.5, // Slower, more elegant movement
-          )
-          mesh.rotation.y = currentRotation.current.y
-        }
-
-        // Optimize color updates with threshold check
-        if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
-          const targetColor = isHovered ? hoverColor : defaultColor
-          const currentColor = (material as THREE.MeshStandardMaterial).color
-
-          if (!currentColor.equals(targetColor)) {
-            // Smoother color transition
-            currentColor.lerp(targetColor, delta * 2)
-          }
+          anim.currentRotation.y = THREE.MathUtils.lerp(anim.currentRotation.y, anim.targetRotation.y, delta * 2.5)
+          mesh.rotation.y = anim.currentRotation.y
         }
       }
     })
 
-    // Enhanced material properties for premium look
+    // Memoized material properties to prevent recreation
     const materialProps = useMemo(
       () => ({
         samples: quality === "high" ? 6 : 3,
         thickness: 0.4,
-        roughness: 0.03, // Smoother surface
+        roughness: 0.03,
         transmission: 1,
-        ior: 1.6, // Higher index of refraction for more premium look
+        ior: 1.6,
         chromaticAberration: quality === "high" ? 0.04 : 0.03,
         distortion: 0.4,
         distortionScale: 0.5,
         temporalDistortion: 0.2,
         metalness: 0.8,
-        clearcoat: 1.2, // Enhanced clearcoat for premium shine
+        clearcoat: 1.2,
         attenuationDistance: 0.6,
         attenuationColor: "#ffd700",
         color: "#daa520",
@@ -324,15 +322,24 @@ const StarMesh = React.memo(
 
 StarMesh.displayName = "StarMesh"
 
-// Optimized main component with debounced hover state
+// Optimized main component with better state management
 export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inView = true }: StarAnimationProps) => {
-  const [dpr, setDpr] = useState(1)
-  const [isHovered, setIsHovered] = useState(false)
-  const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
+  // Use a ref for hover state to avoid re-renders
+  const hoverStateRef = useRef(false)
+  const [state, setState] = useState({
+    dpr: typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio) : 1,
+    hasCompletedEntrance: false,
+  })
+
   const containerRef = useRef<HTMLDivElement>(null)
   const prefersReducedMotion = useReducedMotion()
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const completionTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRefs = useRef<{
+    hover: NodeJS.Timeout | null
+    completion: NodeJS.Timeout | null
+  }>({
+    hover: null,
+    completion: null,
+  })
 
   // GPU detection with memoized quality setting
   const gpu = useDetectGPU()
@@ -340,73 +347,77 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
     return gpu.tier >= 2 ? "high" : "low"
   }, [gpu.tier])
 
-  // Debounced hover handlers to prevent rapid state changes
+  // Optimized hover handlers that don't trigger re-renders
   const handleMouseEnter = useCallback(() => {
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
-    hoverTimeoutRef.current = setTimeout(() => setIsHovered(true), 50)
+    if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover)
+    timerRefs.current.hover = setTimeout(() => {
+      hoverStateRef.current = true
+      // Force a small area to repaint without re-rendering the whole component
+      if (containerRef.current) {
+        containerRef.current.style.transform = "translateZ(0)"
+      }
+    }, 50)
   }, [])
 
   const handleMouseLeave = useCallback(() => {
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
-    hoverTimeoutRef.current = setTimeout(() => setIsHovered(false), 50)
+    if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover)
+    timerRefs.current.hover = setTimeout(() => {
+      hoverStateRef.current = false
+      // Force a small area to repaint without re-rendering the whole component
+      if (containerRef.current) {
+        containerRef.current.style.transform = "translateZ(0)"
+      }
+    }, 50)
   }, [])
 
   // Ensure animation completes even if tab loses focus
   useEffect(() => {
-    if (inView && !hasCompletedEntrance) {
+    if (inView && !state.hasCompletedEntrance) {
       // Force completion after a reasonable time
-      completionTimerRef.current = setTimeout(() => {
-        if (!hasCompletedEntrance) {
-          setHasCompletedEntrance(true)
+      timerRefs.current.completion = setTimeout(() => {
+        if (!state.hasCompletedEntrance) {
+          setState((prev) => ({ ...prev, hasCompletedEntrance: true }))
           onAnimationComplete?.()
         }
-      }, 2000) // Reasonable time for the entire animation
+      }, 2000)
     }
-    
+
     return () => {
-      if (completionTimerRef.current) {
-        clearTimeout(completionTimerRef.current)
-      }
+      // Clean up all timers on unmount
+      Object.values(timerRefs.current).forEach((timer) => {
+        if (timer) clearTimeout(timer)
+      })
     }
-  }, [inView, hasCompletedEntrance, onAnimationComplete])
+  }, [inView, state.hasCompletedEntrance, onAnimationComplete])
 
   const handleComplete = useCallback(() => {
-    setHasCompletedEntrance(true)
+    setState((prev) => ({ ...prev, hasCompletedEntrance: true }))
     onAnimationComplete?.()
   }, [onAnimationComplete])
 
-  // Set DPR once on mount
-  useEffect(() => {
-    setDpr(Math.min(2, window.devicePixelRatio))
-
-    // Clean up hover timeout on unmount
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Enhanced canvas settings for premium quality
+  // Memoized canvas props to prevent recreation
   const canvasProps = useMemo(
     () => ({
-      dpr,
-      camera: { position: [0, 0, 2] as [number, number, number], fov: 40 }, // Narrower FOV for more premium look
+      dpr: state.dpr,
+      camera: { position: [0, 0, 2] as [number, number, number], fov: 40 },
       className: "w-full h-full",
       style: { background: "transparent" },
+      frameloop: inView ? "always" : "demand", // Only animate when in view
       gl: {
         antialias: true,
         alpha: true,
         powerPreference: "high-performance" as WebGLPowerPreference,
-        depth: true, // Enable depth for better visual quality
+        depth: true,
         stencil: false,
+        // Add logarithmic depth buffer for better z-fighting prevention
+        logarithmicDepthBuffer: true,
       },
     }),
-    [dpr],
+    [state.dpr, inView],
   )
 
   // Don't render anything if not in view and animation hasn't started
-  if (!inView && !hasCompletedEntrance) {
+  if (!inView && !state.hasCompletedEntrance) {
     return null
   }
 
@@ -415,7 +426,7 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
       ref={containerRef}
       initial={{ opacity: 0 }}
       animate={{
-        opacity: inView || hasCompletedEntrance ? 1 : 0,
+        opacity: inView || state.hasCompletedEntrance ? 1 : 0,
       }}
       transition={{
         duration: 0.3,
@@ -425,17 +436,23 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
       onMouseLeave={handleMouseLeave}
       className="w-full h-full relative cursor-pointer"
       aria-hidden="true"
+      style={{
+        willChange: "transform, opacity",
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+      }}
     >
       <Canvas {...canvasProps}>
         <Float
           speed={1.5}
           floatIntensity={0.5}
-          rotationIntensity={0.5} // Subtle floating effect
+          rotationIntensity={0.5}
+          floatingRange={[-0.05, 0.05]} // Limit floating range for better performance
         >
           <Center>
             <StarMesh
-              isHovered={isHovered}
-              hasCompletedEntrance={hasCompletedEntrance}
+              isHovered={hoverStateRef.current}
+              hasCompletedEntrance={state.hasCompletedEntrance}
               onAnimationComplete={handleComplete}
               delay={delay}
               prefersReducedMotion={!!prefersReducedMotion}
@@ -445,34 +462,22 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
           </Center>
         </Float>
 
+        {/* Optimized lighting setup */}
         <ambientLight intensity={0.6} />
         <pointLight position={[5, 5, 5]} intensity={0.7} />
         <pointLight position={[-5, -5, 5]} intensity={0.3} color="#ffd700" />
         <Environment preset="apartment" background={false} />
       </Canvas>
 
-      {/* Subtle glow effect */}
-      <AnimatePresence>
-        {isHovered && (inView || hasCompletedEntrance) && (
-          <motion.div
-            className="absolute inset-0 rounded-full pointer-events-none"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{
-              scale: 1,
-              opacity: 0.4,
-            }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 100,
-              damping: 20,
-            }}
-            style={{
-              background: "radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)",
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* Optimized glow effect using CSS instead of extra divs when possible */}
+      <div
+        className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300"
+        style={{
+          opacity: hoverStateRef.current && (inView || state.hasCompletedEntrance) ? 0.4 : 0,
+          background: "radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)",
+          transform: "translateZ(0)",
+        }}
+      />
     </motion.div>
   )
 })
