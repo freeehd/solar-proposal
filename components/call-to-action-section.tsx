@@ -1,80 +1,81 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useMemo } from "react" // Added useMemo
 import { Button } from "@/components/ui/button"
 import { motion, useInView } from "framer-motion"
 import { ArrowRight, Sun } from "lucide-react"
-import GridMotion from "@/components/ui/grid-motion"
+import GridMotion from "@/components/ui/grid-motion" // Assuming GridMotion is in this path
 import { useMediaQuery } from "@/hooks/use-media-query"
+import React from "react"; // Import React for memo
 
-export default function EnhancedCallToAction() {
-  // Ref for the section element to detect when it's in view
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const isMobile = useMediaQuery("(max-width: 640px)")
+const benefits = [
+  "Save $1,500/yr",
+  "25yr Warranty",
+  "+$15k Value",
+  "Zero Down",
+  "Eco-Friendly",
+  "Tax Credits",
+  "ROI 12-15%",
+  "Smart Home",
+  "Power Backup",
+  "Net Metering",
+  "Premium Panels",
+  "24/7 Monitor",
+  "2.99% APR",
+  "Local Rebates",
+  "Satisfaction",
+];
 
-  // Use Framer Motion's useInView hook to detect when the section is visible
+
+const gridItems = Array.from({ length: 36 }, (_, index) => {
+  const imageIndex = (index % 13) + 1;
+  const imagePath = `/grid/${imageIndex}.jpg`;
+  const hasOverlay = index < benefits.length;
+
+  return {
+    image: imagePath,
+    overlay: hasOverlay ? benefits[index] : undefined,
+  };
+});
+
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.3,
+      duration: 0.8,
+      ease: "easeOut",
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7 },
+  },
+};
+
+
+const EnhancedCallToActionComponent = React.memo(function EnhancedCallToAction() { // Wrapped in React.memo
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isMobile = useMediaQuery("(max-width: 640px)");
+
   const isInView = useInView(sectionRef, {
-    once: true, // Only trigger once
-    amount: 0.2, // Trigger when 20% of the element is in view
-    margin: "0px 0px -200px 0px", // Start animation before fully in view
-  })
+    once: true,
+    amount: 0.1,
+    margin: "0px 0px 200px 0px",
+  });
 
-  // Solar benefits to overlay on images - shorter for mobile
-  const benefits = [
-    "Save $1,500/yr",
-    "25yr Warranty",
-    "+$15k Value",
-    "Zero Down",
-    "Eco-Friendly",
-    "Tax Credits",
-    "ROI 12-15%",
-    "Smart Home",
-    "Power Backup",
-    "Net Metering",
-    "Premium Panels",
-    "24/7 Monitor",
-    "2.99% APR",
-    "Local Rebates",
-    "Satisfaction",
-  ]
 
-  // Grid motion items - using local images from /grid folder with text overlays
-  const gridItems = Array.from({ length: 36 }, (_, index) => {
-    // Repeat the 13 images as needed
-    const imageIndex = (index % 13) + 1
-    const imagePath = `/grid/${imageIndex}.jpg`
+  // Memoize gridItems as it's derived data and doesn't change every render if benefits array is constant
+  const memoizedGridItems = useMemo(() => gridItems, []);
 
-    // Add text overlay to some of the images
-    const hasOverlay = index < benefits.length
-
-    return {
-      image: imagePath,
-      overlay: hasOverlay ? benefits[index] : undefined,
-    }
-  })
-
-  // Animation variants for staggered children
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.3,
-        duration: 0.8,
-        ease: "easeOut",
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.7 },
-    },
-  }
 
   return (
     <motion.section
@@ -84,14 +85,13 @@ export default function EnhancedCallToAction() {
       transition={{ duration: 1.2, ease: "easeOut" }}
       className="relative min-h-screen flex items-center justify-center py-10 sm:py-16 md:py-20 overflow-hidden"
     >
-      {/* Interactive Grid Motion Background with local images and text overlays */}
+
       <div className={`transition-opacity duration-1000 ease-in-out ${isInView ? "opacity-100" : "opacity-0"}`}>
-        <GridMotion items={gridItems} gradientColor="rgba(37, 99, 235, 0.3)" opacity={0.8} />
+        <GridMotion items={memoizedGridItems} gradientColor="rgba(37, 99, 235, 0.3)" opacity={0.8} />
       </div>
 
       <div className="container relative mx-auto px-4 z-10">
         <div className="w-full max-w-[90%] sm:max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">
-          {/* Simplified premium card with staggered animations */}
           <motion.div
             variants={containerVariants}
             initial="hidden"
@@ -133,7 +133,6 @@ export default function EnhancedCallToAction() {
               </motion.p>
             </div>
 
-            {/* Simplified CTA button */}
             <motion.div variants={itemVariants} className="flex justify-center">
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="w-full max-w-md">
                 <Button
@@ -141,14 +140,12 @@ export default function EnhancedCallToAction() {
                   className="relative overflow-hidden group bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base md:text-lg px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-6 h-auto w-full shadow-lg shadow-blue-500/20 rounded-lg sm:rounded-xl"
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    Finalize Your Solar Solution
-                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
+                    Schedule Your installation                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Button>
               </motion.div>
             </motion.div>
 
-            {/* Simplified urgency note */}
             <motion.p
               variants={itemVariants}
               className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-slate-500 font-light"
@@ -159,6 +156,9 @@ export default function EnhancedCallToAction() {
         </div>
       </div>
     </motion.section>
-  )
-}
+  );
+});
 
+EnhancedCallToActionComponent.displayName = "EnhancedCallToAction"; // Set display name for React.memo
+
+export default EnhancedCallToActionComponent;

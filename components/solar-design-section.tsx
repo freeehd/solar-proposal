@@ -67,15 +67,22 @@ export default function SolarDesignSection({
   const containerRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef<HTMLElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
+  const techSectionRef = useRef<HTMLDivElement>(null)
 
-  // Use Framer Motion's useInView hook
+  // Use Framer Motion's useInView hook for main section and tech section
   const isInView = useInView(sectionRef, {
     once: true, // Only trigger once
-    amount: 0.1, // Trigger when just 10% of the section is visible (more sensitive)
+    amount: 0.3, // Require 30% of the section to be visible (more reliable)
+  })
+
+  const isTechSectionInView = useInView(techSectionRef, {
+    once: true,
+    amount: 0.3,
   })
 
   // Track if animation sequence has started
   const [hasStarted, setHasStarted] = useState(false)
+  const [techSectionVisible, setTechSectionVisible] = useState(false)
 
   // State for tracking which icons are being charged
   const [chargingStates, setChargingStates] = useState({
@@ -100,26 +107,39 @@ export default function SolarDesignSection({
   // Start animation sequence when section comes into view
   useEffect(() => {
     if (isInView && !hasStarted) {
-      // Add a small delay to ensure all components are properly mounted
+      // Add a delay to ensure the section is fully visible before starting animations
       const timer = setTimeout(() => {
+        console.log("Section in view, starting animations")
         setHasStarted(true)
-      }, 500)
+      }, 800) // Longer delay to ensure section is properly visible
 
       return () => clearTimeout(timer)
     }
   }, [isInView, hasStarted])
 
+  // Handle tech section visibility
+  useEffect(() => {
+    if (isTechSectionInView && !techSectionVisible) {
+      const timer = setTimeout(() => {
+        setTechSectionVisible(true)
+      }, 400)
+
+      return () => clearTimeout(timer)
+    }
+  }, [isTechSectionInView, techSectionVisible])
+
   // Add a useEffect to force activation on mobile after a delay
   useEffect(() => {
-    // Force activation on mobile/tablet after a short delay if not already activated
+    // Only use this fallback if the section hasn't started animating after a longer period
     const timer = setTimeout(() => {
-      if (!hasStarted) {
+      if (!hasStarted && !isInView) {
+        console.log("Fallback animation trigger activated")
         setHasStarted(true)
       }
-    }, 1500) // 1.5 second fallback
+    }, 3000) // Longer fallback delay (3 seconds)
 
     return () => clearTimeout(timer)
-  }, [hasStarted])
+  }, [hasStarted, isInView])
 
   // Trigger text reveal after icon charging
   useEffect(() => {
@@ -158,9 +178,16 @@ export default function SolarDesignSection({
   return (
     <section
       ref={sectionRef}
-      className="relative py-16 sm:py-20 md:py-24 bg-white min-h-[50vh]"
-      style={{ contain: "paint" }}
+      className="relative py-16 sm:py-20 md:py-24 bg-white min-h-[80vh]" // Increased min-height
+      style={{
+        contain: "paint",
+        visibility: "visible", // Ensure visibility
+        display: "block", // Ensure proper display
+      }}
     >
+      {/* Add a debug indicator to help troubleshoot visibility issues (can be removed in production) */}
+      
+
       {/* Main container */}
       <div className="container relative mx-auto px-4 sm:px-6" ref={containerRef}>
         {/* Content layer */}
@@ -226,8 +253,8 @@ export default function SolarDesignSection({
             ref={cardRef}
           >
             <CardContent className="p-1 xs:p-2 sm:p-4 md:p-6 lg:p-10 relative">
-              {/* Render beams based on current progress */}
-              {hasStarted && (
+              {/* Render beams based on current progress and visibility */}
+              {hasStarted && isInView && (
                 <div className="absolute inset-0 overflow-visible" style={{ zIndex: 10 }}>
                   <AnimatedBeam
                     containerRef={cardRef}
@@ -315,10 +342,16 @@ export default function SolarDesignSection({
                   <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-1 xs:gap-x-2 sm:gap-x-4 md:gap-x-6 lg:gap-x-10 gap-y-3 xs:gap-y-4 sm:gap-y-8 md:gap-y-10 w-full justify-items-center">
                     {/* System Size */}
                     <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <div
+                      <motion.div
                         ref={icon1Ref}
                         id="icon1"
                         className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{
+                          opacity: isInView ? 1 : 0,
+                          scale: isInView ? 1 : 0.8,
+                        }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
                       >
                         <PremiumIcon
                           className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
@@ -328,7 +361,7 @@ export default function SolarDesignSection({
                         >
                           <BarChart2 className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-indigo-dye-600" />
                         </PremiumIcon>
-                      </div>
+                      </motion.div>
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{
@@ -367,10 +400,16 @@ export default function SolarDesignSection({
 
                     {/* Solar Panels */}
                     <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <div
+                      <motion.div
                         ref={icon2Ref}
                         id="icon2"
                         className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{
+                          opacity: isInView ? 1 : 0,
+                          scale: isInView ? 1 : 0.8,
+                        }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
                       >
                         <PremiumIcon
                           className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
@@ -380,7 +419,7 @@ export default function SolarDesignSection({
                         >
                           <Sun className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-amber-500" />
                         </PremiumIcon>
-                      </div>
+                      </motion.div>
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{
@@ -419,10 +458,16 @@ export default function SolarDesignSection({
 
                     {/* Battery Capacity - NEW */}
                     <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <div
+                      <motion.div
                         ref={batteryCapacityRef}
                         id="batteryCapacity"
                         className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{
+                          opacity: isInView ? 1 : 0,
+                          scale: isInView ? 1 : 0.8,
+                        }}
+                        transition={{ duration: 0.5, delay: 0.4 }}
                       >
                         <PremiumIcon
                           className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
@@ -432,7 +477,7 @@ export default function SolarDesignSection({
                         >
                           <Battery className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-green-600" />
                         </PremiumIcon>
-                      </div>
+                      </motion.div>
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{
@@ -471,10 +516,16 @@ export default function SolarDesignSection({
 
                     {/* Annual Consumption */}
                     <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <div
+                      <motion.div
                         ref={icon3Ref}
                         id="icon3"
                         className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{
+                          opacity: isInView ? 1 : 0,
+                          scale: isInView ? 1 : 0.8,
+                        }}
+                        transition={{ duration: 0.5, delay: 0.5 }}
                       >
                         <PremiumIcon
                           className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
@@ -484,7 +535,7 @@ export default function SolarDesignSection({
                         >
                           <Home className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-indigo-dye-600" />
                         </PremiumIcon>
-                      </div>
+                      </motion.div>
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{
@@ -523,10 +574,16 @@ export default function SolarDesignSection({
 
                     {/* Annual Production */}
                     <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <div
+                      <motion.div
                         ref={icon4Ref}
                         id="icon4"
                         className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{
+                          opacity: isInView ? 1 : 0,
+                          scale: isInView ? 1 : 0.8,
+                        }}
+                        transition={{ duration: 0.5, delay: 0.6 }}
                       >
                         <PremiumIcon
                           className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
@@ -536,7 +593,7 @@ export default function SolarDesignSection({
                         >
                           <Zap className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-indigo-dye-600" />
                         </PremiumIcon>
-                      </div>
+                      </motion.div>
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{
@@ -576,18 +633,24 @@ export default function SolarDesignSection({
                 </div>
 
                 {/* Circle Progress */}
-                <div className="flex flex-col items-center justify-center mt-6 md:mt-0">
-                  <div
+                <div className="flex flex-col items-center justify-center mt-6 pt-[5px] md:mt-0">
+                  <motion.div
                     ref={circleRef}
                     id="circle"
                     className="h-[100px] xs:h-[120px] sm:h-[150px] md:h-[180px] lg:h-[208px] flex items-center justify-center"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{
+                      opacity: isInView ? 1 : 0,
+                      scale: isInView ? 1 : 0.8,
+                    }}
+                    transition={{ duration: 0.5, delay: 0.7 }}
                   >
                     <CircularProgress
                       percentage={energyOffset}
                       isCharging={chargingStates.circle}
                       onChargingComplete={() => handleChargingComplete("circle")}
                     />
-                  </div>
+                  </motion.div>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{
@@ -633,7 +696,7 @@ export default function SolarDesignSection({
         </div>
 
         {/* Technology section */}
-        <motion.div className="mt-8 mb-8 relative isolate">
+        <motion.div className="mt-8 mb-8 relative isolate" ref={techSectionRef}>
           <Card className="bg-white border border-indigo-dye/20 shadow-xl overflow-hidden rounded-xl">
             <CardHeader className="bg-white border-b border-indigo-dye/10 py-3 xs:py-4 sm:py-6">
               <CardTitle className="text-xl xs:text-2xl font-bold text-center text-indigo-dye-600">
@@ -644,8 +707,8 @@ export default function SolarDesignSection({
               <motion.p
                 className="text-center mb-4 xs:mb-6 sm:mb-8 md:mb-10 text-smoky-black/80 max-w-3xl mx-auto text-sm xs:text-base sm:text-lg"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.7, duration: 0.5 }}
+                animate={{ opacity: isTechSectionInView ? 1 : 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
               >
                 Our premium solar panels utilize cutting-edge photovoltaic technology to maximize energy conversion
                 efficiency. Engineered with premium materials, they deliver exceptional performance in all weather
@@ -655,15 +718,21 @@ export default function SolarDesignSection({
                 <motion.div
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.8, duration: 0.5 }}
+                  animate={{ opacity: techSectionVisible ? 1 : 0, y: techSectionVisible ? 0 : 20 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
                 >
-                  <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
-                    <BarChart2
-                      className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
-                      strokeWidth={2}
-                    />
-                  </PremiumIcon>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: techSectionVisible ? 1 : 0, scale: techSectionVisible ? 1 : 0.8 }}
+                    transition={{ duration: 0.5, delay: 0.5 }}
+                  >
+                    <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
+                      <BarChart2
+                        className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
+                        strokeWidth={2}
+                      />
+                    </PremiumIcon>
+                  </motion.div>
                   <p className="font-semibold text-smoky-black/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
                     Elite Efficiency
                   </p>
@@ -678,15 +747,21 @@ export default function SolarDesignSection({
                 <motion.div
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.9, duration: 0.5 }}
+                  animate={{ opacity: techSectionVisible ? 1 : 0, y: techSectionVisible ? 0 : 20 }}
+                  transition={{ delay: 0.5, duration: 0.5 }}
                 >
-                  <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
-                    <Thermometer
-                      className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
-                      strokeWidth={2}
-                    />
-                  </PremiumIcon>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: techSectionVisible ? 1 : 0, scale: techSectionVisible ? 1 : 0.8 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                  >
+                    <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
+                      <Thermometer
+                        className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
+                        strokeWidth={2}
+                      />
+                    </PremiumIcon>
+                  </motion.div>
                   <p className="font-semibold text-smoky-black/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
                     Temperature Resilience
                   </p>
@@ -699,15 +774,21 @@ export default function SolarDesignSection({
                 <motion.div
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1, duration: 0.5 }}
+                  animate={{ opacity: techSectionVisible ? 1 : 0, y: techSectionVisible ? 0 : 20 }}
+                  transition={{ delay: 0.6, duration: 0.5 }}
                 >
-                  <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
-                    <Shield
-                      className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
-                      strokeWidth={2}
-                    />
-                  </PremiumIcon>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: techSectionVisible ? 1 : 0, scale: techSectionVisible ? 1 : 0.8 }}
+                    transition={{ duration: 0.5, delay: 0.7 }}
+                  >
+                    <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
+                      <Shield
+                        className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
+                        strokeWidth={2}
+                      />
+                    </PremiumIcon>
+                  </motion.div>
                   <p className="font-semibold text-smoky-black/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
                     Premium Warranty
                   </p>

@@ -1,7 +1,7 @@
 "use client"
 
-import { motion, useInView, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { useRef, useState, useEffect } from "react"
+import { motion, useInView, useScroll, useTransform } from "framer-motion"
+import { useRef, useState, useEffect, useCallback } from "react" // Added useCallback
 import dynamic from "next/dynamic"
 import { Card } from "@/components/ui/card"
 import { ReasonItem } from "./ui/reason-item"
@@ -12,7 +12,6 @@ const MetalicPaint = dynamic(() => import("@/components/ui/metallic"), {
   ssr: false,
 })
 
-// Data for reasons to choose Sun Studios
 const reasons = [
   {
     text: "5 stars rating Better Business Bureau",
@@ -39,17 +38,15 @@ const reasons = [
 export default function WhySunStudiosImproved() {
   const [completedAnimations, setCompletedAnimations] = useState(new Set<number>())
   const containerRef = useRef(null)
-  const sectionRef = useRef(null) // Separate ref for the entire section
+  const sectionRef = useRef(null)
   const titleRef = useRef(null)
 
-  // Media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
-  // Use a more conservative threshold to ensure section is actually visible
   const isSectionInView = useInView(sectionRef, {
-    once: true, // Only trigger once
-    amount: 0.3, // Require 30% of the section to be visible
+    once: true,
+    amount: 0.3,
   })
 
   const isTitleInView = useInView(titleRef, { once: true, amount: 0.5 })
@@ -64,19 +61,14 @@ export default function WhySunStudiosImproved() {
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.95, 1, 1, 0.95])
 
-  // Simple timer-based animation sequence - only starts when section is in view
   useEffect(() => {
-    // Only start animations if section is in view and we haven't started them yet
     if (isSectionInView && !hasStartedAnimations.current) {
       hasStartedAnimations.current = true
 
-      // Clear any existing timers
       timersRef.current.forEach((timer) => clearTimeout(timer))
       timersRef.current = []
 
-      // Set up a timer for each animation with fixed delays
       reasons.forEach((_, index) => {
-        // First item starts at 500ms, then each subsequent item at 1.5s intervals
         const delay = 500 + index * 1500
 
         const timer = setTimeout(() => {
@@ -92,19 +84,18 @@ export default function WhySunStudiosImproved() {
     }
 
     return () => {
-      // Clean up timers on unmount
       timersRef.current.forEach((timer) => clearTimeout(timer))
     }
-  }, [isSectionInView]) // Only depend on isSectionInView
+  }, [isSectionInView])
 
-  // This is just a callback for the star animation, but we don't rely on it for sequence progression
-  const handleStarComplete = (index: number) => {
+  // Optimized handleStarComplete using useCallback and direct state update
+  const handleStarComplete = useCallback((index: number) => {
     setCompletedAnimations((prev) => {
       const newSet = new Set(prev)
       newSet.add(index)
       return newSet
     })
-  }
+  }, []); // useCallback with empty dependency array as it doesn't depend on props or state that changes
 
   return (
     <section ref={sectionRef} className="relative min-h-screen py-16 sm:py-20 md:py-32 overflow-hidden bg-white">
@@ -113,7 +104,6 @@ export default function WhySunStudiosImproved() {
       <motion.div className="container mx-auto px-4 relative z-10" style={{ opacity, scale }}>
         <Card className="p-5 sm:p-8 md:p-12 mb-8 md:mb-12 bg-white/90 backdrop-blur-sm border-[#125170]/10 shadow-xl">
           <div className="flex flex-col lg:flex-row items-start justify-between max-w-full mx-auto">
-            {/* Left column with heading and description - full width on mobile, half on desktop */}
             <div className="w-full lg:w-1/2 mb-10 sm:mb-12 lg:mb-0 pr-0 lg:pr-10">
               <div className={`mb-6 sm:mb-8 md:mb-12 max-w-4xl ${!isMobile ? "sticky top-32" : ""}`} ref={titleRef}>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
@@ -151,29 +141,24 @@ export default function WhySunStudiosImproved() {
               </div>
             </div>
 
-            {/* Right column with reasons list - full width on mobile, half on desktop */}
             <div className="w-full lg:w-1/2 pl-0 lg:pl-2" ref={containerRef}>
-              {/* Only render the list when section is in view */}
               {isSectionInView && (
                 <ul className="space-y-4 sm:space-y-6">
-                  <AnimatePresence>
-                    {reasons.map((reason, index) => {
-                      // Simple logic: an item can animate if it's the first one or the previous one is completed
-                      const previousCompleted = index === 0 || completedAnimations.has(index - 1)
-                      const hasCompleted = completedAnimations.has(index)
+                  {reasons.map((reason, index) => { // Removed AnimatePresence here
+                    const previousCompleted = index === 0 || completedAnimations.has(index - 1)
+                    const hasCompleted = completedAnimations.has(index)
 
-                      return (
-                        <ReasonItem
-                          key={index}
-                          reason={reason}
-                          index={index}
-                          previousCompleted={previousCompleted}
-                          hasCompleted={hasCompleted}
-                          onStarComplete={() => handleStarComplete(index)}
-                        />
-                      )
-                    })}
-                  </AnimatePresence>
+                    return (
+                      <ReasonItem
+                        key={index}
+                        reason={reason}
+                        index={index}
+                        previousCompleted={previousCompleted}
+                        hasCompleted={hasCompleted}
+                        onStarComplete={() => handleStarComplete(index)} // Using useCallback here
+                      />
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -181,7 +166,6 @@ export default function WhySunStudiosImproved() {
         </Card>
       </motion.div>
 
-      {/* Enhanced subtle background gradient - responsive size */}
       <div className="absolute top-0 right-0 w-full h-full overflow-hidden -z-10 opacity-40 pointer-events-none">
         <motion.div
           className="absolute top-[5%] right-[5%] w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] md:w-[800px] md:h-[800px] rounded-full"
@@ -203,4 +187,3 @@ export default function WhySunStudiosImproved() {
     </section>
   )
 }
-

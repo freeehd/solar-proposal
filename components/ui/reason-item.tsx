@@ -1,11 +1,10 @@
 "use client"
 
-import { memo, useRef, useState, useEffect, useMemo } from "react"
+import { memo, useRef, useState, useEffect, useMemo, useCallback } from "react"
 import { motion, useInView, AnimatePresence, useAnimate } from "framer-motion"
 import { ChevronRight } from "lucide-react"
 import { StarAnimation } from "./star-animation"
 
-// Extracted types for better organization and reusability
 interface Reason {
   text: string
   description: string
@@ -20,7 +19,6 @@ interface ReasonItemProps {
   prefersReducedMotion?: boolean
 }
 
-// Animation variants with transform optimizations for better performance
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
@@ -53,54 +51,37 @@ export const ReasonItem = memo(function ReasonItem({
   prefersReducedMotion = false,
 }: ReasonItemProps) {
   const itemRef = useRef<HTMLLIElement>(null)
-  const [animateRef, animate] = useAnimate()
+  const [, animate] = useAnimate() // Removed unused `animateRef`
 
-  // Use a more efficient inView detection with margin to preload
   const isInView = useInView(itemRef, {
     once: true,
     amount: 0.3,
-    margin: "0px 0px 100px 0px", // Start preparing animation before fully in view
+    margin: "0px 0px 100px 0px",
   })
 
-  // Memoize state to prevent unnecessary re-renders
-  const [state, setState] = useState({
-    shouldAnimate: false,
-    isHovered: false,
-  })
+  const [isHovered, setIsHovered] = useState(false) // Simplified to only track hover
 
-  // Destructure for cleaner code
-  const { shouldAnimate, isHovered } = state
+  const [shouldAnimate, setShouldAnimate] = useState(false); // Keep shouldAnimate with simplified logic
 
-  // Memoized handlers with object method syntax
-  const handlers = useMemo(
-    () => ({
-      mouseEnter: () => setState((prev) => ({ ...prev, isHovered: true })),
-      mouseLeave: () => setState((prev) => ({ ...prev, isHovered: false })),
-    }),
-    [],
-  )
 
-  // Optimize animation trigger with cleanup
+  const handleMouseEnter = useCallback(() => setIsHovered(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovered(false), []);
+
+
   useEffect(() => {
-    if (!previousCompleted || !isInView || shouldAnimate) return
+    if (!previousCompleted || !isInView || shouldAnimate) return;
 
-    // Use requestAnimationFrame for better timing with browser paint cycle
-    const animationId = requestAnimationFrame(() => {
-      const timer = setTimeout(() => {
-        setState((prev) => ({ ...prev, shouldAnimate: true }))
-      }, 150)
+    const timer = setTimeout(() => {
+      setShouldAnimate(true);
+    }, 150); // Simple setTimeout for delay
 
-      return () => clearTimeout(timer)
-    })
+    return () => clearTimeout(timer);
+  }, [previousCompleted, isInView, shouldAnimate]);
 
-    return () => cancelAnimationFrame(animationId)
-  }, [previousCompleted, isInView, shouldAnimate])
 
-  // Precompute animation states
   const shouldShowAnimation = shouldAnimate && previousCompleted
   const isContentVisible = prefersReducedMotion || hasCompleted
 
-  // Memoize animation states to prevent recalculation
   const animationState = useMemo(
     () => ({
       container: shouldShowAnimation ? "visible" : "hidden",
@@ -113,21 +94,20 @@ export const ReasonItem = memo(function ReasonItem({
     <motion.li
       ref={itemRef}
       className="flex items-start gap-4 md:gap-6 group relative"
-      style={{ willChange: "transform, opacity" }}
+      style={{ willChange: "opacity, transform" }} // Reordered for clarity, kept both
       variants={containerVariants}
       initial="hidden"
       animate={animationState.container}
-      onMouseEnter={handlers.mouseEnter}
-      onMouseLeave={handlers.mouseLeave}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       data-state={hasCompleted ? "completed" : "pending"}
       aria-busy={!hasCompleted}
     >
-      {/* Star animation container with hardware acceleration */}
       <div
         className="relative flex-shrink-0 w-[50px] h-[50px] flex items-center justify-center premium-icon-wrapper overflow-hidden"
         style={{
           willChange: "transform",
-          transform: "translateZ(0)", // Force GPU acceleration
+          transform: "translateZ(0)",
           backfaceVisibility: "hidden",
         }}
       >
@@ -143,21 +123,17 @@ export const ReasonItem = memo(function ReasonItem({
                 ease: [0.76, 0, 0.24, 1],
               }}
             />
-
             <StarAnimation
               delay={0}
               onAnimationComplete={onStarComplete}
-              key={`star-${index}-${previousCompleted}`}
               inView={true}
             />
           </>
         )}
       </div>
 
-      {/* Content container with optimized animations */}
-      <div className="flex-grow overflow-hidden" ref={animateRef}>
+      <div className="flex-grow overflow-hidden"> {/* Removed `ref={animateRef}` as it's unused */}
         <div className="relative py-2">
-          {/* Title with optimized box reveal */}
           <div className="overflow-hidden relative mb-1">
             {shouldShowAnimation && (
               <motion.div
@@ -194,7 +170,6 @@ export const ReasonItem = memo(function ReasonItem({
             </motion.div>
           </div>
 
-          {/* Description with optimized box reveal */}
           <div className="overflow-hidden pl-6 relative">
             {shouldShowAnimation && (
               <motion.div
@@ -222,7 +197,6 @@ export const ReasonItem = memo(function ReasonItem({
             </motion.p>
           </div>
 
-          {/* Optimized hover effects with AnimatePresence for proper cleanup */}
           <AnimatePresence>
             {isHovered && isContentVisible && (
               <motion.div
@@ -241,7 +215,6 @@ export const ReasonItem = memo(function ReasonItem({
             )}
           </AnimatePresence>
 
-          {/* Optimized glow effect with reduced opacity for better performance */}
           <AnimatePresence mode="wait">
             {isHovered && isContentVisible && (
               <motion.div
@@ -258,4 +231,3 @@ export const ReasonItem = memo(function ReasonItem({
     </motion.li>
   )
 })
-
