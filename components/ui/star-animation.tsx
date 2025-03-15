@@ -37,20 +37,20 @@ const starGeometry = (() => {
   const outerRadius = 0.6
   const innerRadius = 0.22
 
-  const points = [];
+  const points = []
   for (let i = 0; i <= numPoints * 2; i++) {
-    const angle = (i * Math.PI) / numPoints;
-    const radius = i % 2 === 0 ? outerRadius : innerRadius;
-    const x = Math.sin(angle) * radius;
-    const y = Math.cos(angle) * radius;
-    points.push([x, y]);
+    const angle = (i * Math.PI) / numPoints
+    const radius = i % 2 === 0 ? outerRadius : innerRadius
+    const x = Math.sin(angle) * radius
+    const y = Math.cos(angle) * radius
+    points.push([x, y])
   }
 
-  shape.moveTo(points[0][0], points[0][1]);
+  shape.moveTo(points[0][0], points[0][1])
   for (let i = 1; i < points.length; i++) {
-    shape.lineTo(points[i][0], points[i][1]);
+    shape.lineTo(points[i][0], points[i][1])
   }
-  shape.closePath();
+  shape.closePath()
 
   return new THREE.ExtrudeGeometry(shape, {
     depth: 0.1,
@@ -58,14 +58,12 @@ const starGeometry = (() => {
     bevelThickness: 0.05,
     bevelSize: 0.05,
     bevelSegments: 10,
-  });
-})();
+  })
+})()
 
-
-const hoverColor = new THREE.Color("#ffd700");
-const defaultColor = new THREE.Color("#daa520");
-const accentColor = new THREE.Color("#f8f0e3");
-
+const hoverColor = new THREE.Color("#ffd700")
+const defaultColor = new THREE.Color("#daa520")
+const accentColor = new THREE.Color("#f8f0e3")
 
 const StarMesh = React.memo(
   ({
@@ -77,8 +75,8 @@ const StarMesh = React.memo(
     quality,
     inView = true,
   }: StarMeshProps) => {
-    const meshRef = useRef<Mesh>(null);
-    const materialRef = useRef<CustomMaterial>(null);
+    const meshRef = useRef<Mesh>(null)
+    const materialRef = useRef<CustomMaterial>(null)
 
     const animationState = useRef({
       targetRotation: { x: 0, y: 0 },
@@ -87,169 +85,175 @@ const StarMesh = React.memo(
       animationCompleted: false,
       hasStarted: false,
       lastUpdateTime: 0,
-    });
+    })
 
-    const FINAL_SCALE = 1.0;
+    const FINAL_SCALE = 1.0
 
     useEffect(() => {
-      if (!inView || animationState.current.animationCompleted) return;
+      if (!inView || animationState.current.animationCompleted) return
 
-      animationState.current.hasStarted = true;
+      animationState.current.hasStarted = true
 
       const timer = setTimeout(() => {
         if (!animationState.current.animationCompleted) {
-          animationState.current.animationCompleted = true;
-          onAnimationComplete?.();
+          animationState.current.animationCompleted = true
+          onAnimationComplete?.()
         }
-      }, 1500);
+      }, 1500)
 
-      return () => clearTimeout(timer);
-    }, [inView, onAnimationComplete]);
-
+      return () => clearTimeout(timer)
+    }, [inView, onAnimationComplete])
 
     useFrame((state, delta) => {
-      if (!meshRef.current || !materialRef.current) return;
-      if (!inView && !animationState.current.hasStarted) return;
+      if (!meshRef.current || !materialRef.current) return
+      if (!inView && !animationState.current.hasStarted) return
 
-      const mesh = meshRef.current;
-      const material = materialRef.current;
-      const anim = animationState.current;
+      const mesh = meshRef.current
+      const material = materialRef.current
+      const anim = animationState.current
 
       if (prefersReducedMotion) {
         if (!anim.animationCompleted) {
-          mesh.scale.setScalar(FINAL_SCALE);
-          mesh.position.y = 0;
-          mesh.rotation.set(0, 0, 0);
+          mesh.scale.setScalar(FINAL_SCALE)
+          mesh.position.y = 0
+          mesh.rotation.set(0, 0, 0)
           if (!hasCompletedEntrance) {
-            anim.animationCompleted = true;
-            onAnimationComplete?.();
+            anim.animationCompleted = true
+            onAnimationComplete?.()
           }
         }
-        return;
+        return
       }
 
       if (anim.startTime === null) {
-        anim.startTime = state.clock.elapsedTime + delay;
-        mesh.scale.set(0, 0, 0);
-        return;
+        anim.startTime = state.clock.elapsedTime + delay
+        mesh.scale.set(0, 0, 0)
+        return
       }
 
-      const timeSinceStart = state.clock.elapsedTime - anim.startTime;
-      const entryDuration = 1.5;
+      const timeSinceStart = state.clock.elapsedTime - anim.startTime
+      const entryDuration = 1.0 // Reduced from 1.5 to make the animation faster
 
       if (timeSinceStart < 0) {
-        mesh.scale.set(0, 0, 0);
-        mesh.position.y = 0;
-        return;
+        mesh.scale.set(0, 0, 0)
+        mesh.position.y = 0
+        return
       }
 
       if (timeSinceStart < entryDuration) {
-        const progress = timeSinceStart / entryDuration;
-        const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-        const easeOutQuint = 1 - Math.pow(1 - progress, 5);
+        const progress = timeSinceStart / entryDuration
+        const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+        const easeOutQuint = 1 - Math.pow(1 - progress, 5)
 
-        let scaleProgress = 0;
+        let scaleProgress = 0
         if (progress < 0.95) {
-          scaleProgress = easeOutCubic * FINAL_SCALE;
+          scaleProgress = easeOutCubic * FINAL_SCALE
         } else {
-          const finalProgress = (progress - 0.95) / 0.05;
-          scaleProgress = THREE.MathUtils.lerp(easeOutCubic * FINAL_SCALE, FINAL_SCALE, finalProgress);
+          const finalProgress = (progress - 0.95) / 0.05
+          scaleProgress = THREE.MathUtils.lerp(easeOutCubic * FINAL_SCALE, FINAL_SCALE, finalProgress)
         }
-        mesh.scale.setScalar(scaleProgress);
+        mesh.scale.setScalar(scaleProgress)
 
+        // Modified rotation animation to be more subtle
+        const spinRotations = 1 // Reduced from 2
+        const spinEasing = 1 - Math.pow(1 - progress, 4)
+        mesh.rotation.y = (1 - spinEasing) * Math.PI * 2 * spinRotations
 
-        const spinRotations = 2;
-        const spinEasing = 1 - Math.pow(1 - progress, 4);
-        mesh.rotation.y = (1 - spinEasing) * Math.PI * 2 * spinRotations;
-        mesh.rotation.x = (1 - easeOutQuint) * Math.PI * 0.25;
+        // Add a slight upward tilt at the start that levels out
+        mesh.rotation.x = (1 - easeOutQuint) * Math.PI * 0.15 // Reduced from 0.25
 
+        // Add a small bounce effect
+        if (progress > 0.7 && progress < 0.9) {
+          const bounceProgress = (progress - 0.7) / 0.2
+          const bounce = Math.sin(bounceProgress * Math.PI) * 0.1
+          mesh.position.y = bounce
+        } else if (progress >= 0.9) {
+          mesh.position.y = 0
+        }
 
         if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
-          const currentColor = (material as THREE.MeshStandardMaterial).color;
+          const currentColor = (material as THREE.MeshStandardMaterial).color
           if (progress < 0.7) {
-            currentColor.copy(accentColor).lerp(defaultColor, easeOutCubic);
+            currentColor.copy(accentColor).lerp(defaultColor, easeOutCubic)
           } else {
-            currentColor.copy(defaultColor);
+            currentColor.copy(defaultColor)
           }
           if (material.emissiveIntensity !== undefined) {
-            material.emissiveIntensity = Math.max(0, 0.5 - progress * 0.5);
+            material.emissiveIntensity = Math.max(0, 0.5 - progress * 0.5)
           }
         }
 
         if (material.transmission !== undefined) {
-          material.transmission = THREE.MathUtils.lerp(0.7, 1, easeOutCubic);
+          material.transmission = THREE.MathUtils.lerp(0.7, 1, easeOutCubic)
         }
 
         if (material.distortion !== undefined) {
-          material.distortion = THREE.MathUtils.lerp(0.6, 0.4, easeOutCubic);
+          material.distortion = THREE.MathUtils.lerp(0.6, 0.4, easeOutCubic)
         }
 
         if (progress > 0.95 && !hasCompletedEntrance && !anim.animationCompleted) {
-          mesh.scale.setScalar(FINAL_SCALE);
-          anim.animationCompleted = true;
-          onAnimationComplete?.();
+          mesh.scale.setScalar(FINAL_SCALE)
+          anim.animationCompleted = true
+          onAnimationComplete?.()
         }
       } else {
         if (Math.abs(mesh.scale.x - FINAL_SCALE) > 0.001) {
-          mesh.scale.setScalar(FINAL_SCALE);
+          mesh.scale.setScalar(FINAL_SCALE)
         }
 
-        const now = state.clock.elapsedTime;
-        const updateInterval = 0.1;
+        const now = state.clock.elapsedTime
+        const updateInterval = 0.1
 
         if (now - anim.lastUpdateTime > updateInterval) {
-          anim.lastUpdateTime = now;
+          anim.lastUpdateTime = now
 
           if (isHovered) {
-            anim.targetRotation.y = Math.sin(now * 1.2) * 0.15;
-            anim.targetRotation.x = Math.cos(now * 1.0) * 0.1;
+            anim.targetRotation.y = Math.sin(now * 1.2) * 0.15
+            anim.targetRotation.x = Math.cos(now * 1.0) * 0.1
           } else {
-            anim.targetRotation.y = Math.sin(now * 0.3) * 0.03;
-            anim.targetRotation.x = Math.cos(now * 0.4) * 0.02;
+            anim.targetRotation.y = Math.sin(now * 0.3) * 0.03
+            anim.targetRotation.x = Math.cos(now * 0.4) * 0.02
           }
 
           if (isHovered) {
             if (material.transmission !== undefined && Math.abs(material.transmission - 0.85) > 0.005) {
-              material.transmission = THREE.MathUtils.lerp(material.transmission, 0.85, 0.1);
+              material.transmission = THREE.MathUtils.lerp(material.transmission, 0.85, 0.1)
             }
             if (material.distortion !== undefined && Math.abs(material.distortion - 0.5) > 0.005) {
-              material.distortion = THREE.MathUtils.lerp(material.distortion, 0.5, 0.1);
+              material.distortion = THREE.MathUtils.lerp(material.distortion, 0.5, 0.1)
             }
           } else {
             if (material.transmission !== undefined && Math.abs(material.transmission - 1) > 0.005) {
-              material.transmission = THREE.MathUtils.lerp(material.transmission, 1, 0.1);
+              material.transmission = THREE.MathUtils.lerp(material.transmission, 1, 0.1)
             }
             if (material.distortion !== undefined && Math.abs(material.distortion - 0.4) > 0.005) {
-              material.distortion = THREE.MathUtils.lerp(material.distortion, 0.4, 0.1);
+              material.distortion = THREE.MathUtils.lerp(material.distortion, 0.4, 0.1)
             }
           }
 
-
           if ((material as THREE.MeshStandardMaterial).color instanceof THREE.Color) {
-            const targetColor = isHovered ? hoverColor : defaultColor;
-            const currentColor = (material as THREE.MeshStandardMaterial).color;
+            const targetColor = isHovered ? hoverColor : defaultColor
+            const currentColor = (material as THREE.MeshStandardMaterial).color
             if (!currentColor.equals(targetColor)) {
-              currentColor.lerp(targetColor, 0.1);
+              currentColor.lerp(targetColor, 0.1)
             }
           }
         }
 
-
-        const rotXDiff = Math.abs(anim.currentRotation.x - anim.targetRotation.x);
-        const rotYDiff = Math.abs(anim.currentRotation.y - anim.targetRotation.y);
+        const rotXDiff = Math.abs(anim.currentRotation.x - anim.targetRotation.x)
+        const rotYDiff = Math.abs(anim.currentRotation.y - anim.targetRotation.y)
 
         if (rotXDiff > 0.0005) {
-          anim.currentRotation.x = THREE.MathUtils.lerp(anim.currentRotation.x, anim.targetRotation.x, delta * 2.5);
-          mesh.rotation.x = anim.currentRotation.x;
+          anim.currentRotation.x = THREE.MathUtils.lerp(anim.currentRotation.x, anim.targetRotation.x, delta * 2.5)
+          mesh.rotation.x = anim.currentRotation.x
         }
 
         if (rotYDiff > 0.0005) {
-          anim.currentRotation.y = THREE.MathUtils.lerp(anim.currentRotation.y, anim.targetRotation.y, delta * 2.5);
-          mesh.rotation.y = anim.currentRotation.y;
+          anim.currentRotation.y = THREE.MathUtils.lerp(anim.currentRotation.y, anim.targetRotation.y, delta * 2.5)
+          mesh.rotation.y = anim.currentRotation.y
         }
       }
-    });
-
+    })
 
     const materialProps = useMemo(
       () => ({
@@ -273,79 +277,75 @@ const StarMesh = React.memo(
         toneMapped: false,
       }),
       [quality],
-    );
+    )
 
     return (
       <mesh ref={meshRef} geometry={starGeometry}>
         <MeshTransmissionMaterial ref={materialRef} {...materialProps} />
       </mesh>
-    );
+    )
   },
-);
+)
 
-StarMesh.displayName = "StarMesh";
-
+StarMesh.displayName = "StarMesh"
 
 export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inView = true }: StarAnimationProps) => {
-  const hoverStateRef = useRef(false);
+  const hoverStateRef = useRef(false)
   const [state, setState] = useState({
     dpr: typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio) : 1,
     hasCompletedEntrance: false,
-  });
+  })
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const prefersReducedMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = useReducedMotion()
   const timerRefs = useRef<{
     hover: NodeJS.Timeout | null
     completion: NodeJS.Timeout | null
   }>({
     hover: null,
     completion: null,
-  });
+  })
 
-  const gpu = useDetectGPU();
+  const gpu = useDetectGPU()
   const quality = useMemo(() => {
-    return gpu.tier >= 2 ? "high" : "low";
-  }, [gpu.tier]);
-
+    return gpu.tier >= 2 ? "high" : "low"
+  }, [gpu.tier])
 
   const handleMouseEnter = useCallback(() => {
-    if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover);
+    if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover)
     timerRefs.current.hover = setTimeout(() => {
-      hoverStateRef.current = true;
-    }, 50);
-  }, []);
+      hoverStateRef.current = true
+    }, 50)
+  }, [])
 
   const handleMouseLeave = useCallback(() => {
-    if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover);
+    if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover)
     timerRefs.current.hover = setTimeout(() => {
-      hoverStateRef.current = false;
-    }, 50);
-  }, []);
-
+      hoverStateRef.current = false
+    }, 50)
+  }, [])
 
   useEffect(() => {
     if (inView && !state.hasCompletedEntrance) {
       timerRefs.current.completion = setTimeout(() => {
         if (!state.hasCompletedEntrance) {
-          setState((prev) => ({ ...prev, hasCompletedEntrance: true }));
-          onAnimationComplete?.();
+          setState((prev) => ({ ...prev, hasCompletedEntrance: true }))
+          onAnimationComplete?.()
         }
-      }, 2000);
+      }, 1500) // Reduced from 2000 to match the faster animation
     }
 
     return () => {
       Object.values(timerRefs.current).forEach((timer) => {
-        if (timer) clearTimeout(timer);
-      });
-    };
-  }, [inView, state.hasCompletedEntrance, onAnimationComplete]);
+        if (timer) clearTimeout(timer)
+      })
+    }
+  }, [inView, state.hasCompletedEntrance, onAnimationComplete])
 
   const handleComplete = useCallback(() => {
-    setState((prev) => ({ ...prev, hasCompletedEntrance: true }));
-    onAnimationComplete?.();
-  }, [onAnimationComplete]);
-
+    setState((prev) => ({ ...prev, hasCompletedEntrance: true }))
+    onAnimationComplete?.()
+  }, [onAnimationComplete])
 
   const canvasProps = useMemo(
     () => ({
@@ -364,11 +364,10 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
       },
     }),
     [state.dpr, inView],
-  );
-
+  )
 
   if (!inView && !state.hasCompletedEntrance) {
-    return null;
+    return null
   }
 
   return (
@@ -379,8 +378,8 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
         opacity: inView || state.hasCompletedEntrance ? 1 : 0,
       }}
       transition={{
-        duration: 0.3,
-        delay: inView ? delay : 0,
+        duration: 0.2, // Faster fade-in
+        delay: 0, // No delay since we're handling timing in the parent
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -392,18 +391,13 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
       }}
     >
       <Canvas {...canvasProps}>
-        <Float
-          speed={1.5}
-          floatIntensity={0.5}
-          rotationIntensity={0.5}
-          floatingRange={[-0.05, 0.05]}
-        >
+        <Float speed={1.5} floatIntensity={0.5} rotationIntensity={0.5} floatingRange={[-0.05, 0.05]}>
           <Center>
             <StarMesh
               isHovered={hoverStateRef.current}
               hasCompletedEntrance={state.hasCompletedEntrance}
               onAnimationComplete={handleComplete}
-              delay={delay}
+              delay={0} // No delay since we're handling timing in the parent
               prefersReducedMotion={!!prefersReducedMotion}
               quality={quality}
               inView={inView}
@@ -417,7 +411,6 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
         <Environment preset="apartment" background={false} />
       </Canvas>
 
-
       <div
         className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300"
         style={{
@@ -426,7 +419,8 @@ export const StarAnimation = React.memo(({ delay = 0, onAnimationComplete, inVie
         }}
       />
     </motion.div>
-  );
-});
+  )
+})
 
-StarAnimation.displayName = "StarAnimation";
+StarAnimation.displayName = "StarAnimation"
+

@@ -24,14 +24,16 @@ const containerVariants = {
   visible: { opacity: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
 }
 
-const revealVariants = {
-  hidden: { transform: "translateX(-100%)" },
-  visible: { transform: "translateX(100%)", transition: { duration: 0.5, ease: [0.76, 0, 0.24, 1] } },
-}
-
 const textVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.2 } },
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.4,
+      ease: "easeOut",
+    },
+  },
 }
 
 const chevronVariants = {
@@ -39,6 +41,26 @@ const chevronVariants = {
   visible: {
     scale: [0.5, 1.3, 1],
     transition: { duration: 0.4, times: [0, 0.6, 1] },
+  },
+}
+
+// New drop animation for the star wrapper
+const dropVariants = {
+  hidden: { y: -50, opacity: 0 },
+  visible: {
+    y: [null, 5],
+    opacity: 1,
+    transition: {
+      y: {
+        type: "spring",
+        stiffness: 300,
+        damping: 15,
+        mass: 1.2,
+        times: [0, 0.7, 1],
+      },
+      opacity: { duration: 0.2 },
+      duration: 0.6,
+    },
   },
 }
 
@@ -61,23 +83,20 @@ export const ReasonItem = memo(function ReasonItem({
 
   const [isHovered, setIsHovered] = useState(false) // Simplified to only track hover
 
-  const [shouldAnimate, setShouldAnimate] = useState(false); // Keep shouldAnimate with simplified logic
+  const [shouldAnimate, setShouldAnimate] = useState(false) // Keep shouldAnimate with simplified logic
 
-
-  const handleMouseEnter = useCallback(() => setIsHovered(true), []);
-  const handleMouseLeave = useCallback(() => setIsHovered(false), []);
-
+  const handleMouseEnter = useCallback(() => setIsHovered(true), [])
+  const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
   useEffect(() => {
-    if (!previousCompleted || !isInView || shouldAnimate) return;
+    if (!previousCompleted || !isInView || shouldAnimate) return
 
     const timer = setTimeout(() => {
-      setShouldAnimate(true);
-    }, 150); // Simple setTimeout for delay
+      setShouldAnimate(true)
+    }, 150) // Simple setTimeout for delay
 
-    return () => clearTimeout(timer);
-  }, [previousCompleted, isInView, shouldAnimate]);
-
+    return () => clearTimeout(timer)
+  }, [previousCompleted, isInView, shouldAnimate])
 
   const shouldShowAnimation = shouldAnimate && previousCompleted
   const isContentVisible = prefersReducedMotion || hasCompleted
@@ -112,39 +131,24 @@ export const ReasonItem = memo(function ReasonItem({
         }}
       >
         {shouldShowAnimation && (
-          <>
-            <motion.div
-              className="absolute inset-0 bg-white dark:bg-yellow-300 rounded-full"
-              style={{ willChange: "transform" }}
-              initial={{ scale: 1.5 }}
-              animate={{ scale: 0 }}
-              transition={{
-                duration: 0.5,
-                ease: [0.76, 0, 0.24, 1],
-              }}
-            />
-            <StarAnimation
-              delay={0}
-              onAnimationComplete={onStarComplete}
-              inView={true}
-            />
-          </>
+          <motion.div
+            className="w-full h-full"
+            variants={dropVariants}
+            initial="hidden"
+            animate="visible"
+            onAnimationComplete={() => {
+              // Small delay before triggering the completion callback
+              setTimeout(onStarComplete, 100)
+            }}
+          >
+            <StarAnimation delay={0} onAnimationComplete={() => {}} inView={true} />
+          </motion.div>
         )}
       </div>
 
-      <div className="flex-grow overflow-hidden"> {/* Removed `ref={animateRef}` as it's unused */}
+      <div className="flex-grow overflow-hidden">
         <div className="relative py-2">
           <div className="overflow-hidden relative mb-1">
-            {shouldShowAnimation && (
-              <motion.div
-                className="absolute inset-0 bg-white dark:bg-indigo-dye-800 z-10"
-                style={{ willChange: "transform" }}
-                variants={revealVariants}
-                initial="hidden"
-                animate="visible"
-              />
-            )}
-
             <motion.div
               className="flex items-center gap-2 text-lg md:text-xl font-medium text-foreground relative z-0"
               variants={textVariants}
@@ -171,19 +175,6 @@ export const ReasonItem = memo(function ReasonItem({
           </div>
 
           <div className="overflow-hidden pl-6 relative">
-            {shouldShowAnimation && (
-              <motion.div
-                className="absolute inset-0 bg-white dark:bg-indigo-200 z-10"
-                style={{ willChange: "transform" }}
-                variants={revealVariants}
-                initial="hidden"
-                animate="visible"
-                transition={{
-                  delay: 0.05,
-                }}
-              />
-            )}
-
             <motion.p
               className="text-sm md:text-base text-muted-foreground font-light tracking-wide leading-relaxed relative z-0"
               variants={textVariants}
@@ -231,3 +222,4 @@ export const ReasonItem = memo(function ReasonItem({
     </motion.li>
   )
 })
+
