@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState } from "react"
-import { motion, useAnimationControls, AnimatePresence } from "framer-motion"
+import { motion, useAnimationControls } from "framer-motion"
 
 interface CircularProgressProps {
   percentage: number
@@ -22,7 +22,7 @@ export function CircularProgress({
   const progressControls = useAnimationControls()
   const pulseControls = useAnimationControls()
   const textControls = useAnimationControls()
-  const particlesControls = useAnimationControls()
+  const overflowControls = useAnimationControls()
 
   // Refs to avoid unnecessary re-renders
   const animationRef = useRef<number | null>(null)
@@ -31,23 +31,17 @@ export function CircularProgress({
   // State
   const [currentPercentage, setCurrentPercentage] = useState(0)
   const [showCompletionEffects, setShowCompletionEffects] = useState(false)
-  const [particles, setParticles] = useState<
-    Array<{
-      id: number
-      x: number
-      y: number
-      size: number
-      delay: number
-      duration: number
-      opacity: number
-    }>
-  >([])
+  const [showOverflowEffects, setShowOverflowEffects] = useState(false)
 
   // Constants
   const radius = 60
   const circumference = 2 * Math.PI * radius
-  const animationDuration = 1500 // Animation duration in ms
-  const particleCount = 8 // Number of particles
+  const animationDuration = 3000 // Increased from 1500ms to 3000ms to slow down the animation
+
+  // Handle values over 100%
+  const isOverHundred = percentage > 100
+  const displayPercentage = percentage
+  const overflowPercentage = isOverHundred ? percentage - 100 : 0
 
   // Get color based on percentage
   const getColors = (percent: number) => {
@@ -78,31 +72,7 @@ export function CircularProgress({
     }
   }
 
-  const colors = getColors(currentPercentage)
-
-  // Generate particles at different positions along the circle
-  useEffect(() => {
-    if (isCharging) {
-      const newParticles = Array.from({ length: particleCount }, (_, i) => {
-        // Calculate position on the circle
-        const angle = (i / particleCount) * Math.PI * 2
-        const x = 70 + Math.cos(angle) * radius
-        const y = 70 + Math.sin(angle) * radius
-
-        return {
-          id: i,
-          x,
-          y,
-          size: 2 + Math.random() * 4, // Random size between 2-6
-          delay: Math.random() * 2, // Random delay
-          duration: 0.8 + Math.random() * 1.2, // Random duration
-          opacity: 0.6 + Math.random() * 0.4, // Random opacity
-        }
-      })
-
-      setParticles(newParticles)
-    }
-  }, [isCharging, radius])
+  const colors = getColors(Math.min(currentPercentage, 100))
 
   // Clean up on unmount
   useEffect(() => {
@@ -132,6 +102,7 @@ export function CircularProgress({
   const startAnimation = () => {
     isAnimatingRef.current = true
     setCurrentPercentage(0) // Start from 0
+    setShowOverflowEffects(false)
 
     // Reset animation state
     if (animationRef.current) {
@@ -140,18 +111,12 @@ export function CircularProgress({
 
     // Start pulse animation
     pulseControls.start({
-      scale: [1, 1.03, 1],
+      scale: [1, 1.02, 1],
       transition: {
-        duration: 1.2,
+        duration: 1.5,
         repeat: Number.POSITIVE_INFINITY,
         repeatType: "reverse",
       },
-    })
-
-    // Start particles animation
-    particlesControls.start({
-      opacity: 1,
-      transition: { duration: 0.5 },
     })
 
     // Start progress animation
@@ -161,10 +126,11 @@ export function CircularProgress({
       const elapsed = time - startTime
       const progress = Math.min(elapsed / animationDuration, 1)
 
-      // Use a custom easing function for more dynamic animation
-      // This creates a fast start, slower middle, fast end effect
-      const easedProgress = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2
+      // Improved easing function for smoother animation
+      // This creates a more natural filling effect
+      const easedProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
 
+      // Use actual percentage for the animation target
       const newPercentage = Math.round(easedProgress * percentage)
 
       if (newPercentage !== currentPercentage) {
@@ -173,12 +139,12 @@ export function CircularProgress({
 
         // Add milestone effects at 25%, 50%, 75%
         if ([25, 50, 75].includes(newPercentage)) {
-          addMilestoneEffect(newPercentage)
+          addMilestoneEffect()
         }
 
-        // Add micro effects at every 10% increment
-        if (newPercentage % 10 === 0 && newPercentage > 0) {
-          addMicroEffect()
+        // Special effect when crossing 100%
+        if (currentPercentage < 100 && newPercentage >= 100) {
+          addOverHundredEffect()
         }
       }
 
@@ -193,49 +159,49 @@ export function CircularProgress({
     animationRef.current = requestAnimationFrame(animate)
   }
 
-  // Add a micro visual effect for smaller increments
-  const addMicroEffect = () => {
-    // Subtle text pulse
-    textControls.start({
-      scale: [1, 1.05, 1],
-      transition: { duration: 0.3, ease: "easeOut" },
-    })
-  }
-
   // Add a visual effect at milestone percentages
-  const addMilestoneEffect = (milestone: number) => {
+  const addMilestoneEffect = () => {
     // Quick pulse effect
     pulseControls.start({
-      scale: [1, 1.08, 1],
+      scale: [1, 1.05, 1],
       transition: { duration: 0.4, ease: "easeOut" },
     })
 
     // Text effect
     textControls.start({
-      scale: [1, 1.15, 1],
+      scale: [1, 1.1, 1],
       color: [colors.text, "#ffffff", colors.text],
       transition: { duration: 0.4, ease: "easeOut" },
     })
+  }
 
-    // Create milestone-specific particles
-    const newParticles = Array.from({ length: 4 }, (_, i) => {
-      // Calculate position on the circle based on the milestone percentage
-      const angle = (milestone / 100) * Math.PI * 2 - Math.PI / 2 // Adjust for SVG rotation
-      const x = 70 + Math.cos(angle) * radius
-      const y = 70 + Math.sin(angle) * radius
+  // Special effect when crossing 100%
+  const addOverHundredEffect = () => {
+    setShowOverflowEffects(true)
 
-      return {
-        id: i + 100 + milestone, // Ensure unique IDs
-        x,
-        y,
-        size: 4 + Math.random() * 6, // Larger size for milestone particles
-        delay: Math.random() * 0.3,
-        duration: 0.6 + Math.random() * 0.8,
-        opacity: 0.8 + Math.random() * 0.2,
-      }
+    // More dramatic pulse effect
+    pulseControls.start({
+      scale: [1, 1.08, 0.98, 1.04, 1],
+      transition: {
+        duration: 0.8,
+        ease: [0.22, 1.2, 0.36, 1],
+        times: [0, 0.2, 0.5, 0.8, 1],
+      },
     })
 
-    setParticles((prev) => [...prev, ...newParticles])
+    // Overflow animation
+    overflowControls.start({
+      opacity: [0, 0.8, 0.6],
+      scale: [0.9, 1.05, 1],
+      rotate: [0, 10, 0],
+      transition: { duration: 0.8, ease: "easeOut" },
+    })
+
+    // Text effect
+    textControls.start({
+      scale: [1, 1.2, 0.95, 1.1, 1],
+      transition: { duration: 0.8, ease: "easeOut" },
+    })
   }
 
   // Handle animation completion
@@ -244,7 +210,7 @@ export function CircularProgress({
 
     // Final pulse effect
     pulseControls.start({
-      scale: [1, 1.15, 0.95, 1.05, 1],
+      scale: [1, 1.1, 0.98, 1.03, 1],
       transition: {
         duration: 0.8,
         ease: [0.22, 1.2, 0.36, 1],
@@ -254,30 +220,10 @@ export function CircularProgress({
 
     // Text effect
     textControls.start({
-      scale: [1, 1.2, 0.9, 1],
+      scale: [1, 1.15, 0.95, 1],
       color: [colors.text, "#ffffff", colors.text],
       transition: { duration: 0.6, ease: "easeOut" },
     })
-
-    // Particles explosion
-    const explosionParticles = Array.from({ length: 20 }, (_, i) => {
-      const angle = (i / 20) * Math.PI * 2
-      const distance = radius * (0.7 + Math.random() * 0.6)
-      const x = 70 + Math.cos(angle) * distance
-      const y = 70 + Math.sin(angle) * distance
-
-      return {
-        id: i + 200, // Ensure unique IDs
-        x,
-        y,
-        size: 3 + Math.random() * 5,
-        delay: Math.random() * 0.2,
-        duration: 0.8 + Math.random() * 1.2,
-        opacity: 0.7 + Math.random() * 0.3,
-      }
-    })
-
-    setParticles(explosionParticles)
 
     // Clean up after effects
     setTimeout(() => {
@@ -301,11 +247,10 @@ export function CircularProgress({
       className={`relative w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-52 lg:h-52 flex items-center justify-center ${className || ""}`}
       style={{ zIndex: 30 }}
     >
-      {/* Main circle container with extended padding to prevent clipping */}
-      <div className="absolute inset-[-20px] sm:inset-[-25px] md:inset-[-30px] flex items-center justify-center">
+      {/* Main circle container */}
+      <div className="absolute inset-[-15px] sm:inset-[-20px] md:inset-[-25px] flex items-center justify-center">
         <div className="relative w-40 h-40 sm:w-44 sm:h-44 md:w-52 md:h-52 bg-gradient-to-br from-blue-50 to-white rounded-full shadow-md overflow-visible">
           <motion.div className="absolute inset-0 overflow-visible" animate={pulseControls}>
-            {/* Increased viewBox to prevent clipping */}
             <svg
               className="w-full h-full -rotate-90 overflow-visible"
               viewBox="0 0 140 140"
@@ -318,21 +263,22 @@ export function CircularProgress({
                 </linearGradient>
 
                 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feGaussianBlur stdDeviation="3" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
 
-                {/* Enhanced glow for particles */}
-                <filter id="particleGlow" x="-50%" y="-50%" width="200%" height="200%">
+                {/* Special filter for the overflow effect */}
+                <filter id="sparkleGlow" x="-50%" y="-50%" width="200%" height="200%">
                   <feGaussianBlur stdDeviation="2" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  <feColorMatrix
+                    type="matrix"
+                    values="1 0 0 0 0
+                            0 1 0 0 0
+                            0 0 1 0 0
+                            0 0 0 3 0"
+                  />
                 </filter>
-
-                {/* Radial gradient for particles */}
-                <radialGradient id="particleGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                  <stop offset="0%" stopColor={`${colors.start}ff`} />
-                  <stop offset="100%" stopColor={`${colors.start}00`} />
-                </radialGradient>
               </defs>
 
               {/* Background track with tick marks */}
@@ -346,28 +292,25 @@ export function CircularProgress({
                 cy="70"
               />
 
-              {/* Tick marks every 10% */}
-              {Array.from({ length: 10 }).map((_, i) => {
-                const percentage = (i + 1) * 10
-                const point = getPointOnCircle(percentage)
-                const isQuarter = percentage % 25 === 0
-
+              {/* Tick marks every 25% */}
+              {[25, 50, 75, 100].map((tickPercentage) => {
+                const point = getPointOnCircle(tickPercentage)
                 return (
                   <circle
-                    key={`tick-${percentage}`}
+                    key={`tick-${tickPercentage}`}
                     cx={point.x}
                     cy={point.y}
-                    r={isQuarter ? 2 : 1}
-                    fill={percentage <= currentPercentage ? colors.start : "#cbd5e1"}
-                    opacity={percentage <= currentPercentage ? 1 : 0.5}
+                    r={2}
+                    fill={tickPercentage <= Math.min(currentPercentage, 100) ? colors.start : "#cbd5e1"}
+                    opacity={tickPercentage <= Math.min(currentPercentage, 100) ? 1 : 0.5}
                   />
                 )
               })}
 
-              {/* Progress circle */}
+              {/* Progress circle - capped at 100% for visual */}
               <motion.circle
                 stroke={`url(#progressGradient-${currentPercentage})`}
-                strokeWidth="15"
+                strokeWidth="12"
                 strokeLinecap="round"
                 fill="none"
                 r={radius}
@@ -376,7 +319,7 @@ export function CircularProgress({
                 strokeDasharray={circumference}
                 initial={{ strokeDashoffset: circumference }}
                 animate={{
-                  strokeDashoffset: circumference - (currentPercentage / 100) * circumference,
+                  strokeDashoffset: circumference - (Math.min(currentPercentage, 100) / 100) * circumference,
                 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
                 filter="url(#glow)"
@@ -385,50 +328,53 @@ export function CircularProgress({
               {/* Progress indicator dot */}
               {currentPercentage > 0 && (
                 <motion.g>
-                  {/* Calculate position based on current percentage */}
                   {(() => {
-                    const angle = (currentPercentage / 100) * Math.PI * 2 - Math.PI / 2
+                    // Cap the angle at 100% for the main indicator
+                    const cappedPercentage = Math.min(currentPercentage, 100)
+                    const angle = (cappedPercentage / 100) * Math.PI * 2 - Math.PI / 2
                     const x = 70 + Math.cos(angle) * radius
                     const y = 70 + Math.sin(angle) * radius
 
                     return (
                       <>
                         {/* Outer glow */}
-                        <circle cx={x} cy={y} r={5} fill={`${colors.start}40`} filter="url(#glow)" />
+                        <circle cx={x} cy={y} r={4} fill={`${colors.start}40`} filter="url(#glow)" />
                         {/* Inner dot */}
-                        <circle cx={x} cy={y} r={3} fill={colors.start} />
+                        <circle cx={x} cy={y} r={2.5} fill={colors.start} />
                       </>
                     )
                   })()}
                 </motion.g>
               )}
 
-              {/* Animated particles */}
-              <motion.g animate={particlesControls}>
-                {particles.map((particle) => (
+              {/* Overflow effect - second circle that overlaps */}
+              {isOverHundred && showOverflowEffects && currentPercentage > 100 && (
+                <>
+                  {/* Overflow circle - starts at 0 and goes up to the overflow percentage */}
                   <motion.circle
-                    key={`particle-${particle.id}`}
-                    cx={particle.x}
-                    cy={particle.y}
-                    r={particle.size}
-                    fill={`${colors.start}`}
-                    filter="url(#particleGlow)"
-                    initial={{ opacity: 0, scale: 0 }}
+                    stroke={colors.start}
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    fill="none"
+                    r={radius}
+                    cx="70"
+                    cy="70"
+                    strokeDasharray={circumference}
+                    initial={{ strokeDashoffset: circumference }}
                     animate={{
-                      opacity: [0, particle.opacity, 0],
-                      scale: [0, 1, 0],
-                      x: [particle.x, particle.x + (Math.random() * 20 - 10)],
-                      y: [particle.y, particle.y + (Math.random() * 20 - 10)],
+                      strokeDashoffset: circumference - ((currentPercentage - 100) / 100) * circumference,
                     }}
-                    transition={{
-                      duration: particle.duration,
-                      delay: particle.delay,
-                      ease: "easeOut",
-                      times: [0, 0.4, 1],
-                    }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    filter="url(#sparkleGlow)"
+                    opacity={0.7}
+                    style={{ transform: "rotate(0deg)", transformOrigin: "center" }}
                   />
-                ))}
-              </motion.g>
+
+                  {/* Sparkle effects around the circle */}
+                 
+                 
+                </>
+              )}
             </svg>
           </motion.div>
 
@@ -447,98 +393,67 @@ export function CircularProgress({
             <span className="text-[10px] xs:text-xs sm:text-sm text-slate-500 font-normal leading-tight">
               Energy Offset
             </span>
+
+            {/* Over 100% indicator text */}
+            {isOverHundred && currentPercentage > 100 && (
+              <motion.span
+                className="text-[9px] xs:text-[10px] sm:text-xs font-medium mt-1"
+                style={{ color: colors.text }}
+                animate={{
+                  scale: [1, 1.1, 1],
+                  opacity: [0.7, 1, 0.7],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Number.POSITIVE_INFINITY,
+                  repeatType: "reverse",
+                }}
+              >
+              </motion.span>
+            )}
           </motion.div>
+
+          {/* Overflow circle effect - appears when over 100% */}
+          {isOverHundred && showOverflowEffects && (
+            <motion.div
+              className="absolute inset-0"
+              animate={overflowControls}
+              style={{
+                borderRadius: "50%",
+                border: `2px dashed ${colors.start}`,
+                opacity: 0,
+              }}
+            />
+          )}
         </div>
       </div>
 
-      {/* Completion effects - moved outside the main circle for better visibility */}
-      <AnimatePresence>
-        {showCompletionEffects && (
-          <div className="absolute inset-[-50px] overflow-visible pointer-events-none">
-            {/* Multiple ripple effects */}
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={`ripple-${i}`}
-                className="absolute inset-[20px] rounded-full"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: [0, 0.4, 0], scale: [0.8, 1.3, 1.5] }}
-                exit={{ opacity: 0 }}
-                transition={{
-                  duration: 1,
-                  ease: "easeOut",
-                  delay: i * 0.15, // Staggered delay
-                }}
-                style={{
-                  border: `2px solid ${colors.start}`,
-                }}
-              />
-            ))}
+      {/* Completion effect - simplified */}
+      {showCompletionEffects && (
+        <div className="absolute inset-[-30px] overflow-visible pointer-events-none">
+          {/* Simple ripple effect */}
+          <motion.div
+            className="absolute inset-[15px] rounded-full"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: [0, 0.3, 0], scale: [0.9, 1.2, 1.3] }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{
+              border: `2px solid ${colors.start}`,
+            }}
+          />
 
-            {/* Enhanced glow effect */}
-            <motion.div
-              className="absolute inset-[20px] rounded-full"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.2, 1.4] }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
-              style={{
-                background: `radial-gradient(circle, ${colors.start}60 0%, ${colors.end}00 70%)`,
-              }}
-            />
-
-            {/* Flash effect */}
-            <motion.div
-              className="absolute inset-[20px] rounded-full"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 0.7, 0] }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              style={{
-                background: colors.start,
-              }}
-            />
-
-            {/* Radial lines burst effect */}
-            <svg className="absolute inset-0 w-full h-full overflow-visible" style={{ overflow: "visible" }}>
-              {Array.from({ length: 12 }).map((_, i) => {
-                const angle = (i / 12) * Math.PI * 2
-                const centerX = 104
-                const centerY = 104
-                const innerRadius = 60
-                const outerRadius = 100
-
-                const x1 = centerX + Math.cos(angle) * innerRadius
-                const y1 = centerY + Math.sin(angle) * innerRadius
-                const x2 = centerX + Math.cos(angle) * outerRadius
-                const y2 = centerY + Math.sin(angle) * outerRadius
-
-                return (
-                  <motion.line
-                    key={`burst-${i}`}
-                    x1={x1}
-                    y1={y1}
-                    x2={x1} // Start at same point
-                    y2={y1}
-                    stroke={colors.start}
-                    strokeWidth="2"
-                    initial={{ opacity: 0 }}
-                    animate={{
-                      opacity: [0, 0.8, 0],
-                      x2: [x1, x2],
-                      y2: [y1, y2],
-                    }}
-                    transition={{
-                      duration: 0.6,
-                      delay: 0.1 + i * 0.03,
-                      ease: "easeOut",
-                    }}
-                  />
-                )
-              })}
-            </svg>
-          </div>
-        )}
-      </AnimatePresence>
+          {/* Glow effect */}
+          <motion.div
+            className="absolute inset-[15px] rounded-full"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: [0, 0.4, 0], scale: [0.9, 1.15, 1.25] }}
+            transition={{ duration: 0.7, ease: "easeOut", delay: 0.1 }}
+            style={{
+              background: `radial-gradient(circle, ${colors.start}50 0%, ${colors.end}00 70%)`,
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }

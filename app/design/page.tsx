@@ -1,9 +1,12 @@
-import { Suspense } from "react";
-import ProposalDashboard from "@/components/why-sun-studios";
-import Loading from "../../components/ui/loading";
+"use client"
 
-export default function DashboardPage() {
+import SolarDesignSection from "@/components/solar-design-section"
+
+export default function Page() {
   return (
-    <ProposalDashboard />
-  );
+    <main className="bg-gray-50 min-h-screen">
+      <SolarDesignSection />
+    </main>
+  )
 }
+

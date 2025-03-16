@@ -1,66 +1,95 @@
 "use client"
 import { useCallback, useRef, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart2, Thermometer, Shield, Battery, Zap, Sun, Home } from "lucide-react"
+import { BarChart2, Thermometer, Shield } from "lucide-react"
 import { motion, useInView } from "framer-motion"
 import { PremiumIcon } from "@/components/premium-icon"
-import { CircularProgress } from "@/components/ui/circular-progress"
-import { CountUp } from "@/components/count-up"
 import Image from "next/image"
 import { AnimatedBeam } from "./ui/animated-beam"
+import { SolarMetricsGrid } from "./solar-metrics-grid"
 
+// Update the interface to use only snake_case properties
 interface SolarDesignSectionProps {
   proposalData?: {
-    numberOfSolarPanels?: string
-    yearlyEnergyProduced?: string
-    yearlyEnergyUsage?: string
-    energyOffset?: string
-    solarPanelSize?: string
-    lifetimeSavings?: string
-    solarPanelDesign?: string
-    batteryImage?: string
-    // Add storage section props
-    batteryName?: string
-    inverterName?: string
+    number_of_solar_panels?: string
+    yearly_energy_produced?: string
+    yearly_energy_usage?: string
+    energy_offset?: string
+    solar_panel_size?: string
+    lifetime_savings?: string
+    solar_panel_design?: string
+    battery_image?: string
+    // Add storage section props in snake_case
+    battery_name?: string
+    inverter_name?: string
     capacity?: string
-    outputKW?: string
-    operatingMode?: string
-    backupAllocation?: string
-    essentialsDays?: string
-    appliancesDays?: string
-    wholeHomeDays?: string
+    output_kw?: string
+    operating_mode?: string
+    backup_allocation?: string
+    essentials_days?: string
+    appliances_days?: string
+    whole_home_days?: string
   }
 }
 
 export default function SolarDesignSection({
   proposalData = {
-    numberOfSolarPanels: "24",
-    yearlyEnergyProduced: "12,500",
-    yearlyEnergyUsage: "14,000",
-    energyOffset: "85",
-    solarPanelSize: "8.4",
-    lifetimeSavings: "42,000",
-    solarPanelDesign: "/placeholder.svg",
-    batteryImage: "/placeholder.svg",
-    // Add storage section defaults
-    batteryName: "PowerWall 2",
-    inverterName: "Solar Edge",
+    number_of_solar_panels: "24",
+    yearly_energy_produced: "12,500",
+    yearly_energy_usage: "14,000",
+    energy_offset: "150",
+    solar_panel_size: "8.4",
+    lifetime_savings: "42,000",
+    solar_panel_design: "/placeholder.svg",
+    battery_image: "/placeholder.svg",
+    // Add storage section defaults with snake_case
+    battery_name: "PowerWall 2",
+    inverter_name: "Solar Edge",
     capacity: "13.5",
-    outputKW: "5",
-    operatingMode: "Self-Powered",
-    backupAllocation: "100%",
-    essentialsDays: "5",
-    appliancesDays: "3",
-    wholeHomeDays: "1.5",
+    output_kw: "5",
+    operating_mode: "Self-Powered",
+    backup_allocation: "100%",
+    essentials_days: "5",
+    appliances_days: "3",
+    whole_home_days: "1.5",
   },
 }: SolarDesignSectionProps) {
-  const energyOffset = Number.parseInt(proposalData.energyOffset || "0", 10)
-  const lifetimeSavings = Number.parseInt(proposalData.lifetimeSavings?.replace(/,/g, "") || "0", 10)
+  // Safe area insets state
+  const [safeAreaInsets, setSafeAreaInsets] = useState({
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  })
+
+  // Add this state at the top with other state declarations
+  const [isSmallDevice, setIsSmallDevice] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+
+  // Get safe area insets
+  useEffect(() => {
+    // Check if running in a browser and if CSS environment variables are supported
+    if (typeof window !== "undefined" && window.CSS && window.CSS.supports) {
+      // Check if the browser supports env()
+      if (window.CSS.supports("padding-top: env(safe-area-inset-top)")) {
+        // Get computed style of document.documentElement
+        const computedStyle = getComputedStyle(document.documentElement)
+
+        // Try to get the safe area insets
+        const top = Number.parseInt(computedStyle.getPropertyValue("--sat") || "0", 10)
+        const right = Number.parseInt(computedStyle.getPropertyValue("--sar") || "0", 10)
+        const bottom = Number.parseInt(computedStyle.getPropertyValue("--sab") || "0", 10)
+        const left = Number.parseInt(computedStyle.getPropertyValue("--sal") || "0", 10)
+
+        setSafeAreaInsets({ top, right, bottom, left })
+      }
+    }
+  }, [])
 
   // Refs for the icons and container
   const icon1Ref = useRef<HTMLDivElement>(null)
   const icon2Ref = useRef<HTMLDivElement>(null)
-  const batteryCapacityRef = useRef<HTMLDivElement>(null) // New ref for battery capacity
+  const batteryCapacityRef = useRef<HTMLDivElement>(null)
   const icon3Ref = useRef<HTMLDivElement>(null)
   const icon4Ref = useRef<HTMLDivElement>(null)
   const circleRef = useRef<HTMLDivElement>(null)
@@ -88,7 +117,7 @@ export default function SolarDesignSection({
   const [chargingStates, setChargingStates] = useState({
     icon1: false,
     icon2: false,
-    batteryCapacity: false, // New charging state
+    batteryCapacity: false,
     icon3: false,
     icon4: false,
     circle: false,
@@ -98,11 +127,28 @@ export default function SolarDesignSection({
   const [textRevealStates, setTextRevealStates] = useState({
     text1: false,
     text2: false,
-    batteryCapacityText: false, // New text reveal state
+    batteryCapacityText: false,
     text3: false,
     text4: false,
     circleText: false,
   })
+
+  // Detect device type
+  useEffect(() => {
+    const checkDevice = () => {
+      // Check if small device (iPhone or similar)
+      setIsSmallDevice(window.innerWidth < 640)
+
+      // Check if iOS device
+      const userAgent = window.navigator.userAgent.toLowerCase()
+      setIsIOS(/iphone|ipad|ipod|macintosh/.test(userAgent) && "ontouchend" in document)
+    }
+
+    checkDevice()
+    window.addEventListener("resize", checkDevice)
+
+    return () => window.removeEventListener("resize", checkDevice)
+  }, [])
 
   // Start animation sequence when section comes into view
   useEffect(() => {
@@ -143,6 +189,19 @@ export default function SolarDesignSection({
 
   // Trigger text reveal after icon charging
   useEffect(() => {
+    // For small devices, reveal text immediately without animations
+    if (isSmallDevice || isIOS) {
+      setTextRevealStates({
+        text1: true,
+        text2: true,
+        batteryCapacityText: true,
+        text3: true,
+        text4: true,
+        circleText: true,
+      })
+      return
+    }
+
     // For each icon, trigger text reveal after charging
     if (chargingStates.icon1) {
       setTimeout(() => setTextRevealStates((prev) => ({ ...prev, text1: true })), 300)
@@ -162,7 +221,21 @@ export default function SolarDesignSection({
     if (chargingStates.circle) {
       setTimeout(() => setTextRevealStates((prev) => ({ ...prev, circleText: true })), 300)
     }
-  }, [chargingStates])
+  }, [chargingStates, isSmallDevice, isIOS])
+
+  // Activate all icons immediately on small devices
+  useEffect(() => {
+    if (isSmallDevice || isIOS) {
+      setChargingStates({
+        icon1: true,
+        icon2: true,
+        batteryCapacity: true,
+        icon3: true,
+        icon4: true,
+        circle: true,
+      })
+    }
+  }, [isSmallDevice, isIOS, hasStarted])
 
   const handleChargingComplete = useCallback((iconKey: keyof typeof chargingStates) => {
     setTimeout(() => {
@@ -175,29 +248,44 @@ export default function SolarDesignSection({
     }, 1000)
   }, [])
 
+  // Simplified image URL variables using only snake_case
+  const solarPanelImageUrl =
+    proposalData.solar_panel_design && proposalData.solar_panel_design !== "/placeholder.svg"
+      ? proposalData.solar_panel_design
+      : "/solar.png?height=600&width=800"
+
+  const batteryImageUrl =
+    proposalData.battery_image && proposalData.battery_image !== "/placeholder.svg"
+      ? proposalData.battery_image
+      : "/Batteries/3.jpeg?height=600&width=800"
+
   return (
     <section
       ref={sectionRef}
-      className="relative py-16 sm:py-20 md:py-24 bg-white min-h-[80vh]" // Increased min-height
+      className="relative py-12 xs:py-14 sm:py-20 md:py-24 bg-white min-h-[80vh]"
       style={{
         contain: "paint",
-        visibility: "visible", // Ensure visibility
-        display: "block", // Ensure proper display
+        visibility: "visible",
+        display: "block",
+        paddingTop: `calc(12px + ${safeAreaInsets.top ? `${safeAreaInsets.top}px` : "env(safe-area-inset-top)"})`,
+        paddingRight: safeAreaInsets.right ? `${safeAreaInsets.right}px` : "env(safe-area-inset-right)",
+        paddingBottom: `calc(12px + ${safeAreaInsets.bottom ? `${safeAreaInsets.bottom}px` : "env(safe-area-inset-bottom)"})`,
+        paddingLeft: safeAreaInsets.left ? `${safeAreaInsets.left}px` : "env(safe-area-inset-left)",
       }}
     >
-      {/* Add a debug indicator to help troubleshoot visibility issues (can be removed in production) */}
-      
-
       {/* Main container */}
-      <div className="container relative mx-auto px-4 sm:px-6" ref={containerRef}>
+      <div
+        className={`container relative mx-auto ${isSmallDevice || isIOS ? "px-2 xs:px-3" : "px-3 xs:px-4"} sm:px-6`}
+        ref={containerRef}
+      >
         {/* Content layer */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
-          className="text-center mb-20"
+          className="text-center mb-12 xs:mb-16 sm:mb-20"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-indigo-dye-600 mb-4 sm:mb-6 tracking-tight">
+          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold text-indigo-dye-600 mb-3 xs:mb-4 sm:mb-6 tracking-tight">
             Your Premium Solar Solution
           </h2>
           <p className="text-smoky-black/80 max-w-2xl mx-auto text-base sm:text-lg font-medium">
@@ -211,12 +299,12 @@ export default function SolarDesignSection({
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7, delay: 0.2 }}
-          className="grid md:grid-cols-2 gap-8 mb-16"
+          className="grid md:grid-cols-2 gap-6 xs:gap-8 mb-12 xs:mb-16"
         >
           {/* Solar Panel Design */}
           <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100/50 to-white shadow-xl border border-blue-100/50">
             <Image
-              src={"/solar.png?height=600&width=800" || "/placeholder.svg"}
+              src={solarPanelImageUrl || "/placeholder.svg"}
               alt="Solar Panel Design"
               fill
               className="object-cover"
@@ -232,7 +320,7 @@ export default function SolarDesignSection({
           {/* Battery Design */}
           <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100/50 to-white shadow-xl border border-blue-100/50">
             <Image
-              src={"/Batteries/3.jpeg?height=600&width=800" || "/placeholder.svg"}
+              src={batteryImageUrl || "/placeholder.svg"}
               alt="Battery System"
               fill
               className="object-cover"
@@ -247,14 +335,13 @@ export default function SolarDesignSection({
         </motion.div>
 
         {/* Unified Card with Metrics and Circle */}
-        <div className="mt-12 mb-16">
-          <Card
-            className="bg-white border border-indigo-dye/20 shadow-xl overflow-visible rounded-xl relative"
-            ref={cardRef}
-          >
-            <CardContent className="p-1 xs:p-2 sm:p-4 md:p-6 lg:p-10 relative">
-              {/* Render beams based on current progress and visibility */}
-              {hasStarted && isInView && (
+        <div
+          className={`mt-6 ${isSmallDevice || isIOS ? "xs:mt-8" : "xs:mt-10"} sm:mt-12 mb-8 ${isSmallDevice || isIOS ? "xs:mb-10" : "xs:mb-16"}`}
+        >
+          <Card className="bg-white border-none m-0 p-0 relative" ref={cardRef}>
+            <CardContent className="relative">
+              {/* Render beams based on current progress and visibility - ONLY on larger devices */}
+              {hasStarted && isInView && !isSmallDevice && !isIOS && (
                 <div className="absolute inset-0 overflow-visible" style={{ zIndex: 10 }}>
                   <AnimatedBeam
                     containerRef={cardRef}
@@ -262,6 +349,10 @@ export default function SolarDesignSection({
                     toRef={icon2Ref}
                     delay={0}
                     duration={1}
+                    pathColor="rgba(59, 130, 246, 0.7)"
+                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathWidth={2}
+                    glowWidth={10}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon1) {
                         setChargingStates((prev) => ({ ...prev, icon1: true }))
@@ -277,6 +368,10 @@ export default function SolarDesignSection({
                     toRef={batteryCapacityRef}
                     delay={1}
                     duration={1}
+                    pathColor="rgba(59, 130, 246, 0.7)"
+                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathWidth={2}
+                    glowWidth={10}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon2) {
                         setChargingStates((prev) => ({ ...prev, icon2: true }))
@@ -292,6 +387,10 @@ export default function SolarDesignSection({
                     toRef={icon3Ref}
                     delay={2}
                     duration={1}
+                    pathColor="rgba(59, 130, 246, 0.7)"
+                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathWidth={2}
+                    glowWidth={10}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.batteryCapacity) {
                         setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
@@ -307,6 +406,10 @@ export default function SolarDesignSection({
                     toRef={icon4Ref}
                     delay={3}
                     duration={1}
+                    pathColor="rgba(59, 130, 246, 0.7)"
+                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathWidth={2}
+                    glowWidth={10}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon3) {
                         setChargingStates((prev) => ({ ...prev, icon3: true }))
@@ -320,9 +423,16 @@ export default function SolarDesignSection({
                     containerRef={cardRef}
                     fromRef={icon4Ref}
                     toRef={circleRef}
-                    delay={4}
-                    duration={1}
                     circleRef={circleRef}
+                    delay={4}
+                    duration={1.5}
+                    pattern="wave"
+                    patternCount={2}
+                    patternIntensity={0.03}
+                    pathColor="rgba(59, 130, 246, 0.7)"
+                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathWidth={1.5}
+                    glowWidth={12}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon4) {
                         setChargingStates((prev) => ({ ...prev, icon4: true }))
@@ -335,368 +445,27 @@ export default function SolarDesignSection({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 lg:gap-10 place-items-center">
-                {/* Main metrics grid */}
-                <div className="col-span-1 md:col-span-2 w-full">
-                  {/* Changed grid layout for mobile - now using 1 column for smallest screens */}
-                  <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-1 xs:gap-x-2 sm:gap-x-4 md:gap-x-6 lg:gap-x-10 gap-y-3 xs:gap-y-4 sm:gap-y-8 md:gap-y-10 w-full justify-items-center">
-                    {/* System Size */}
-                    <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <motion.div
-                        ref={icon1Ref}
-                        id="icon1"
-                        className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{
-                          opacity: isInView ? 1 : 0,
-                          scale: isInView ? 1 : 0.8,
-                        }}
-                        transition={{ duration: 0.5, delay: 0.2 }}
-                      >
-                        <PremiumIcon
-                          className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
-                          isCharging={chargingStates.icon1}
-                          onChargingComplete={() => handleChargingComplete("icon1")}
-                          delay={0.5}
-                        >
-                          <BarChart2 className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-indigo-dye-600" />
-                        </PremiumIcon>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{
-                          opacity: textRevealStates.text1 ? 1 : 0,
-                          y: textRevealStates.text1 ? 0 : 10,
-                          scale: chargingStates.icon1 ? [1, 1.05, 1] : 1,
-                        }}
-                        transition={{
-                          opacity: { duration: 0.8, ease: "easeOut" },
-                          y: { duration: 0.8, ease: "easeOut" },
-                          scale: { duration: 0.3 },
-                        }}
-                        className="text-center w-full"
-                      >
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: textRevealStates.text1 ? 1 : 0 }}
-                          transition={{ duration: 0.5, delay: 0.1 }}
-                          className="text-[9px] xs:text-[10px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
-                        >
-                          System Size
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{
-                            opacity: textRevealStates.text1 ? 1 : 0,
-                            y: textRevealStates.text1 ? 0 : 5,
-                          }}
-                          transition={{ duration: 0.5, delay: 0.2 }}
-                          className="text-sm xs:text-base sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700"
-                        >
-                          {proposalData.solarPanelSize || "0"} kW
-                        </motion.p>
-                      </motion.div>
-                    </div>
-
-                    {/* Solar Panels */}
-                    <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <motion.div
-                        ref={icon2Ref}
-                        id="icon2"
-                        className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{
-                          opacity: isInView ? 1 : 0,
-                          scale: isInView ? 1 : 0.8,
-                        }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                      >
-                        <PremiumIcon
-                          className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
-                          isCharging={chargingStates.icon2}
-                          onChargingComplete={() => handleChargingComplete("icon2")}
-                          delay={1}
-                        >
-                          <Sun className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-amber-500" />
-                        </PremiumIcon>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{
-                          opacity: textRevealStates.text2 ? 1 : 0,
-                          y: textRevealStates.text2 ? 0 : 10,
-                          scale: chargingStates.icon2 ? [1, 1.05, 1] : 1,
-                        }}
-                        transition={{
-                          opacity: { duration: 0.8, ease: "easeOut" },
-                          y: { duration: 0.8, ease: "easeOut" },
-                          scale: { duration: 0.3 },
-                        }}
-                        className="text-center w-full"
-                      >
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: textRevealStates.text2 ? 1 : 0 }}
-                          transition={{ duration: 0.5, delay: 0.1 }}
-                          className="text-[9px] xs:text-[10px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
-                        >
-                          Solar Panels
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{
-                            opacity: textRevealStates.text2 ? 1 : 0,
-                            y: textRevealStates.text2 ? 0 : 5,
-                          }}
-                          transition={{ duration: 0.5, delay: 0.2 }}
-                          className="text-sm xs:text-base sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700"
-                        >
-                          {proposalData.numberOfSolarPanels || "0"}
-                        </motion.p>
-                      </motion.div>
-                    </div>
-
-                    {/* Battery Capacity - NEW */}
-                    <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <motion.div
-                        ref={batteryCapacityRef}
-                        id="batteryCapacity"
-                        className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{
-                          opacity: isInView ? 1 : 0,
-                          scale: isInView ? 1 : 0.8,
-                        }}
-                        transition={{ duration: 0.5, delay: 0.4 }}
-                      >
-                        <PremiumIcon
-                          className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
-                          isCharging={chargingStates.batteryCapacity}
-                          onChargingComplete={() => handleChargingComplete("batteryCapacity")}
-                          delay={1.5}
-                        >
-                          <Battery className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-green-600" />
-                        </PremiumIcon>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{
-                          opacity: textRevealStates.batteryCapacityText ? 1 : 0,
-                          y: textRevealStates.batteryCapacityText ? 0 : 10,
-                          scale: chargingStates.batteryCapacity ? [1, 1.05, 1] : 1,
-                        }}
-                        transition={{
-                          opacity: { duration: 0.8, ease: "easeOut" },
-                          y: { duration: 0.8, ease: "easeOut" },
-                          scale: { duration: 0.3 },
-                        }}
-                        className="text-center w-full"
-                      >
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: textRevealStates.batteryCapacityText ? 1 : 0 }}
-                          transition={{ duration: 0.5, delay: 0.1 }}
-                          className="text-[9px] xs:text-[10px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
-                        >
-                          Battery Capacity
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{
-                            opacity: textRevealStates.batteryCapacityText ? 1 : 0,
-                            y: textRevealStates.batteryCapacityText ? 0 : 5,
-                          }}
-                          transition={{ duration: 0.5, delay: 0.2 }}
-                          className="text-sm xs:text-base sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700"
-                        >
-                          {proposalData.capacity || "13.5"} kWh
-                        </motion.p>
-                      </motion.div>
-                    </div>
-
-                    {/* Annual Consumption */}
-                    <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <motion.div
-                        ref={icon3Ref}
-                        id="icon3"
-                        className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{
-                          opacity: isInView ? 1 : 0,
-                          scale: isInView ? 1 : 0.8,
-                        }}
-                        transition={{ duration: 0.5, delay: 0.5 }}
-                      >
-                        <PremiumIcon
-                          className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
-                          isCharging={chargingStates.icon3}
-                          onChargingComplete={() => handleChargingComplete("icon3")}
-                          delay={2}
-                        >
-                          <Home className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-indigo-dye-600" />
-                        </PremiumIcon>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{
-                          opacity: textRevealStates.text3 ? 1 : 0,
-                          y: textRevealStates.text3 ? 0 : 10,
-                          scale: chargingStates.icon3 ? [1, 1.05, 1] : 1,
-                        }}
-                        transition={{
-                          opacity: { duration: 0.8, ease: "easeOut" },
-                          y: { duration: 0.8, ease: "easeOut" },
-                          scale: { duration: 0.3 },
-                        }}
-                        className="text-center w-full"
-                      >
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: textRevealStates.text3 ? 1 : 0 }}
-                          transition={{ duration: 0.5, delay: 0.1 }}
-                          className="text-[9px] xs:text-[10px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
-                        >
-                          Annual Consumption
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{
-                            opacity: textRevealStates.text3 ? 1 : 0,
-                            y: textRevealStates.text3 ? 0 : 5,
-                          }}
-                          transition={{ duration: 0.5, delay: 0.2 }}
-                          className="text-sm xs:text-base sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700"
-                        >
-                          {proposalData.yearlyEnergyUsage || "0"} kWh
-                        </motion.p>
-                      </motion.div>
-                    </div>
-
-                    {/* Annual Production */}
-                    <div className="flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full max-w-[70px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]">
-                      <motion.div
-                        ref={icon4Ref}
-                        id="icon4"
-                        className="h-[50px] xs:h-[60px] sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{
-                          opacity: isInView ? 1 : 0,
-                          scale: isInView ? 1 : 0.8,
-                        }}
-                        transition={{ duration: 0.5, delay: 0.6 }}
-                      >
-                        <PremiumIcon
-                          className="w-10 xs:w-14 sm:w-18 md:w-24 lg:w-28 h-10 xs:h-14 sm:h-18 md:h-24 lg:h-28"
-                          isCharging={chargingStates.icon4}
-                          onChargingComplete={() => handleChargingComplete("icon4")}
-                          delay={2.5}
-                        >
-                          <Zap className="w-5 xs:w-7 sm:w-9 md:w-12 lg:w-14 h-5 xs:h-7 sm:h-9 md:h-12 lg:h-14 text-indigo-dye-600" />
-                        </PremiumIcon>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{
-                          opacity: textRevealStates.text4 ? 1 : 0,
-                          y: textRevealStates.text4 ? 0 : 10,
-                          scale: chargingStates.icon4 ? [1, 1.05, 1] : 1,
-                        }}
-                        transition={{
-                          opacity: { duration: 0.8, ease: "easeOut" },
-                          y: { duration: 0.8, ease: "easeOut" },
-                          scale: { duration: 0.3 },
-                        }}
-                        className="text-center w-full"
-                      >
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: textRevealStates.text4 ? 1 : 0 }}
-                          transition={{ duration: 0.5, delay: 0.1 }}
-                          className="text-[9px] xs:text-[10px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
-                        >
-                          Annual Production
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{
-                            opacity: textRevealStates.text4 ? 1 : 0,
-                            y: textRevealStates.text4 ? 0 : 5,
-                          }}
-                          transition={{ duration: 0.5, delay: 0.2 }}
-                          className="text-sm xs:text-base sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700"
-                        >
-                          {proposalData.yearlyEnergyProduced || "0"} kWh
-                        </motion.p>
-                      </motion.div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Circle Progress */}
-                <div className="flex flex-col items-center justify-center mt-6 pt-[5px] md:mt-0">
-                  <motion.div
-                    ref={circleRef}
-                    id="circle"
-                    className="h-[100px] xs:h-[120px] sm:h-[150px] md:h-[180px] lg:h-[208px] flex items-center justify-center"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{
-                      opacity: isInView ? 1 : 0,
-                      scale: isInView ? 1 : 0.8,
-                    }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    <CircularProgress
-                      percentage={energyOffset}
-                      isCharging={chargingStates.circle}
-                      onChargingComplete={() => handleChargingComplete("circle")}
-                    />
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{
-                      opacity: textRevealStates.circleText ? 1 : 0,
-                      y: textRevealStates.circleText ? 0 : 20,
-                    }}
-                    transition={{
-                      opacity: { duration: 0.8, ease: "easeOut" },
-                      y: { duration: 0.8, ease: "easeOut" },
-                    }}
-                    className="mt-4 sm:mt-6 md:mt-8 text-center"
-                  >
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: textRevealStates.circleText ? 1 : 0 }}
-                      transition={{ duration: 0.5, delay: 0.1 }}
-                      className="text-[9px] xs:text-[10px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
-                    >
-                      Lifetime Savings
-                    </motion.p>
-                    <motion.p
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{
-                        opacity: textRevealStates.circleText ? 1 : 0,
-                        y: textRevealStates.circleText ? 0 : 5,
-                      }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                      className="text-2xl sm:text-3xl font-bold"
-                    >
-                      <span className="text-indigo-dye-600">$</span>
-                      <CountUp
-                        value={lifetimeSavings}
-                        isActive={textRevealStates.circleText}
-                        duration={2}
-                        className="font-bold text-indigo-dye-600"
-                      />
-                    </motion.p>
-                  </motion.div>
-                </div>
-              </div>
+              {/* Use the extracted SolarMetricsGrid component */}
+              <SolarMetricsGrid
+                proposalData={proposalData}
+                isInView={isInView}
+                chargingStates={chargingStates}
+                textRevealStates={textRevealStates}
+                handleChargingComplete={handleChargingComplete}
+                icon1Ref={icon1Ref}
+                icon2Ref={icon2Ref}
+                batteryCapacityRef={batteryCapacityRef}
+                icon3Ref={icon3Ref}
+                icon4Ref={icon4Ref}
+                circleRef={circleRef}
+                isSimplifiedView={isSmallDevice || isIOS}
+              />
             </CardContent>
           </Card>
         </div>
 
         {/* Technology section */}
-        <motion.div className="mt-8 mb-8 relative isolate" ref={techSectionRef}>
+        <motion.div className="mt-6 xs:mt-8 mb-6 xs:mb-8 relative isolate" ref={techSectionRef}>
           <Card className="bg-white border border-indigo-dye/20 shadow-xl overflow-hidden rounded-xl">
             <CardHeader className="bg-white border-b border-indigo-dye/10 py-3 xs:py-4 sm:py-6">
               <CardTitle className="text-xl xs:text-2xl font-bold text-center text-indigo-dye-600">

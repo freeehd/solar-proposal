@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { type RefObject, useEffect, useId, useState, useCallback } from "react"
 import { motion } from "framer-motion"
 import { BeamParticles } from "./beam-particles"
@@ -56,7 +57,13 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
   useEffect(() => {
     const updateBeamWidth = () => {
       const width = window.innerWidth
-      if (width < 640) {
+      if (width < 375) {
+        // Small iPhone (SE, mini)
+        setResponsiveWidth({
+          path: pathWidth * 0.4,
+          glow: glowWidth * 0.4,
+        })
+      } else if (width < 640) {
         // Mobile
         setResponsiveWidth({
           path: pathWidth * 0.5,
@@ -94,38 +101,67 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
   }, [pathWidth, glowWidth])
 
   // Calculate center points
-  const calculateCenter = useCallback((element: HTMLElement, containerRect: DOMRect, isCircle = false) => {
-    try {
-      const rect = element.getBoundingClientRect()
-      // Make icon size responsive
-      const width = window.innerWidth
-      let iconSize = 112 // Default (desktop)
-      let circleSize = 208 // Default (desktop)
+  const calculateCenter = useCallback(
+    (element: HTMLElement, containerRect: DOMRect, isCircle = false, isCard = false) => {
+      try {
+        const rect = element.getBoundingClientRect()
+        // Make icon size responsive
+        const width = window.innerWidth
+        let iconSize = 112 // Default (desktop)
+        let circleSize = 208 // Default (desktop)
 
-      if (width < 640) {
-        // Mobile
-        iconSize = 40 // Smaller for mobile
-        circleSize = 100
-      } else if (width < 768) {
-        // Small tablets
-        iconSize = 56
-        circleSize = 120
-      } else if (width < 1024) {
-        // Tablets/iPad
-        iconSize = 96
-        circleSize = 180
-      }
+        if (width < 375) {
+          // Small iPhone (SE, mini)
+          iconSize = 48 // Increased from 36
+          circleSize = 90
+        } else if (width < 640) {
+          // Mobile
+          iconSize = 56 // Increased from 40
+          circleSize = 120
+        } else if (width < 768) {
+          // Small tablets
+          iconSize = 56
+          circleSize = 140
+        } else if (width < 1024) {
+          // Tablets/iPad
+          iconSize = 96
+          circleSize = 180
+        }
 
-      const size = isCircle ? circleSize : iconSize
-      return {
-        x: rect.left - containerRect.left + size / 2,
-        y: rect.top - containerRect.top + size / 2,
+        // If it's a card, use the center of the card
+        if (isCard) {
+          return {
+            x: rect.left - containerRect.left + rect.width / 2,
+            y: rect.top - containerRect.top + rect.height / 2,
+          }
+        }
+
+        const size = isCircle ? circleSize : iconSize
+
+        // Calculate center with more precision for mobile
+        let centerX, centerY
+
+        if (width < 640) {
+          // For mobile, use the center of the element directly
+          centerX = rect.left - containerRect.left + rect.width / 2
+          centerY = rect.top - containerRect.top + rect.height / 2
+        } else {
+          // For larger screens, use the size-based calculation
+          centerX = rect.left - containerRect.left + size / 2
+          centerY = rect.top - containerRect.top + size / 2
+        }
+
+        return {
+          x: centerX,
+          y: centerY,
+        }
+      } catch (error) {
+        console.error("Error calculating center:", error)
+        return { x: 0, y: 0 }
       }
-    } catch (error) {
-      console.error("Error calculating center:", error)
-      return { x: 0, y: 0 }
-    }
-  }, [])
+    },
+    [],
+  )
 
   // Update path and dimensions
   const updatePath = useCallback(() => {
@@ -141,9 +177,13 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
         height: containerRect.height,
       })
 
+      // Check if we're connecting cards
+      const isFromCard = fromRef.current.classList.contains("rounded-xl")
+      const isToCard = toRef.current.classList.contains("rounded-xl")
+
       const isTargetCircle = circleRef?.current && toRef.current === circleRef.current
-      const start = calculateCenter(fromRef.current, containerRect)
-      const end = calculateCenter(toRef.current, containerRect, !!isTargetCircle)
+      const start = calculateCenter(fromRef.current, containerRect, false, isFromCard)
+      const end = calculateCenter(toRef.current, containerRect, !!isTargetCircle, isToCard)
 
       const dx = end.x - start.x
       const dy = end.y - start.y
@@ -318,11 +358,9 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
         />
 
         {/* Particle effects */}
-        <BeamParticles progress={progress} pathD={pathD} count={window.innerWidth < 768 ? 4 : 8} />
+        {/* <BeamParticles progress={progress} pathD={pathD} count={window.innerWidth < 768 ? 4 : 8} /> */}
       </g>
     </svg>
   )
 }
-
-export default AnimatedBeam
 

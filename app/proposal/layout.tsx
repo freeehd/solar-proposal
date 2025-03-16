@@ -16,8 +16,8 @@ export default function ProposalLayout({
     children: ReactNode
 }) {
     return (
-        <html lang="en">
-        <body className={inter.className}>
+        <html lang="en" className="scrollbar-hide">
+        <body className={inter.className} >
             <main>{children}</main>
         </body>
         </html>

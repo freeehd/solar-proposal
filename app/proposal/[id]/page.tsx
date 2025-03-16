@@ -1,21 +1,16 @@
-import { Suspense } from "react"
 import ProposalContent from "@/components/proposal-content"
-import Loading from "@/components/ui/loading"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-    title: "View Proposal",
-    description: "Detailed view of your solar proposal",
+  title: "View Proposal",
+  description: "Detailed view of your solar proposal",
 }
 
 export default function ProposalPage({ params }: { params: { id: string } }) {
-    return (
-        <div >
-            <Suspense fallback={<Loading />}>
-                <ProposalContent proposalId={params.id} />
-
-            </Suspense>
-        </div>
-    )
+  return (
+    <div className="scrollbar-hide">
+      <ProposalContent proposalId={params.id} />
+    </div>
+  )
 }
 

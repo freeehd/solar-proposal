@@ -18,10 +18,10 @@ const MetallicEffect = () => {
 
   const [params, setParams] = useState({
     edge: 0.01,
-    patternBlur: 0.05,
+    patternBlur: 0.09,
     patternScale: 2,
     refraction: 0.0,
-    speed: 0.3,
+    speed: 0.15,
     liquid: 0.0,
     color1: "#F1F4F9", //
     color2: "#1a1a1a", //

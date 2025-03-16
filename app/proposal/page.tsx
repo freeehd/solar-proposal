@@ -4,7 +4,10 @@ import Loading from "../../components/ui/loading"
 
 export default function ProposalPage() {
     return (
+        <div className="scrollbar-hide">
             <ProposalContent />
+
+        </div>
     )
 }
 
