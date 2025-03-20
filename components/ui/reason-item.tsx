@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useRef, useState, useEffect, useMemo, useCallback } from "react"
-import { motion, useInView, AnimatePresence, useAnimate } from "framer-motion"
+import { motion, useInView, AnimatePresence } from "framer-motion"
 import { ChevronRight } from "lucide-react"
 import { StarAnimation } from "./star-animation"
 
@@ -19,6 +19,7 @@ interface ReasonItemProps {
   prefersReducedMotion?: boolean
 }
 
+// Define animation variants outside component to prevent recreation
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
@@ -73,34 +74,37 @@ export const ReasonItem = memo(function ReasonItem({
   prefersReducedMotion = false,
 }: ReasonItemProps) {
   const itemRef = useRef<HTMLLIElement>(null)
-  const [, animate] = useAnimate() // Removed unused `animateRef`
 
+  // Use InView with higher threshold to reduce unnecessary renders
   const isInView = useInView(itemRef, {
     once: true,
     amount: 0.3,
     margin: "0px 0px 100px 0px",
   })
 
-  const [isHovered, setIsHovered] = useState(false) // Simplified to only track hover
+  const [isHovered, setIsHovered] = useState(false)
+  const [shouldAnimate, setShouldAnimate] = useState(false)
 
-  const [shouldAnimate, setShouldAnimate] = useState(false) // Keep shouldAnimate with simplified logic
-
+  // Memoize event handlers
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
+  // Optimize effect to run only when dependencies change
   useEffect(() => {
     if (!previousCompleted || !isInView || shouldAnimate) return
 
     const timer = setTimeout(() => {
       setShouldAnimate(true)
-    }, 150) // Simple setTimeout for delay
+    }, 150)
 
     return () => clearTimeout(timer)
   }, [previousCompleted, isInView, shouldAnimate])
 
+  // Compute derived state once per render
   const shouldShowAnimation = shouldAnimate && previousCompleted
   const isContentVisible = prefersReducedMotion || hasCompleted
 
+  // Memoize animation state to prevent recalculation
   const animationState = useMemo(
     () => ({
       container: shouldShowAnimation ? "visible" : "hidden",
@@ -109,11 +113,17 @@ export const ReasonItem = memo(function ReasonItem({
     [shouldShowAnimation, hasCompleted],
   )
 
+  // Memoize star animation completion handler
+  const handleStarComplete = useCallback(() => {
+    // Small delay before triggering the completion callback
+    setTimeout(onStarComplete, 100)
+  }, [onStarComplete])
+
   return (
     <motion.li
       ref={itemRef}
       className="flex items-start gap-4 md:gap-6 group relative"
-      style={{ willChange: "opacity, transform" }} // Reordered for clarity, kept both
+      style={{ willChange: "opacity, transform" }}
       variants={containerVariants}
       initial="hidden"
       animate={animationState.container}
@@ -123,7 +133,7 @@ export const ReasonItem = memo(function ReasonItem({
       aria-busy={!hasCompleted}
     >
       <div
-        className="relative flex-shrink-0 w-[50px] h-[50px] flex items-center justify-center premium-icon-wrapper overflow-hidden"
+        className="relative flex-shrink-0 w-[100px] h-[100px] flex items-center justify-center premium-icon-wrapper overflow-hidden"
         style={{
           willChange: "transform",
           transform: "translateZ(0)",
@@ -136,10 +146,7 @@ export const ReasonItem = memo(function ReasonItem({
             variants={dropVariants}
             initial="hidden"
             animate="visible"
-            onAnimationComplete={() => {
-              // Small delay before triggering the completion callback
-              setTimeout(onStarComplete, 100)
-            }}
+            onAnimationComplete={handleStarComplete}
           >
             <StarAnimation delay={0} onAnimationComplete={() => {}} inView={true} />
           </motion.div>

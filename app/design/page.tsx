@@ -1,6 +1,6 @@
 "use client"
 
-import SolarDesignSection from "@/components/solar-design-section"
+import SolarDesignSection from "@/components/why-sun-studios"
 
 export default function Page() {
   return (

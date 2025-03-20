@@ -67,7 +67,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
         {showPlaceholder && (
           <div className="absolute inset-0 z-0 bg-black">
             <Image
-              src="/video-placeholder.jpg"
+              src="/night3.png"
               alt="Solar background"
               fill
               priority

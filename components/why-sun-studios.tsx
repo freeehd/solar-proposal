@@ -1,17 +1,14 @@
 "use client"
 
 import { motion, useInView, useScroll, useTransform } from "framer-motion"
-import { useRef, useState, useEffect, useCallback } from "react" // Added useCallback
-import dynamic from "next/dynamic"
+import { useRef, useState, useEffect, useCallback, useMemo } from "react"
+import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { ReasonItem } from "./ui/reason-item"
 import { ImprovedTextReveal } from "./ui/text-reveal"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
-const MetalicPaint = dynamic(() => import("@/components/ui/metallic"), {
-  ssr: false,
-})
-
+// Define reasons array outside component to prevent recreation on each render
 const reasons = [
   {
     text: "5 stars rating Better Business Bureau",
@@ -40,19 +37,21 @@ export default function WhySunStudiosImproved() {
   const containerRef = useRef(null)
   const sectionRef = useRef(null)
   const titleRef = useRef(null)
+  const timersRef = useRef<NodeJS.Timeout[]>([])
+  const hasStartedAnimations = useRef(false)
 
+  // Use media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
-  const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
+  // Use InView with higher threshold to reduce unnecessary renders
   const isSectionInView = useInView(sectionRef, {
     once: true,
     amount: 0.3,
   })
 
   const isTitleInView = useInView(titleRef, { once: true, amount: 0.5 })
-  const timersRef = useRef<NodeJS.Timeout[]>([])
-  const hasStartedAnimations = useRef(false)
 
+  // Set up scroll-based animations
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start end", "end start"],
@@ -61,13 +60,16 @@ export default function WhySunStudiosImproved() {
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.95, 1, 1, 0.95])
 
+  // Optimize animation start effect
   useEffect(() => {
     if (isSectionInView && !hasStartedAnimations.current) {
       hasStartedAnimations.current = true
 
+      // Clear any existing timers
       timersRef.current.forEach((timer) => clearTimeout(timer))
       timersRef.current = []
 
+      // Set up staggered animations
       reasons.forEach((_, index) => {
         const delay = 500 + index * 1500
 
@@ -83,19 +85,39 @@ export default function WhySunStudiosImproved() {
       })
     }
 
+    // Clean up timers on unmount
     return () => {
       timersRef.current.forEach((timer) => clearTimeout(timer))
     }
   }, [isSectionInView])
 
-  // Optimized handleStarComplete using useCallback and direct state update
+  // Memoize handleStarComplete to prevent recreation on each render
   const handleStarComplete = useCallback((index: number) => {
     setCompletedAnimations((prev) => {
       const newSet = new Set(prev)
       newSet.add(index)
       return newSet
     })
-  }, []); // useCallback with empty dependency array as it doesn't depend on props or state that changes
+  }, [])
+
+  // Memoize reason items to prevent unnecessary re-renders
+  const reasonItems = useMemo(() => {
+    return reasons.map((reason, index) => {
+      const previousCompleted = index === 0 || completedAnimations.has(index - 1)
+      const hasCompleted = completedAnimations.has(index)
+
+      return (
+        <ReasonItem
+          key={index}
+          reason={reason}
+          index={index}
+          previousCompleted={previousCompleted}
+          hasCompleted={hasCompleted}
+          onStarComplete={() => handleStarComplete(index)}
+        />
+      )
+    })
+  }, [completedAnimations, handleStarComplete])
 
   return (
     <section ref={sectionRef} className="relative min-h-screen py-16 sm:py-20 md:py-32 overflow-hidden bg-white">
@@ -109,7 +131,7 @@ export default function WhySunStudiosImproved() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
                   <div className="mb-2 sm:mb-4">
                     <motion.h2
-                      className="text-3xl sm:text-4xl md:text-5xl lg:text-[82px] font-medium tracking-normal text-[#0b0a08] leading-tight md:leading-loose"
+                      className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium tracking-normal text-[#0b0a08] leading-tight"
                       initial={{ opacity: 0, y: 20 }}
                       animate={isTitleInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
                       transition={{ duration: 0.6, delay: 0.2 }}
@@ -117,8 +139,22 @@ export default function WhySunStudiosImproved() {
                       <span className="block text-[#0b0a08]">
                         <ImprovedTextReveal text="Why Choose" delay={0.3} staggerChildren={0.03} />
                       </span>
-                      <div className="-mt-0 sm:mt-4 md:-mt-6 lg:-mt-8 ml-0 sm:ml-1 md:ml-2">
-                        <MetalicPaint />
+                      <div className="mt-2 sm:mt-4">
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={isTitleInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                          transition={{ duration: 0.6, delay: 0.4 }}
+                          className="w-full max-w-[400px] h-auto"
+                        >
+                          <Image
+                            src="/icon.png"
+                            alt="Sun Studios"
+                            width={400}
+                            height={80}
+                            className="w-full h-auto"
+                            priority
+                          />
+                        </motion.div>
                       </div>
                     </motion.h2>
                   </div>
@@ -142,25 +178,7 @@ export default function WhySunStudiosImproved() {
             </div>
 
             <div className="w-full lg:w-1/2 pl-0 lg:pl-2" ref={containerRef}>
-              {isSectionInView && (
-                <ul className="space-y-4 sm:space-y-6">
-                  {reasons.map((reason, index) => { // Removed AnimatePresence here
-                    const previousCompleted = index === 0 || completedAnimations.has(index - 1)
-                    const hasCompleted = completedAnimations.has(index)
-
-                    return (
-                      <ReasonItem
-                        key={index}
-                        reason={reason}
-                        index={index}
-                        previousCompleted={previousCompleted}
-                        hasCompleted={hasCompleted}
-                        onStarComplete={() => handleStarComplete(index)} // Using useCallback here
-                      />
-                    )
-                  })}
-                </ul>
-              )}
+              {isSectionInView && <ul className="space-y-4 sm:space-y-6">{reasonItems}</ul>}
             </div>
           </div>
         </Card>
@@ -187,3 +205,4 @@ export default function WhySunStudiosImproved() {
     </section>
   )
 }
+

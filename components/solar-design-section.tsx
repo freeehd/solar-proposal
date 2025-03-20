@@ -431,8 +431,8 @@ export default function SolarDesignSection({
                     patternIntensity={0.03}
                     pathColor="rgba(59, 130, 246, 0.7)"
                     glowColor="rgba(59, 130, 246, 0.4)"
-                    pathWidth={1.5}
-                    glowWidth={12}
+                    pathWidth={0}
+                    glowWidth={0}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon4) {
                         setChargingStates((prev) => ({ ...prev, icon4: true }))

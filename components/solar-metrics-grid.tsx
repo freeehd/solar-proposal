@@ -67,17 +67,17 @@ export function SolarMetricsGrid({
   const lifetimeSavings = Number.parseInt(proposalData.lifetime_savings?.replace(/,/g, "") || "0", 10)
 
   return (
-    <div className={`${isSimplifiedView ? "space-y-4" : "space-y-6"}`}>
+    <div className={`${isSimplifiedView ? "space-y-6" : "space-y-8"}`}>
       {/* Main metrics grid in its own card */}
       <Card className="bg-white border border-indigo-dye/20 shadow-xl overflow-visible rounded-xl" ref={metricsCardRef}>
         <CardHeader
-          className={`pb-0 ${isSimplifiedView ? "pt-2 px-2 xs:pt-3 xs:px-3" : "pt-3 px-3 xs:pt-4 xs:px-4"} sm:pt-6 sm:px-6`}
+          className={`pb-0 ${isSimplifiedView ? "pt-3 px-3 xs:pt-4 xs:px-4" : "pt-4 px-4 xs:pt-5 xs:px-5"} sm:pt-6 sm:px-6`}
         >
-          <CardTitle className="text-xl font-bold text-indigo-dye-600">System Specifications</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-bold text-indigo-dye-600">System Specifications</CardTitle>
         </CardHeader>
-        <CardContent className={`${isSimplifiedView ? "p-2 xs:p-3" : "p-3 xs:p-4"} sm:p-6`}>
+        <CardContent className={`${isSimplifiedView ? "p-3 xs:p-4" : "p-4 xs:p-5"} sm:p-6`}>
           <div
-            className={`${isSimplifiedView ? "grid grid-cols-2 gap-x-1 gap-y-3 xs:grid-cols-2 xs:gap-x-2 xs:gap-y-4" : "grid grid-cols-2 gap-x-2 gap-y-4 xs:grid-cols-2 xs:gap-x-3 xs:gap-y-5"} 
+            className={`${isSimplifiedView ? "grid grid-cols-2 gap-x-2 gap-y-4 xs:grid-cols-2 xs:gap-x-3 xs:gap-y-5" : "grid grid-cols-2 gap-x-3 gap-y-5 xs:grid-cols-2 xs:gap-x-4 xs:gap-y-6"} 
   md:grid-cols-3 lg:grid-cols-5 sm:gap-x-4 sm:gap-y-8 md:gap-x-6 md:gap-y-10 lg:gap-x-10
   w-full justify-items-center`}
           >
@@ -404,25 +404,26 @@ sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
         </CardContent>
       </Card>
 
-      {/* Circle Progress in its own card */}
+      {/* Circle Progress in its own card - ENLARGED */}
       <Card
-        className="bg-white border lg:w-1/2 mx-auto border-indigo-dye/20 shadow-xl overflow-visible rounded-xl"
+        className="bg-white border border-indigo-dye/20 shadow-xl overflow-visible rounded-xl mx-auto"
         ref={circleCardRef}
+        style={{ maxWidth: "800px" }} // Increased max width for the card
       >
-        <CardHeader className={`pb-0 ${isSimplifiedView ? "pt-3 px-3" : "pt-4 px-4"} sm:pt-6 sm:px-6`}>
-          <CardTitle className="text-xl font-bold text-indigo-dye-600 flex items-center justify-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-600" />
+        <CardHeader className={`pb-0 ${isSimplifiedView ? "pt-4 px-4" : "pt-5 px-5"} sm:pt-6 sm:px-6`}>
+          <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-indigo-dye-600 flex items-center justify-center gap-2">
+            <TrendingUp className="h-6 w-6 sm:h-7 sm:w-7 text-green-600" />
             <span>Financial Impact</span>
           </CardTitle>
         </CardHeader>
         <CardContent
-          className={`${isSimplifiedView ? "p-2 xs:p-3" : "p-3 xs:p-4"} sm:p-6 flex-grow flex flex-col justify-center`}
+          className={`${isSimplifiedView ? "p-4 xs:p-5" : "p-5 xs:p-6"} sm:p-8 flex-grow flex flex-col justify-center`}
         >
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center h-full py-2 sm:py-4">
             <motion.div
               ref={circleRef}
               id="circle"
-              className="h-[120px] xs:h-[140px] sm:h-[150px] md:h-[180px] lg:h-[208px] flex items-center justify-center"
+              className="h-[200px] xs:h-[240px] sm:h-[280px] md:h-[320px] lg:h-[280px] flex items-center justify-center"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{
                 opacity: isInView ? 1 : 0,
@@ -434,6 +435,7 @@ sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
                 percentage={energyOffset}
                 isCharging={chargingStates.circle}
                 onChargingComplete={() => handleChargingComplete("circle")}
+                size={isSimplifiedView ? 240 : 320} // Increased size for the circular progress
               />
             </motion.div>
             <motion.div
@@ -452,7 +454,7 @@ sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: textRevealStates.circleText ? 1 : 0 }}
                 transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                className="text-[10px] xs:text-[11px] sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5"
+                className="text-xs sm:text-sm md:text-base font-medium text-smoky-black/70 uppercase tracking-wider mb-1 sm:mb-2"
               >
                 Lifetime Savings
               </motion.p>
@@ -463,7 +465,7 @@ sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
                   y: textRevealStates.circleText ? 0 : 5,
                 }}
                 transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.2 }}
-                className="text-2xl sm:text-3xl font-bold"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold"
               >
                 <span className="text-indigo-dye-600">$</span>
                 <CountUp
