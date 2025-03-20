@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState, useCallback } from "react"
 import { motion, useAnimationControls } from "framer-motion"
 
 interface CircularProgressProps {
@@ -18,7 +18,7 @@ export function CircularProgress({
   onChargingComplete,
   onProgressUpdate,
   className,
-  size = 280, // Increased from 140 to 280
+  size = 280,
 }: CircularProgressProps) {
   // Animation controls
   const progressControls = useAnimationControls()
@@ -26,39 +26,37 @@ export function CircularProgress({
   const textControls = useAnimationControls()
   const overflowControls = useAnimationControls()
   const boomControls = useAnimationControls()
-  const boomRingControls = useAnimationControls()
-  const boomGlowControls = useAnimationControls()
+  const containerScaleControls = useAnimationControls()
 
   // Refs to avoid unnecessary re-renders
   const animationRef = useRef<number | null>(null)
+  const vibrationRef = useRef<number | null>(null)
   const isAnimatingRef = useRef(false)
-  const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const lastVibrationTime = useRef(0)
+  const currentProgressRef = useRef(0)
 
   // State
   const [currentPercentage, setCurrentPercentage] = useState(0)
   const [showCompletionEffects, setShowCompletionEffects] = useState(false)
   const [showOverflowEffects, setShowOverflowEffects] = useState(false)
-  const [showBoomEffect, setShowBoomEffect] = useState(false)
   const [preBoomPhase, setPreBoomPhase] = useState(false)
 
   // Calculate dimensions based on size prop
   const viewBoxSize = 140
-  const radius = viewBoxSize * 0.4
+  const radius = viewBoxSize * 0.35
   const strokeWidth = viewBoxSize * 0.06
   const center = viewBoxSize / 2
   const circumference = 2 * Math.PI * radius
 
-  // Animation duration
-  const animationDuration = 2500 // Slightly faster than original
+  // Animation constants
+  const maxScale = 1.15 // Maximum scale at 100%
+  const animationDuration = 2500
 
   // Handle values over 100%
   const isOverHundred = percentage > 100
-  const displayPercentage = percentage
-  const overflowPercentage = isOverHundred ? percentage - 100 : 0
 
-  // Get color based on percentage
-  const getColors = (percent: number) => {
+  // Get color based on percentage - memoized via useCallback
+  const getColors = useCallback((percent: number) => {
     if (percent <= 25) {
       return {
         start: "#ef4444", // red-500
@@ -72,7 +70,6 @@ export function CircularProgress({
         text: "#ea580c",
       }
     } else if (percent <= 70) {
-      // Changed from 75 to 70
       return {
         start: "#eab308", // yellow-500
         end: "#ca8a04", // yellow-600
@@ -85,7 +82,7 @@ export function CircularProgress({
         text: "#16a34a",
       }
     }
-  }
+  }, [])
 
   const colors = getColors(Math.min(currentPercentage, 100))
 
@@ -95,8 +92,8 @@ export function CircularProgress({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
-      if (vibrationIntervalRef.current) {
-        clearInterval(vibrationIntervalRef.current)
+      if (vibrationRef.current) {
+        cancelAnimationFrame(vibrationRef.current)
       }
     }
   }, [])
@@ -112,151 +109,116 @@ export function CircularProgress({
         cancelAnimationFrame(animationRef.current)
         animationRef.current = null
       }
-      if (vibrationIntervalRef.current) {
-        clearInterval(vibrationIntervalRef.current)
-        vibrationIntervalRef.current = null
+      if (vibrationRef.current) {
+        cancelAnimationFrame(vibrationRef.current)
+        vibrationRef.current = null
       }
       isAnimatingRef.current = false
       setPreBoomPhase(false)
     }
   }, [isCharging])
 
-  // Add a vibration animation function that increases in intensity
-  const updateVibrationEffect = (percent: number) => {
-    // Clear previous interval if it exists
-    if (vibrationIntervalRef.current) {
-      clearInterval(vibrationIntervalRef.current)
+  // Optimized vibration effect using requestAnimationFrame
+  const startVibrationEffect = useCallback(() => {
+    // Stop any existing vibration animation
+    if (vibrationRef.current) {
+      cancelAnimationFrame(vibrationRef.current)
     }
 
-    // Calculate vibration intensity based on percentage
-    // EXTREME exponential increase in amplitude as percentage increases
-    const baseAmplitude = 0.3
-    const maxAmplitude = 12 // Dramatically increased from 5 to 12
+    let lastTimestamp = 0
+    const vibrationInterval = 16 // ~60fps
 
-    // Higher exponent for even more dramatic curve
-    const exponent = 4 // Increased from 3 to 4
-    const normalizedPercent = percent / 100
-    const amplitudeFactor = Math.pow(normalizedPercent, exponent)
-    const amplitude = baseAmplitude + (maxAmplitude - baseAmplitude) * amplitudeFactor
+    // Use a single requestAnimationFrame loop for all vibration effects
+    const updateVibration = (timestamp: number) => {
+      if (!isAnimatingRef.current) return
 
-    // Calculate vibration frequency based on percentage
-    // Start slow and get EXTREMELY fast as percentage increases
-    const baseFrequency = 250 // ms
-    const minFrequency = 2 // ms - extremely fast at high percentages (reduced from 5ms)
+      // Throttle updates to improve performance
+      if (timestamp - lastTimestamp < vibrationInterval) {
+        vibrationRef.current = requestAnimationFrame(updateVibration)
+        return
+      }
 
-    // Exponential decrease in frequency (faster vibration)
-    const frequencyFactor = Math.pow(normalizedPercent, exponent)
-    const frequency = Math.max(minFrequency, baseFrequency - (baseFrequency - minFrequency) * frequencyFactor)
+      lastTimestamp = timestamp
+      const percent = currentProgressRef.current
 
-    // Pre-boom phase - extreme vibration
-    if (preBoomPhase) {
-      // Ultra chaotic, extremely rapid vibration right before the boom
-      vibrationIntervalRef.current = setInterval(() => {
-        const randomAmplitudeX = Math.random() * 15 - 7.5 // Increased from 8 to 15
-        const randomAmplitudeY = Math.random() * 15 - 7.5
-        const randomRotate = Math.random() * 5 - 2.5 // Increased rotation
-        const randomScale = 1 + (Math.random() * 0.1 - 0.05) // Add random scaling
+      // Scale up the container as percentage increases
+      const baseScale = 1
+      const scaleIncrease = baseScale + (maxScale - baseScale) * (percent / 100)
+
+      // Apply the scale with a slight wobble effect
+      containerScaleControls.start({
+        scale: preBoomPhase ? maxScale * 1.05 : scaleIncrease,
+        transition: { duration: 0.3, ease: "easeOut" },
+      })
+
+      // Calculate vibration intensity based on percentage - simplified
+      const normalizedPercent = percent / 100
+      // Use a simpler quadratic curve instead of exponential
+      const amplitudeFactor = normalizedPercent * normalizedPercent
+
+      const baseAmplitude = 0.3
+      const maxAmplitude = 10 // Slightly reduced from 12
+      const amplitude = baseAmplitude + (maxAmplitude - baseAmplitude) * amplitudeFactor
+
+      // Pre-boom phase - extreme vibration
+      if (preBoomPhase) {
+        // Simplified chaotic vibration
+        const randomAmplitudeX = (Math.random() * 2 - 1) * 12
+        const randomAmplitudeY = (Math.random() * 2 - 1) * 12
+        const randomRotate = (Math.random() * 2 - 1) * 3
 
         pulseControls.start({
           x: randomAmplitudeX,
           y: randomAmplitudeY,
           rotate: randomRotate,
-          scale: randomScale,
-          transition: {
-            duration: 0.03, // Even faster transitions (reduced from 0.05)
-            ease: "linear",
-          },
-        })
-      }, 15) // Ultra rapid updates (reduced from 30ms)
-
-      return
-    }
-
-    // Set new vibration interval with updated frequency
-    vibrationIntervalRef.current = setInterval(() => {
-      // More complex vibration pattern that gets more chaotic at higher percentages
-      if (percent < 20) {
-        // Reduced threshold from 30 to 20
-        // Simple vibration at low percentages
-        pulseControls.start({
-          x: [0, -amplitude / 2, amplitude / 2, 0],
-          y: [0, amplitude / 2, -amplitude / 2, 0],
-          transition: {
-            duration: 0.12, // Faster (reduced from 0.15)
-            ease: "easeInOut",
-          },
-        })
-      } else if (percent < 60) {
-        // Reduced threshold from 70 to 60
-        // More complex vibration at medium percentages
-        pulseControls.start({
-          x: [0, -amplitude, amplitude, -amplitude / 2, amplitude / 2, 0],
-          y: [0, amplitude / 2, -amplitude, amplitude / 2, -amplitude / 2, 0],
-          rotate: [0, 0.3, -0.3, 0], // Added slight rotation
-          transition: {
-            duration: 0.1, // Faster (reduced from 0.12)
-            ease: "easeInOut",
-          },
-        })
-      } else {
-        // Extremely chaotic vibration at high percentages
-        const randomOffset = Math.random() * amplitude * 0.3
-        pulseControls.start({
-          x: [0, -amplitude + randomOffset, amplitude / 2, -amplitude / 3, amplitude - randomOffset, -amplitude / 2, 0],
-          y: [0, amplitude / 2, -amplitude + randomOffset, amplitude / 3, -amplitude / 2 - randomOffset, amplitude, 0],
-          rotate: [0, 1, -1, 0.5, -0.5, 0], // More extreme rotation
-          scale: [1, 1.02, 0.98, 1.01, 0.99, 1], // Add pulsing effect
-          transition: {
-            duration: 0.08, // Even faster (reduced from 0.1)
-            ease: "linear",
-          },
+          scale: 1 + (Math.random() * 0.08 - 0.04),
+          transition: { duration: 0.03, ease: "linear" },
         })
       }
-    }, frequency)
-
-    // Add random "thugs" - extra pulses at random intervals for higher percentages
-    if (percent > 40) {
-      // Reduced threshold from 50 to 40
-      const now = Date.now()
-      // Don't add extra thugs too frequently
-      if (now - lastVibrationTime.current > 300) {
-        // Reduced from 500ms to 300ms
-        lastVibrationTime.current = now
-
-        // Random extra "thug" pulse - more intense
-        setTimeout(() => {
-          // More dramatic pulse
+      // Normal vibration - simplified patterns
+      else {
+        // Low percentage - simple vibration
+        if (percent < 30) {
           pulseControls.start({
-            scale: [1, 1.05, 0.97, 1.02, 0.99, 1], // More extreme scale changes
-            rotate: [0, Math.random() * 2 - 1, 0], // Add random rotation
-            transition: { duration: 0.15, ease: "easeOut" }, // Faster (reduced from 0.2)
+            x: (Math.random() * 2 - 1) * amplitude * 0.5,
+            y: (Math.random() * 2 - 1) * amplitude * 0.5,
+            transition: { duration: 0.1, ease: "linear" },
           })
-        }, Math.random() * 200) // Faster random timing (reduced from 300ms)
+        }
+        // Medium to high percentage - more complex vibration
+        else {
+          const randomOffset = Math.random() * amplitude * 0.2
+          pulseControls.start({
+            x: (Math.random() * 2 - 1) * (amplitude + randomOffset),
+            y: (Math.random() * 2 - 1) * (amplitude + randomOffset),
+            rotate: (Math.random() * 2 - 1) * Math.min(1, percent / 70),
+            transition: { duration: 0.08, ease: "linear" },
+          })
+
+          // Add occasional "thugs" for higher percentages
+          const now = Date.now()
+          if (percent > 60 && now - lastVibrationTime.current > 300 && Math.random() > 0.7) {
+            lastVibrationTime.current = now
+            pulseControls.start({
+              scale: [1, 1.03, 0.98, 1],
+              transition: { duration: 0.15, ease: "easeOut" },
+            })
+          }
+        }
       }
+
+      vibrationRef.current = requestAnimationFrame(updateVibration)
     }
 
-    // Add even more random "thugs" at very high percentages
-    if (percent > 80) {
-      // Additional random pulses for extreme percentages
-      setTimeout(() => {
-        const randomAmplitudeX = Math.random() * amplitude - amplitude / 2
-        const randomAmplitudeY = Math.random() * amplitude - amplitude / 2
-
-        pulseControls.start({
-          x: randomAmplitudeX,
-          y: randomAmplitudeY,
-          transition: { duration: 0.05, ease: "linear" },
-        })
-      }, Math.random() * 100)
-    }
-  }
+    vibrationRef.current = requestAnimationFrame(updateVibration)
+  }, [containerScaleControls, maxScale, preBoomPhase, pulseControls])
 
   // Animation function
   const startAnimation = () => {
     isAnimatingRef.current = true
-    setCurrentPercentage(0) // Start from 0
+    setCurrentPercentage(0)
+    currentProgressRef.current = 0
     setShowOverflowEffects(false)
-    setShowBoomEffect(false)
     setPreBoomPhase(false)
 
     // Reset animation state
@@ -264,29 +226,34 @@ export function CircularProgress({
       cancelAnimationFrame(animationRef.current)
     }
 
-    // Start initial vibration
-    updateVibrationEffect(0)
+    // Reset container scale
+    containerScaleControls.start({
+      scale: 1,
+      transition: { duration: 0.2 },
+    })
+
+    // Start vibration effect
+    startVibrationEffect()
 
     // Start progress animation
     const startTime = performance.now()
 
     const animate = (time: number) => {
+      if (!isAnimatingRef.current) return
+
       const elapsed = time - startTime
       const progress = Math.min(elapsed / animationDuration, 1)
 
-      // Changed easing function to prevent overshooting
-      // Using a simpler easeOutQuad function instead of cubic bezier
-      const easedProgress = easeOutQuad(progress)
+      // Simple easeOutQuad function that doesn't overshoot
+      const easedProgress = progress * (2 - progress)
 
       // Use actual percentage for the animation target
       const newPercentage = Math.round(easedProgress * percentage)
 
       if (newPercentage !== currentPercentage) {
         setCurrentPercentage(newPercentage)
+        currentProgressRef.current = newPercentage
         onProgressUpdate?.(newPercentage / 100)
-
-        // Update vibration intensity based on current percentage
-        updateVibrationEffect(newPercentage)
 
         // Add milestone effects at 25%, 50%, 75% - more subtle
         if ([25, 50, 75].includes(newPercentage)) {
@@ -301,7 +268,6 @@ export function CircularProgress({
         // Pre-boom phase - when we're almost done (95%+)
         if (newPercentage >= 95 && progress > 0.95 && !preBoomPhase) {
           setPreBoomPhase(true)
-          updateVibrationEffect(100) // Update with pre-boom vibration
         }
       }
 
@@ -315,9 +281,6 @@ export function CircularProgress({
 
     animationRef.current = requestAnimationFrame(animate)
   }
-
-  // Simple easeOutQuad function that doesn't overshoot
-  const easeOutQuad = (t: number) => t * (2 - t)
 
   // Add a visual effect at milestone percentages - more subtle
   const addMilestoneEffect = () => {
@@ -365,13 +328,12 @@ export function CircularProgress({
   // Handle animation completion with BOOM effect
   const completeAnimation = () => {
     setShowCompletionEffects(true)
-    setShowBoomEffect(true)
     setPreBoomPhase(false)
 
     // Stop vibration
-    if (vibrationIntervalRef.current) {
-      clearInterval(vibrationIntervalRef.current)
-      vibrationIntervalRef.current = null
+    if (vibrationRef.current) {
+      cancelAnimationFrame(vibrationRef.current)
+      vibrationRef.current = null
     }
 
     // Reset position
@@ -384,52 +346,47 @@ export function CircularProgress({
 
     // BOOM effect - dramatic expansion and contraction
     setTimeout(() => {
-      // More refined BOOM effect with smaller scale values
-      pulseControls.start({
-        scale: [1, 1.15, 0.9, 1.08, 0.95, 1.03, 0.98, 1.01, 1], // Reduced scale changes
-        rotate: [0, 1.5, -0.8, 0.4, -0.2, 0], // Less extreme rotation
+      // First, quickly scale down from expanded state to normal with a bounce
+      containerScaleControls.start({
+        scale: [maxScale, 0.92, 1.03, 0.98, 1],
         transition: {
-          duration: 0.9, // Slightly shorter duration
+          duration: 0.8,
           ease: [0.22, 1.2, 0.36, 1],
-          times: [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.85, 0.95, 1],
+          times: [0, 0.3, 0.6, 0.8, 1],
         },
       })
 
-      // Text effect - more subtle
+      // More refined BOOM effect with smaller scale values
+      pulseControls.start({
+        scale: [1, 0.9, 1.05, 0.97, 1.02, 1], // Emphasize compression then slight bounce
+        rotate: [0, 1, -0.5, 0.2, -0.1, 0], // Less extreme rotation
+        transition: {
+          duration: 0.9,
+          ease: [0.22, 1.2, 0.36, 1],
+          times: [0, 0.2, 0.4, 0.6, 0.8, 1],
+        },
+      })
+
+      // Text effect - compress then bounce
       textControls.start({
-        scale: [1, 1.2, 0.85, 1.1, 0.95, 1.05, 1], // Less extreme scale changes
+        scale: [1, 0.85, 1.1, 0.95, 1.02, 1],
         transition: { duration: 0.9, ease: "easeOut" },
       })
 
-      // Boom animation for the outer ring - more contained
+      // Consolidated boom effect - combines previous multiple effects into one
       boomControls.start({
-        scale: [1, 1, 1], // Smaller expansion
+        scale: [1, 1.6, 1],
         opacity: [0, 0.8, 0],
-        transition: { duration: 1.1, ease: "easeOut" },
-      })
-
-      // Multiple concentric rings for more refined effect
-      boomRingControls.start({
-        scale: [1, 1.1],
-        opacity: [0, 0.7, 0],
-        transition: { duration: 1.2, ease: "easeOut", times: [0, 0.3, 1] },
-      })
-
-      // Refined glow effect
-      boomGlowControls.start({
-        scale: [1, 1.2],
-        opacity: [0, 0.7, 0],
-        transition: { duration: 1.3, ease: "easeOut", times: [0, 0.25, 1] },
+        transition: { duration: 1.2, ease: "easeOut" },
       })
     }, 100)
 
     // Clean up after effects
     setTimeout(() => {
       setShowCompletionEffects(false)
-      setShowBoomEffect(false)
       isAnimatingRef.current = false
       onChargingComplete?.()
-    }, 1800) // Longer cleanup time for more dramatic effect
+    }, 1800)
   }
 
   // Calculate point on circle for ticks
@@ -450,7 +407,11 @@ export function CircularProgress({
       style={{ width: containerSize, height: containerSize, zIndex: 30 }}
     >
       {/* Main circle container */}
-      <div className="absolute inset-0 flex items-center justify-center">
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center"
+        animate={containerScaleControls}
+        initial={{ scale: 1 }}
+      >
         <div className="relative w-full h-full bg-gradient-to-br from-blue-50 to-white rounded-full shadow-md overflow-visible">
           <motion.div className="absolute inset-0 overflow-visible" animate={pulseControls}>
             <svg
@@ -466,11 +427,6 @@ export function CircularProgress({
 
                 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="2" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-
-                <filter id="boomGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="12" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
               </defs>
@@ -581,94 +537,43 @@ export function CircularProgress({
             </span>
           </motion.div>
 
-          {/* BOOM effect - outer ring explosion */}
-          {showBoomEffect && (
-            <motion.div
-              className="absolute inset-[-15px] rounded-full pointer-events-none"
-              animate={boomControls}
-              initial={{ scale: 1, opacity: 0 }}
-              style={{
-                border: `6px solid ${colors.start}`, // Thinner border
-                filter: "blur(3px)", // Less blur
-              }}
-            />
-          )}
-
-          {/* BOOM effect - secondary ring (replacing particles) */}
-          {showBoomEffect && (
-            <motion.div
-              className="absolute inset-[-8px] rounded-full pointer-events-none"
-              animate={boomRingControls}
-              initial={{ scale: 1, opacity: 0 }}
-              style={{
-                border: `2px solid ${colors.start}`,
-                filter: "blur(1.5px)",
-              }}
-            />
-          )}
-
-          {/* BOOM effect - radial glow */}
-          {showBoomEffect && (
-            <motion.div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{
-                opacity: [0, 0.8, 0],
-                scale: [0.9, 1.5, 1.7], // More contained expansion
-              }}
-              transition={{
-                duration: 1.2, // Slightly shorter
-                ease: "easeOut",
-                times: [0, 0.3, 1],
-              }}
-              style={{
-                background: `radial-gradient(circle, ${colors.start}80 0%, ${colors.end}00 70%)`,
-                filter: "blur(10px)", // Less blur
-              }}
-            />
-          )}
-
-          {/* BOOM effect - enhanced glow (replacing particles) */}
-          {showBoomEffect && (
-            <motion.div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              animate={boomGlowControls}
-              initial={{ scale: 1, opacity: 0 }}
-              style={{
-                background: `radial-gradient(circle, ${colors.start}70 10%, transparent 70%)`,
-                filter: "blur(12px)", // Less intense blur
-              }}
-            />
-          )}
-
-          {/* Completion effect - simplified */}
-          {showCompletionEffects && !showBoomEffect && (
-            <div className="absolute inset-0 overflow-visible pointer-events-none">
-              {/* Simple ripple effect */}
+          {/* Consolidated BOOM effect - combines multiple effects into one */}
+          {showCompletionEffects && (
+            <>
+              {/* Main boom ring */}
               <motion.div
-                className="absolute inset-0 rounded-full"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: [0, 0.2, 0], scale: [0.9, 1.1, 1.15] }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="absolute inset-[-12px] rounded-full pointer-events-none"
+                animate={boomControls}
+                initial={{ scale: 1, opacity: 0 }}
                 style={{
-                  border: `1px solid ${colors.start}`,
+                  border: `4px solid ${colors.start}`,
+                  filter: "blur(2px)",
+                  background: `radial-gradient(circle, ${colors.start}20 0%, transparent 70%)`,
                 }}
               />
 
               {/* Glow effect */}
               <motion.div
-                className="absolute inset-0 rounded-full"
+                className="absolute inset-0 rounded-full pointer-events-none"
                 initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: [0, 0.3, 0], scale: [0.9, 1.08, 1.12] }}
-                transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+                animate={{
+                  opacity: [0, 0.6, 0],
+                  scale: [0.9, 1.3, 1.4],
+                }}
+                transition={{
+                  duration: 1.0,
+                  ease: "easeOut",
+                  times: [0, 0.3, 1],
+                }}
                 style={{
-                  background: `radial-gradient(circle, ${colors.start}30 0%, ${colors.end}00 70%)`,
+                  background: `radial-gradient(circle, ${colors.start}60 0%, transparent 70%)`,
+                  filter: "blur(8px)",
                 }}
               />
-            </div>
+            </>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

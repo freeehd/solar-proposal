@@ -3,7 +3,14 @@
 import { memo, useRef, useState, useEffect, useMemo, useCallback } from "react"
 import { motion, useInView, AnimatePresence } from "framer-motion"
 import { ChevronRight } from "lucide-react"
-import { StarAnimation } from "./star-animation"
+import dynamic from "next/dynamic"
+import { useReducedMotion } from "framer-motion"
+
+// Dynamically import StarAnimation with an invisible placeholder
+const StarAnimation = dynamic(() => import("./star-animation").then((mod) => mod.StarAnimation), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-transparent" />,
+})
 
 interface Reason {
   text: string
@@ -45,27 +52,19 @@ const chevronVariants = {
   },
 }
 
-// New drop animation for the star wrapper
+// New drop animation for the star wrapper - reduced vertical movement
 const dropVariants = {
-  hidden: { y: -50, opacity: 0 },
+  hidden: { opacity: 0 },
   visible: {
-    y: [null, 5],
     opacity: 1,
     transition: {
-      y: {
-        type: "spring",
-        stiffness: 300,
-        damping: 15,
-        mass: 1.2,
-        times: [0, 0.7, 1],
-      },
-      opacity: { duration: 0.2 },
-      duration: 0.6,
+      opacity: { duration: 0.3 },
+      duration: 0.3,
     },
   },
 }
 
-export const ReasonItem = memo(function ReasonItem({
+export const OptimizedReasonItem = memo(function OptimizedReasonItem({
   reason,
   index,
   previousCompleted,
@@ -74,6 +73,9 @@ export const ReasonItem = memo(function ReasonItem({
   prefersReducedMotion = false,
 }: ReasonItemProps) {
   const itemRef = useRef<HTMLLIElement>(null)
+  const starRef = useRef<HTMLDivElement>(null)
+  const animationAttempts = useRef(0)
+  const prefersReducedMotionValue = useReducedMotion()
 
   // Use InView with higher threshold to reduce unnecessary renders
   const isInView = useInView(itemRef, {
@@ -84,6 +86,11 @@ export const ReasonItem = memo(function ReasonItem({
 
   const [isHovered, setIsHovered] = useState(false)
   const [shouldAnimate, setShouldAnimate] = useState(false)
+  const [starLoaded, setStarLoaded] = useState(false)
+  const [animationFailed, setAnimationFailed] = useState(false)
+
+  // Apply reduced motion preference
+  const shouldReduceMotion = prefersReducedMotion || !!prefersReducedMotionValue
 
   // Memoize event handlers
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
@@ -100,23 +107,57 @@ export const ReasonItem = memo(function ReasonItem({
     return () => clearTimeout(timer)
   }, [previousCompleted, isInView, shouldAnimate])
 
+  // Fallback mechanism for animation failures
+  useEffect(() => {
+    if (!shouldAnimate || hasCompleted || !isInView || animationAttempts.current > 2) return
+
+    // Set a fallback timer to ensure the animation completes even if the star fails to load
+    const fallbackTimer = setTimeout(() => {
+      if (!hasCompleted) {
+        animationAttempts.current += 1
+
+        if (animationAttempts.current > 2) {
+          // After multiple attempts, force completion
+          setAnimationFailed(true)
+          onStarComplete()
+        } else {
+          // Try reloading the star
+          setStarLoaded(false)
+          setTimeout(() => setStarLoaded(true), 100)
+        }
+      }
+    }, 3000)
+
+    return () => clearTimeout(fallbackTimer)
+  }, [shouldAnimate, hasCompleted, isInView, onStarComplete])
+
+  // Force completion for all items after a timeout
+  useEffect(() => {
+    if (shouldReduceMotion && !hasCompleted) {
+      onStarComplete()
+    }
+  }, [shouldReduceMotion, hasCompleted, onStarComplete])
+
   // Compute derived state once per render
   const shouldShowAnimation = shouldAnimate && previousCompleted
-  const isContentVisible = prefersReducedMotion || hasCompleted
+  const isContentVisible = shouldReduceMotion || hasCompleted || animationFailed
 
   // Memoize animation state to prevent recalculation
   const animationState = useMemo(
     () => ({
       container: shouldShowAnimation ? "visible" : "hidden",
-      content: hasCompleted ? "visible" : "hidden",
+      content: isContentVisible ? "visible" : "hidden",
     }),
-    [shouldShowAnimation, hasCompleted],
+    [shouldShowAnimation, isContentVisible],
   )
 
   // Memoize star animation completion handler
   const handleStarComplete = useCallback(() => {
     // Small delay before triggering the completion callback
-    setTimeout(onStarComplete, 100)
+    setTimeout(() => {
+      setStarLoaded(true)
+      onStarComplete()
+    }, 100)
   }, [onStarComplete])
 
   return (
@@ -133,6 +174,7 @@ export const ReasonItem = memo(function ReasonItem({
       aria-busy={!hasCompleted}
     >
       <div
+        ref={starRef}
         className="relative flex-shrink-0 w-[100px] h-[100px] flex items-center justify-center premium-icon-wrapper overflow-hidden"
         style={{
           willChange: "transform",
@@ -148,8 +190,18 @@ export const ReasonItem = memo(function ReasonItem({
             animate="visible"
             onAnimationComplete={handleStarComplete}
           >
-            <StarAnimation delay={0} onAnimationComplete={() => {}} inView={true} />
+            {/* Only render StarAnimation when it should be visible */}
+            <StarAnimation onAnimationComplete={() => {}} inView={isInView} prefersReducedMotion={shouldReduceMotion} />
           </motion.div>
+        )}
+
+        {/* Fallback for failed star animations */}
+        {animationFailed && (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center text-white text-2xl">
+              ★
+            </div>
+          </div>
         )}
       </div>
 

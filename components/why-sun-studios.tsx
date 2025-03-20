@@ -1,18 +1,24 @@
 "use client"
 
 import { motion, useInView, useScroll, useTransform } from "framer-motion"
-import { useRef, useState, useEffect, useCallback, useMemo } from "react"
+import { useRef, useState, useEffect, useCallback, useMemo, Suspense } from "react"
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
-import { ReasonItem } from "./ui/reason-item"
+import { OptimizedReasonItem } from "./ui/reason-item"
 import { ImprovedTextReveal } from "./ui/text-reveal"
 import { useMediaQuery } from "@/hooks/use-media-query"
+
+// Preload the star model to improve initial load time
+import { useGLTF } from "@react-three/drei"
+if (typeof window !== "undefined") {
+  useGLTF.preload("/models/star.glb")
+}
 
 // Define reasons array outside component to prevent recreation on each render
 const reasons = [
   {
     text: "5 stars rating Better Business Bureau",
-    description: " Accredited by the Better Business Bureau from our care and quality for our customers.",
+    description: "Accredited by the Better Business Bureau from our care and quality for our customers.",
   },
   {
     text: "5 stars rating Google",
@@ -32,6 +38,13 @@ const reasons = [
   },
 ]
 
+// Fallback component for when images fail to load
+const ImageWithFallback = ({ src, alt, ...props }) => {
+  const [error, setError] = useState(false)
+
+  return <Image src={error ? "/placeholder.svg" : src} alt={alt} onError={() => setError(true)} {...props} />
+}
+
 export default function WhySunStudiosImproved() {
   const [completedAnimations, setCompletedAnimations] = useState(new Set<number>())
   const containerRef = useRef(null)
@@ -39,17 +52,28 @@ export default function WhySunStudiosImproved() {
   const titleRef = useRef(null)
   const timersRef = useRef<NodeJS.Timeout[]>([])
   const hasStartedAnimations = useRef(false)
+  const [isClient, setIsClient] = useState(false)
 
   // Use media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
 
+  // Ensure hydration issues don't cause problems
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
   // Use InView with higher threshold to reduce unnecessary renders
   const isSectionInView = useInView(sectionRef, {
     once: true,
-    amount: 0.3,
+    amount: 0.2, // Lower threshold for more reliable triggering
+    rootMargin: "100px 0px", // Trigger earlier
   })
 
-  const isTitleInView = useInView(titleRef, { once: true, amount: 0.5 })
+  const isTitleInView = useInView(titleRef, {
+    once: true,
+    amount: 0.3,
+    rootMargin: "50px 0px",
+  })
 
   // Set up scroll-based animations
   const { scrollYProgress } = useScroll({
@@ -60,8 +84,18 @@ export default function WhySunStudiosImproved() {
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.95, 1, 1, 0.95])
 
-  // Optimize animation start effect
+  // Reset animation state if needed
+  const resetAnimations = useCallback(() => {
+    timersRef.current.forEach((timer) => clearTimeout(timer))
+    timersRef.current = []
+    setCompletedAnimations(new Set())
+    hasStartedAnimations.current = false
+  }, [])
+
+  // Optimize animation start effect with error handling and retry mechanism
   useEffect(() => {
+    if (!isClient) return
+
     if (isSectionInView && !hasStartedAnimations.current) {
       hasStartedAnimations.current = true
 
@@ -69,9 +103,10 @@ export default function WhySunStudiosImproved() {
       timersRef.current.forEach((timer) => clearTimeout(timer))
       timersRef.current = []
 
-      // Set up staggered animations
+      // Set up staggered animations with shorter delays for better UX
       reasons.forEach((_, index) => {
-        const delay = 500 + index * 1500
+        // Reduced delay between animations
+        const delay = 300 + index * 1000
 
         const timer = setTimeout(() => {
           setCompletedAnimations((prev) => {
@@ -83,13 +118,21 @@ export default function WhySunStudiosImproved() {
 
         timersRef.current.push(timer)
       })
+
+      // Fallback timer to ensure all animations complete even if something fails
+      const fallbackTimer = setTimeout(() => {
+        const allIndices = new Set(reasons.map((_, i) => i))
+        setCompletedAnimations(allIndices)
+      }, 8000) // Ensure everything completes within 8 seconds max
+
+      timersRef.current.push(fallbackTimer)
     }
 
     // Clean up timers on unmount
     return () => {
       timersRef.current.forEach((timer) => clearTimeout(timer))
     }
-  }, [isSectionInView])
+  }, [isSectionInView, isClient])
 
   // Memoize handleStarComplete to prevent recreation on each render
   const handleStarComplete = useCallback((index: number) => {
@@ -102,12 +145,14 @@ export default function WhySunStudiosImproved() {
 
   // Memoize reason items to prevent unnecessary re-renders
   const reasonItems = useMemo(() => {
+    if (!isClient) return null
+
     return reasons.map((reason, index) => {
       const previousCompleted = index === 0 || completedAnimations.has(index - 1)
       const hasCompleted = completedAnimations.has(index)
 
       return (
-        <ReasonItem
+        <OptimizedReasonItem
           key={index}
           reason={reason}
           index={index}
@@ -117,17 +162,26 @@ export default function WhySunStudiosImproved() {
         />
       )
     })
-  }, [completedAnimations, handleStarComplete])
+  }, [completedAnimations, handleStarComplete, isClient])
 
   return (
     <section ref={sectionRef} className="relative min-h-screen py-16 sm:py-20 md:py-32 overflow-hidden bg-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(194,202,220,0.3),rgba(255,255,255,0))]" />
 
-      <motion.div className="container mx-auto px-4 relative z-10" style={{ opacity, scale }}>
+      <motion.div
+        className="container mx-auto px-4 relative z-10"
+        style={{ opacity, scale }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
         <Card className="p-5 sm:p-8 md:p-12 mb-8 md:mb-12 bg-white/90 backdrop-blur-sm border-[#125170]/10 shadow-xl">
           <div className="flex flex-col lg:flex-row items-start justify-between max-w-full mx-auto">
             <div className="w-full lg:w-1/2 mb-10 sm:mb-12 lg:mb-0 pr-0 lg:pr-10">
-              <div className={`mb-6 sm:mb-8 md:mb-12 max-w-4xl ${!isMobile ? "sticky top-32" : ""}`} ref={titleRef}>
+              <div
+                className={`mb-6 sm:mb-8 md:mb-12 max-w-4xl ${!isMobile && isClient ? "sticky top-32" : ""}`}
+                ref={titleRef}
+              >
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
                   <div className="mb-2 sm:mb-4">
                     <motion.h2
@@ -146,7 +200,7 @@ export default function WhySunStudiosImproved() {
                           transition={{ duration: 0.6, delay: 0.4 }}
                           className="w-full max-w-[400px] h-auto"
                         >
-                          <Image
+                          <ImageWithFallback
                             src="/icon.png"
                             alt="Sun Studios"
                             width={400}
@@ -178,7 +232,27 @@ export default function WhySunStudiosImproved() {
             </div>
 
             <div className="w-full lg:w-1/2 pl-0 lg:pl-2" ref={containerRef}>
-              {isSectionInView && <ul className="space-y-4 sm:space-y-6">{reasonItems}</ul>}
+              {isClient && isSectionInView && (
+                <Suspense
+                  fallback={
+                    <div className="space-y-4 sm:space-y-6 animate-pulse">
+                      {Array(5)
+                        .fill(0)
+                        .map((_, i) => (
+                          <div key={i} className="flex items-start gap-4 md:gap-6">
+                            <div className="w-[100px] h-[100px] bg-gray-200 rounded-full"></div>
+                            <div className="flex-1">
+                              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                              <div className="h-4 bg-gray-100 rounded w-full"></div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  }
+                >
+                  <ul className="space-y-4 sm:space-y-6">{reasonItems}</ul>
+                </Suspense>
+              )}
             </div>
           </div>
         </Card>
@@ -189,7 +263,6 @@ export default function WhySunStudiosImproved() {
           className="absolute top-[5%] right-[5%] w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] md:w-[800px] md:h-[800px] rounded-full"
           style={{
             background: "radial-gradient(circle, rgba(107,114,34,0.15) 0%, rgba(107,114,34,0) 70%)",
-            filter: "blur(50px) sm:blur(75px) md:blur(100px)",
           }}
           animate={{
             scale: [1, 1.2, 1],
