@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import HeroSection from "@/components/hero-section"
 import EnergyUsageSection from "@/components/energy-usage-section"
 import SolarDesignSection from "@/components/solar-design-section"
@@ -12,122 +12,16 @@ import SystemSummarySection from "@/components/system-summary-section"
 import CallToActionSection from "@/components/call-to-action-section"
 import { ThemeToggle } from "@/components/theme-toggle"
 import ErrorBoundary from "@/components/error-boundary"
-import { toast } from "@/components/ui/use-toast"
 import WhySunStudios from "@/components/why-sun-studios"
 import HowSolarWorksx from "@/components/how-solar-worksx"
 import AppSection from "@/components/app-section"
 import Loading from "@/components/ui/loading"
 import { Sun, EyeOff } from "lucide-react"
-
-interface SectionVisibility {
-  hero: boolean
-  whySunStudios: boolean
-  app: boolean
-  howSolarWorks: boolean
-  energyUsage: boolean
-  solarDesign: boolean
-  storage: boolean
-  environmentalImpact: boolean
-  financing: boolean
-  systemSummary: boolean
-  callToAction: boolean
-}
-
-// Update interface to use only snake_case properties
-interface ProposalData {
-  id: number
-  name: string
-  address: string
-  average_rate_kwh: string
-  fixed_costs: string
-  escalation: string
-  monthly_bill: string
-  number_of_solar_panels: string
-  yearly_energy_produced: string
-  energy_offset: string
-  solar_panel_design: string
-  battery_name: string
-  inverter_name: string
-  operating_mode: string
-  capacity: string
-  output_kw: string
-  cost: string
-  backup_allocation: string
-  battery_image: string
-  essentials_days: string
-  appliances_days: string
-  whole_home_days: string
-  payback_period: string
-  total_system_cost: string
-  lifetime_savings: string
-  net_cost: string
-  incentives: string
-  solar_system_model: string
-  solar_system_quantity: string
-  solar_system_price: string
-  storage_system_model: string
-  storage_system_quantity: string
-  storage_system_price: string
-  energy_data: string
-  section_visibility?: SectionVisibility
-}
+import { useProposalData, type ProposalData } from "@/hooks/use-proposal-data"
 
 interface ProposalContentProps {
   proposalId?: string
   initialData?: Partial<ProposalData>
-}
-
-// Update default data to use snake_case
-const defaultProposalData: ProposalData = {
-  id: 0,
-  name: "Guest",
-  address: "123 Solar Street, Sunnyville, CA 90210",
-  average_rate_kwh: "0.15",
-  fixed_costs: "0",
-  escalation: "3",
-  monthly_bill: "200",
-  number_of_solar_panels: "10",
-  yearly_energy_produced: "10000",
-  energy_offset: "80",
-  solar_panel_design: "/placeholder.svg",
-  battery_name: "Default Battery",
-  inverter_name: "Default Inverter",
-  operating_mode: "Standard",
-  capacity: "10",
-  output_kw: "5",
-  cost: "10000",
-  backup_allocation: "50",
-  battery_image: "/placeholder.svg",
-  essentials_days: "3",
-  appliances_days: "1",
-  whole_home_days: "0.5",
-  payback_period: "7",
-  total_system_cost: "25000",
-  lifetime_savings: "50000",
-  net_cost: "15000",
-  incentives: "2000",
-  solar_system_model: "Default Solar Model",
-  solar_system_quantity: "1",
-  solar_system_price: "15000",
-  storage_system_model: "Default Storage Model",
-  storage_system_quantity: "1",
-  storage_system_price: "10000",
-  energy_data: `Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
-Energy usage (kWh)	973	844	916	932	1,029	1,171	1,521	800	1,700	1,060	1,060	1,440
-New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	1,475	1,093	784`,
-  section_visibility: {
-    hero: true,
-    whySunStudios: true,
-    app: true,
-    howSolarWorks: true,
-    energyUsage: true,
-    solarDesign: true,
-    storage: true,
-    environmentalImpact: true,
-    financing: true,
-    systemSummary: true,
-    callToAction: false,
-  },
 }
 
 // Define sections with their IDs and titles
@@ -146,131 +40,40 @@ const sections = [
 ]
 
 export default function ProposalContent({ proposalId, initialData = {} }: ProposalContentProps) {
-  const [proposalData, setProposalData] = useState<ProposalData>(() => {
-    return { ...defaultProposalData, ...initialData }
-  })
   const [activeSection, setActiveSection] = useState("hero")
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({})
-  const [visibleSections, setVisibleSections] = useState<SectionVisibility>(
-    defaultProposalData.section_visibility || {
-      hero: true,
-      whySunStudios: true,
-      app: true,
-      howSolarWorks: true,
-      energyUsage: true,
-      solarDesign: true,
-      storage: true,
-      environmentalImpact: true,
-      financing: true,
-      systemSummary: true,
-      callToAction: false,
-    },
-  )
-
-  // Add loading state
-  const [isLoading, setIsLoading] = useState(true)
-  const [dataLoaded, setDataLoaded] = useState(false)
+  // Add this to the ProposalContent function, replacing the existing state management
+  const [videoLoadProgress, setVideoLoadProgress] = useState(0)
+  const [dataLoadProgress, setDataLoadProgress] = useState(0)
   const [heroReady, setHeroReady] = useState(false)
-  const [videoLoadProgress, setVideoLoadProgress] = useState(0) // New state for video loading progress
   const [starModelLoaded, setStarModelLoaded] = useState(false)
 
-  // Add this function to check if all assets are loaded
-  const checkAllAssetsLoaded = useCallback(() => {
-    // Consider assets loaded if data is loaded and either:
-    // 1. Hero is ready, or
-    // 2. Video has made significant progress (>50%)
-    return dataLoaded && (heroReady || videoLoadProgress > 50)
-  }, [dataLoaded, heroReady, videoLoadProgress])
+  // Calculate combined progress (50% video, 50% data)
+  const combinedProgress = useMemo(() => {
+    return Math.round(videoLoadProgress * 0.5 + dataLoadProgress * 0.5)
+  }, [videoLoadProgress, dataLoadProgress])
 
-  useEffect(() => {
-    const fetchProposal = async () => {
-      if (proposalId) {
-        try {
-          // Set initial progress for data fetching
-          setVideoLoadProgress(5)
-
-          const response = await fetch(`/api/proposals/${proposalId}`)
-          setVideoLoadProgress(10) // Update progress after fetch starts
-
-          const data = await response.json()
-          if (data.success) {
-            console.log("Fetched proposal data:", data.proposal)
-
-            // Extract section visibility if it exists
-            let sectionVisibility = defaultProposalData.section_visibility
-            try {
-              if (data.proposal.section_visibility) {
-                if (typeof data.proposal.section_visibility === "string") {
-                  sectionVisibility = JSON.parse(data.proposal.section_visibility)
-                } else {
-                  sectionVisibility = data.proposal.section_visibility
-                }
-              }
-            } catch (error) {
-              console.error("Error parsing section visibility:", error)
-            }
-
-            setVisibleSections(sectionVisibility || defaultProposalData.section_visibility)
-
-            // Set proposal data directly from API response (all snake_case)
-            setProposalData((prevData) => ({
-              ...prevData,
-              ...data.proposal,
-              section_visibility: sectionVisibility,
-            }))
-
-            // Mark data as loaded
-            setDataLoaded(true)
-          } else {
-            toast({
-              title: "Error",
-              description: "Failed to fetch proposal details",
-              variant: "destructive",
-            })
-            // Even on error, we should stop showing the loading state
-            setDataLoaded(true)
-          }
-        } catch (error) {
-          console.error("Error fetching proposal:", error)
-          toast({
-            title: "Error",
-            description: "Failed to fetch proposal details",
-            variant: "destructive",
-          })
-          // Even on error, we should stop showing the loading state
-          setDataLoaded(true)
-        }
-      } else {
-        const storedData = localStorage.getItem("solarProposalData")
-        if (storedData) {
-          try {
-            const parsedData = JSON.parse(storedData)
-            console.log("Parsed stored data:", parsedData)
-
-            // Extract section visibility if it exists
-            if (parsedData.section_visibility) {
-              setVisibleSections(parsedData.section_visibility)
-            }
-
-            setProposalData((prevData) => ({ ...prevData, ...parsedData }))
-          } catch (error) {
-            console.error("Error parsing stored data:", error)
-          }
-        }
-
-        // Mark data as loaded for localStorage case
-        setDataLoaded(true)
-      }
-    }
-
-    fetchProposal()
-  }, [proposalId])
+  // Use our new hook for proposal data
+  const { proposalData, visibleSections, dataLoaded, setProposalData } = useProposalData({
+    proposalId,
+    initialData,
+    onProgress: setDataLoadProgress,
+  })
 
   // Handle video loading progress updates
   const handleVideoProgress = (progress: number) => {
     // Only update if the new progress is higher than the current one
     setVideoLoadProgress((current) => Math.max(current, progress))
   }
+
+  // Check if all assets are loaded
+  const checkAllAssetsLoaded = useCallback(() => {
+    // Only consider assets loaded if data is loaded AND hero is ready
+    return dataLoaded && heroReady
+  }, [dataLoaded, heroReady])
+
+  // Add loading state
+  const [isLoading, setIsLoading] = useState(true)
 
   // Check if both data and hero are ready to hide the loader
   useEffect(() => {
@@ -283,17 +86,6 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
       return () => clearTimeout(timer)
     }
   }, [checkAllAssetsLoaded])
-
-  useEffect(() => {
-    console.log("Current proposalData:", proposalData)
-    console.log("Visible sections:", visibleSections)
-  }, [proposalData, visibleSections])
-
-  useEffect(() => {
-    if (!proposalId) {
-      localStorage.setItem("solarProposalData", JSON.stringify(proposalData))
-    }
-  }, [proposalData, proposalId])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -355,8 +147,8 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
 
   return (
     <div className="text-foreground bg-background">
-      {/* Loading overlay - now with progress from video loading */}
-      <Loading isLoading={isLoading} progress={videoLoadProgress} />
+      {/* Loading overlay - now with combined progress from video loading and data loading */}
+      <Loading isLoading={isLoading} progress={combinedProgress} />
 
       {visibleSectionsList.length > 0 && (
         <nav className="fixed top-0 right-0 h-screen z-50 flex items-center">
@@ -484,16 +276,16 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 lifetime_savings: proposalData.lifetime_savings,
                 solar_panel_design: proposalData.solar_panel_design,
                 // Add storage section props - only show if storage section is visible
-                battery_name: visibleSections.storage ? proposalData.battery_name : "",
-                inverter_name: visibleSections.storage ? proposalData.inverter_name : "",
-                capacity: visibleSections.storage ? proposalData.capacity : "",
-                output_kw: visibleSections.storage ? proposalData.output_kw : "",
-                operating_mode: visibleSections.storage ? proposalData.operating_mode : "",
-                backup_allocation: visibleSections.storage ? proposalData.backup_allocation : "",
-                battery_image: visibleSections.storage ? proposalData.battery_image : "",
-                essentials_days: visibleSections.storage ? proposalData.essentials_days : "",
-                appliances_days: visibleSections.storage ? proposalData.appliances_days : "",
-                whole_home_days: visibleSections.storage ? proposalData.whole_home_days : "",
+                battery_name: visibleSections.storage ? proposalData.battery_name : '" : "',
+                inverter_name: visibleSections.storage ? proposalData.inverter_name : '" : "',
+                capacity: visibleSections.storage ? proposalData.capacity : '" : "',
+                output_kw: visibleSections.storage ? proposalData.output_kw : '" : "',
+                operating_mode: visibleSections.storage ? proposalData.operating_mode : '" : "',
+                backup_allocation: visibleSections.storage ? proposalData.backup_allocation : '" : "',
+                battery_image: visibleSections.storage ? proposalData.battery_image : '" : "',
+                essentials_days: visibleSections.storage ? proposalData.essentials_days : '" : "',
+                appliances_days: visibleSections.storage ? proposalData.appliances_days : '" : "',
+                whole_home_days: visibleSections.storage ? proposalData.whole_home_days : '" : "',
               }}
             />
           </div>

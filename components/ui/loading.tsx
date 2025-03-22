@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 
@@ -36,6 +36,8 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
   const assetLoadingAttempted = useRef(false)
   const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mountedRef = useRef(true)
+  const progressAnimationRef = useRef<number | null>(null)
+  const completionTriggeredRef = useRef(false)
 
   // Function to preload the star model
   useEffect(() => {
@@ -160,40 +162,60 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
     return () => clearTimeout(timeout)
   }, [isLoading, assetsLoaded, externalProgress])
 
-  // Handle automatic progress simulation
-  useEffect(() => {
-    if (!isLoading) {
-      // If loading is explicitly set to false, hide the loader
-      handleComplete()
-      return
-    }
-
-    // Only run automatic progress if no external progress is provided
-    if (externalProgress === undefined) {
-      console.log("Loading component: Using simulated progress")
-      // Simulate progress
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          // Progress goes up to 90% automatically, the last 10% is when content is actually loaded
-          const newProgress = prev + (prev < 90 ? Math.random() * 3 : 0) // Slower progress
-          return Math.min(newProgress, 90)
-        })
-      }, 300) // Slower updates
-
-      return () => clearInterval(interval)
-    }
-  }, [isLoading, externalProgress])
-
-  // Update progress when external progress changes
+  // Handle external progress updates with smooth animation
   useEffect(() => {
     if (externalProgress !== undefined) {
-      console.log(`Loading component: External progress update: ${externalProgress}%`)
-      setProgress(externalProgress)
+      // Cancel any existing animation
+      if (progressAnimationRef.current) {
+        cancelAnimationFrame(progressAnimationRef.current)
+        progressAnimationRef.current = null
+      }
+
+      // Get current progress value
+      const startProgress = progress
+      const targetProgress = externalProgress
+      const startTime = performance.now()
+      const duration = 300 // Animation duration in ms
+
+      // Animate progress smoothly
+      const animateProgress = (timestamp: number) => {
+        const elapsed = timestamp - startTime
+        const progress = Math.min(elapsed / duration, 1)
+
+        // Ease out cubic function for smoother animation
+        const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+
+        // Calculate current progress value
+        const currentProgress = startProgress + (targetProgress - startProgress) * easeOutCubic
+
+        // Update progress state
+        setProgress(currentProgress)
+
+        // Continue animation if not complete
+        if (progress < 1) {
+          progressAnimationRef.current = requestAnimationFrame(animateProgress)
+        } else {
+          progressAnimationRef.current = null
+        }
+      }
+
+      // Start animation
+      progressAnimationRef.current = requestAnimationFrame(animateProgress)
     }
-  }, [externalProgress])
+
+    return () => {
+      if (progressAnimationRef.current) {
+        cancelAnimationFrame(progressAnimationRef.current)
+        progressAnimationRef.current = null
+      }
+    }
+  }, [externalProgress, progress])
 
   // Function to complete loading and hide the loader
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
+    if (completionTriggeredRef.current) return
+    completionTriggeredRef.current = true
+
     console.log("Loading component: Completing loading process")
     setProgress(100)
 
@@ -210,19 +232,34 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
         if (onLoadingComplete) onLoadingComplete()
       }
     }, 800) // Increased to 800ms for smoother transition
-  }
+  }, [onLoadingComplete])
 
   // When progress reaches 100% or assets are loaded and video progress is high, complete the loading
   useEffect(() => {
-    if (progress >= 100 && isLoading) {
+    if (completionTriggeredRef.current) return
+
+    if (!isLoading) {
+      // If loading is explicitly set to false, hide the loader
+      handleComplete()
+      return
+    }
+
+    // Complete loading when progress reaches 100%
+    if (progress >= 100) {
       console.log("Loading component: Progress reached 100%, completing")
       handleComplete()
-    } else if (assetsLoaded && progress >= 90 && isLoading) {
-      // If assets are loaded and progress is high enough, complete loading
+    }
+    // If using external progress, rely on that completely
+    else if (externalProgress !== undefined && externalProgress >= 100) {
+      console.log("Loading component: External progress complete, completing")
+      handleComplete()
+    }
+    // If assets are loaded and progress is high enough, complete loading
+    else if (assetsLoaded && progress >= 90 && externalProgress === undefined) {
       console.log("Loading component: Assets loaded and progress high, completing")
       setProgress(100)
     }
-  }, [progress, isLoading, assetsLoaded])
+  }, [progress, isLoading, assetsLoaded, externalProgress, handleComplete])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -233,13 +270,17 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
       if (completionTimeoutRef.current) {
         clearTimeout(completionTimeoutRef.current)
       }
+      if (progressAnimationRef.current) {
+        cancelAnimationFrame(progressAnimationRef.current)
+        progressAnimationRef.current = null
+      }
     }
   }, [])
 
   // Determine loading message based on progress
   const loadingMessage = () => {
-    if (!assetsLoaded) return "Loading 3D assets..."
-    if (progress < 50) return "Preparing your experience..."
+    if (!assetsLoaded && progress < 40) return "Loading 3D assets..."
+    if (progress < 60) return "Loading proposal data..."
     if (progress < 80) return "Almost ready..."
     return "Finalizing..."
   }
