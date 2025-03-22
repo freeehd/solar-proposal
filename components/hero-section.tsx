@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import Image from "next/image"
-import { useStableCallback } from "@/hooks/use-stable-callback"
 
 interface HeroSectionProps {
   name: string
@@ -20,36 +19,37 @@ let isVideoPreloading = false
 let preloadPromise: Promise<string> | null = null
 
 export default function HeroSection({ name, address, onReady, onProgress }: HeroSectionProps) {
-  // Simplified state management
-  const [loadingState, setLoadingState] = useState<"loading" | "ready" | "error">("loading")
+  // Core state
+  const [loadingState, setLoadingState] = useState<"initial" | "loading" | "ready" | "error">("initial")
   const [loadProgress, setLoadProgress] = useState(0)
+  const [videoReady, setVideoReady] = useState(false)
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null)
   const mountedRef = useRef(true)
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null)
-  const isVisibleRef = useRef(false)
+  const isVisibleRef = useRef(true)
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
-  // Create stable callbacks to prevent unnecessary effect reruns
-  const stableOnProgress = useStableCallback(onProgress || (() => {}))
-  const stableOnReady = useStableCallback(onReady || (() => {}))
-
   // Preload video once and cache it
   const preloadVideo = useCallback(async (): Promise<string> => {
     // If we already have a cached URL, return it immediately
     if (cachedVideoUrl) {
+      console.log("Using cached video URL")
       return cachedVideoUrl
     }
 
     // If preloading is in progress, return the existing promise
     if (isVideoPreloading && preloadPromise) {
+      console.log("Video preloading already in progress, waiting...")
       return preloadPromise
     }
 
+    console.log("Starting video preload")
     // Start preloading
     isVideoPreloading = true
 
@@ -57,9 +57,10 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
       try {
         // Report initial progress
         setLoadProgress(10)
-        stableOnProgress(10)
+        if (onProgress) onProgress(10)
 
         // Fetch the video
+        console.log("Fetching video file")
         const response = await fetch("/video3.webm")
 
         // Handle progress reporting if possible
@@ -84,7 +85,7 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
 
             if (mountedRef.current) {
               setLoadProgress(progress)
-              stableOnProgress(progress)
+              if (onProgress) onProgress(progress)
             }
           }
 
@@ -96,6 +97,7 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
             position += chunk.length
           }
 
+          console.log("Video download complete, creating blob URL")
           const blob = new Blob([chunksAll], { type: "video/webm" })
           const url = URL.createObjectURL(blob)
 
@@ -104,6 +106,7 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
           resolve(url)
         } else {
           // Fallback for browsers without ReadableStream support
+          console.log("Using fallback download method")
           const blob = await response.blob()
           const url = URL.createObjectURL(blob)
 
@@ -120,44 +123,82 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
     })
 
     return preloadPromise
-  }, [stableOnProgress])
+  }, [onProgress])
 
-  // Setup video and handle loading
+  // Initialize component
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    // Mark component as mounted
+    console.log("HeroSection mounted")
     mountedRef.current = true
+    setLoadingState("loading")
 
-    // Set up timeout for force completion
-    const forceCompleteTimer = setTimeout(() => {
+    return () => {
+      mountedRef.current = false
+
+      // Clear any pending timeouts
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+      }
+
+      // Clean up visibility observer
+      if (visibilityObserverRef.current) {
+        visibilityObserverRef.current.disconnect()
+        visibilityObserverRef.current = null
+      }
+    }
+  }, [])
+
+  // Set up force completion timeout - longer timeout for production
+  useEffect(() => {
+    if (loadingState !== "loading") return
+
+    console.log("Setting up force completion timeout")
+    loadingTimeoutRef.current = setTimeout(() => {
       if (loadingState === "loading" && mountedRef.current) {
         console.log("Force completing video load due to timeout")
         setLoadingState("ready")
         setLoadProgress(100)
-        stableOnProgress(100)
-        stableOnReady()
+        if (onProgress) onProgress(100)
+        if (onReady) onReady()
       }
-    }, 8000)
+    }, 15000) // Increased to 15 seconds for production
 
-    // Handle video loaded and ready to play
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+    }
+  }, [loadingState, onProgress, onReady])
+
+  // Load and set up video
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || loadingState !== "loading") return
+
+    console.log("Setting up video element")
+
+    // Function to handle video loaded and ready to play
     const handleCanPlay = () => {
+      console.log("Video can play now")
       if (!mountedRef.current) return
 
-      console.log("Video can play now")
+      setVideoReady(true)
       setLoadProgress(100)
-      stableOnProgress(100)
+      if (onProgress) onProgress(100)
 
-      // Mark as ready and notify parent
-      setLoadingState("ready")
-      stableOnReady()
+      // Only mark as ready if we're still in loading state
+      if (loadingState === "loading") {
+        console.log("Transitioning to ready state")
+        setLoadingState("ready")
+        if (onReady) onReady()
+      }
 
       // Play video if it's visible
-      if (video.paused && isVisibleRef.current) {
+      if (isVisibleRef.current) {
+        console.log("Attempting to play video")
         // Add a small delay to ensure smooth transition
         setTimeout(() => {
-          if (mountedRef.current && isVisibleRef.current) {
+          if (mountedRef.current && isVisibleRef.current && video.paused) {
             video.play().catch((err) => {
               console.warn("Could not autoplay video:", err)
             })
@@ -166,35 +207,37 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
       }
     }
 
-    // Handle video loading error
+    // Function to handle video loading error
     const handleError = (e: Event) => {
       console.error("Video loading error:", e)
       if (!mountedRef.current) return
 
       setLoadingState("error")
       setLoadProgress(100)
-      stableOnProgress(100)
-      stableOnReady()
+      if (onProgress) onProgress(100)
+      if (onReady) onReady()
     }
+
+    // Add event listeners
+    video.addEventListener("canplay", handleCanPlay, { once: true })
+    video.addEventListener("error", handleError, { once: true })
 
     // Start loading the video
     const loadVideo = async () => {
       try {
+        console.log("Starting video loading process")
         // Get video URL (either from cache or by downloading)
         const videoUrl = await preloadVideo()
 
         if (!mountedRef.current) return
 
+        console.log("Setting video source to:", videoUrl)
         // Set video source
         video.src = videoUrl
 
         // Update progress
         setLoadProgress(90)
-        stableOnProgress(90)
-
-        // Add event listeners
-        video.addEventListener("canplay", handleCanPlay, { once: true })
-        video.addEventListener("error", handleError, { once: true })
+        if (onProgress) onProgress(90)
 
         // Preload video data
         video.load()
@@ -206,8 +249,8 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
         // Handle error state
         setLoadingState("error")
         setLoadProgress(100)
-        stableOnProgress(100)
-        stableOnReady()
+        if (onProgress) onProgress(100)
+        if (onReady) onReady()
       }
     }
 
@@ -216,49 +259,50 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
 
     // Clean up function
     return () => {
-      mountedRef.current = false
-      clearTimeout(forceCompleteTimer)
-
       // Remove event listeners
       video.removeEventListener("canplay", handleCanPlay)
       video.removeEventListener("error", handleError)
     }
-  }, [loadingState, preloadVideo, stableOnProgress, stableOnReady])
+  }, [loadingState, preloadVideo, onProgress, onReady])
 
-  // Set up visibility observer to handle scroll behavior - only created once
+  // Set up visibility observer to handle scroll behavior
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
+    if (!video || !videoReady) return
+
+    console.log("Setting up visibility observer")
 
     // Handle scroll events efficiently with IntersectionObserver
     const handleVisibilityChange = (entries: IntersectionObserverEntry[]) => {
       const [entry] = entries
+      const wasVisible = isVisibleRef.current
       isVisibleRef.current = entry.isIntersecting
 
-      if (entry.isIntersecting) {
-        // Element is visible, play video if it's loaded and not already playing
-        if (loadingState === "ready" && video.paused) {
+      console.log("Visibility changed:", isVisibleRef.current)
+
+      if (entry.isIntersecting && !wasVisible) {
+        // Element is visible, play video if it's loaded
+        if (videoReady && video.paused) {
+          console.log("Playing video on visibility change")
           // Add a small delay to prevent rapid play/pause during scroll bounces
-          const playTimer = setTimeout(() => {
-            if (mountedRef.current && isVisibleRef.current) {
+          setTimeout(() => {
+            if (mountedRef.current && isVisibleRef.current && video.paused) {
               video.play().catch((err) => {
                 console.warn("Could not play video on visibility change:", err)
               })
             }
           }, 150)
-
-          return () => clearTimeout(playTimer)
         }
-      } else {
+      } else if (!entry.isIntersecting && wasVisible) {
         // Element is not visible, pause video to save resources
-        // Only pause if it's actually playing to avoid unnecessary operations
         if (!video.paused) {
+          console.log("Pausing video on visibility change")
           video.pause()
         }
       }
     }
 
-    // Create and setup IntersectionObserver with more appropriate thresholds
+    // Create and setup IntersectionObserver
     visibilityObserverRef.current = new IntersectionObserver(handleVisibilityChange, {
       root: null,
       rootMargin: "100px", // Increased margin to start loading earlier
@@ -276,20 +320,7 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
         visibilityObserverRef.current = null
       }
     }
-  }, [loadingState]) // Only re-create when loadingState changes
-
-  // Clean up resources when component unmounts
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false
-
-      // Clean up visibility observer
-      if (visibilityObserverRef.current) {
-        visibilityObserverRef.current.disconnect()
-        visibilityObserverRef.current = null
-      }
-    }
-  }, [])
+  }, [videoReady])
 
   return (
     <section className="relative h-screen w-full overflow-hidden">

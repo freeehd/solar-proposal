@@ -176,7 +176,10 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
 
   // Add this function to check if all assets are loaded
   const checkAllAssetsLoaded = useCallback(() => {
-    return dataLoaded && heroReady && videoLoadProgress >= 90
+    // Consider assets loaded if data is loaded and either:
+    // 1. Hero is ready, or
+    // 2. Video has made significant progress (>50%)
+    return dataLoaded && (heroReady || videoLoadProgress > 50)
   }, [dataLoaded, heroReady, videoLoadProgress])
 
   useEffect(() => {

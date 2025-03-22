@@ -16,11 +16,14 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
   const [showLoader, setShowLoader] = useState(true)
   const [assetsLoaded, setAssetsLoaded] = useState(false)
   const assetLoadingAttempted = useRef(false)
+  const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const mountedRef = useRef(true)
 
   // Function to preload the star model
   useEffect(() => {
     if (!isLoading || assetLoadingAttempted.current) return
 
+    console.log("Loading component: Starting asset preloading")
     assetLoadingAttempted.current = true
 
     // Set initial progress for asset loading
@@ -35,7 +38,7 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
     gltfLoader.load(
       "/models/star.glb",
       () => {
-        console.log("Star model loaded successfully")
+        console.log("Loading component: Star model loaded successfully")
         setAssetsLoaded(true)
         if (externalProgress === undefined) {
           setProgress((prev) => Math.max(prev, 90))
@@ -49,7 +52,7 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
         }
       },
       (error) => {
-        console.error("Error loading star model:", error)
+        console.error("Loading component: Error loading star model:", error)
         // Even if there's an error, mark as loaded so we don't block the app
         setAssetsLoaded(true)
         if (externalProgress === undefined) {
@@ -60,18 +63,19 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
 
     // Set a timeout to ensure we don't block indefinitely
     const timeout = setTimeout(() => {
-      if (!assetsLoaded) {
-        console.warn("Asset loading timed out, continuing anyway")
+      if (!assetsLoaded && mountedRef.current) {
+        console.warn("Loading component: Asset loading timed out, continuing anyway")
         setAssetsLoaded(true)
         if (externalProgress === undefined) {
           setProgress((prev) => Math.max(prev, 90))
         }
       }
-    }, 5000) // 5 second timeout
+    }, 8000) // Increased to 8 seconds
 
     return () => clearTimeout(timeout)
   }, [isLoading, assetsLoaded, externalProgress])
 
+  // Handle automatic progress simulation
   useEffect(() => {
     if (!isLoading) {
       // If loading is explicitly set to false, hide the loader
@@ -81,14 +85,15 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
 
     // Only run automatic progress if no external progress is provided
     if (externalProgress === undefined) {
+      console.log("Loading component: Using simulated progress")
       // Simulate progress
       const interval = setInterval(() => {
         setProgress((prev) => {
           // Progress goes up to 90% automatically, the last 10% is when content is actually loaded
-          const newProgress = prev + (prev < 90 ? Math.random() * 5 : 0)
+          const newProgress = prev + (prev < 90 ? Math.random() * 3 : 0) // Slower progress
           return Math.min(newProgress, 90)
         })
-      }, 200)
+      }, 300) // Slower updates
 
       return () => clearInterval(interval)
     }
@@ -97,30 +102,62 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
   // Update progress when external progress changes
   useEffect(() => {
     if (externalProgress !== undefined) {
+      console.log(`Loading component: External progress update: ${externalProgress}%`)
       setProgress(externalProgress)
     }
   }, [externalProgress])
 
   // Function to complete loading and hide the loader
   const handleComplete = () => {
+    console.log("Loading component: Completing loading process")
     setProgress(100)
 
+    // Clear any existing timeout
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current)
+    }
+
     // Delay hiding the loader to show the 100% state briefly
-    setTimeout(() => {
-      setShowLoader(false)
-      if (onLoadingComplete) onLoadingComplete()
-    }, 500)
+    completionTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current) {
+        console.log("Loading component: Hiding loader")
+        setShowLoader(false)
+        if (onLoadingComplete) onLoadingComplete()
+      }
+    }, 800) // Increased to 800ms for smoother transition
   }
 
   // When progress reaches 100% or assets are loaded and video progress is high, complete the loading
   useEffect(() => {
     if (progress >= 100 && isLoading) {
+      console.log("Loading component: Progress reached 100%, completing")
       handleComplete()
     } else if (assetsLoaded && progress >= 90 && isLoading) {
       // If assets are loaded and progress is high enough, complete loading
+      console.log("Loading component: Assets loaded and progress high, completing")
       setProgress(100)
     }
   }, [progress, isLoading, assetsLoaded])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true
+
+    return () => {
+      mountedRef.current = false
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Determine loading message based on progress
+  const loadingMessage = () => {
+    if (!assetsLoaded) return "Loading 3D assets..."
+    if (progress < 50) return "Preparing your experience..."
+    if (progress < 80) return "Almost ready..."
+    return "Finalizing..."
+  }
 
   return (
     <AnimatePresence>
@@ -128,7 +165,7 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.5, ease: "easeInOut" }}
+          transition={{ duration: 0.8, ease: "easeInOut" }} // Longer fade-out
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-gray-800 to-gray-900"
         >
           <div className="relative flex flex-col items-center">
@@ -158,7 +195,7 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
             </motion.h1>
 
             {/* Progress bar */}
-            <div className="w-64 h-2 bg-indigo-400 rounded-full overflow-hidden">
+            <div className="w-64 h-2 bg-indigo-400/40 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500"
                 initial={{ width: 0 }}
@@ -174,7 +211,17 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              {!assetsLoaded ? "Loading 3D assets..." : "Preparing your experience..."}
+              {loadingMessage()}
+            </motion.p>
+
+            {/* Progress percentage */}
+            <motion.p
+              className="mt-2 text-xs text-white/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
+              {Math.round(progress)}%
             </motion.p>
           </div>
         </motion.div>
