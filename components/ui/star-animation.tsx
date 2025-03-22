@@ -8,35 +8,13 @@ import * as THREE from "three"
 import { useGLTF } from "@react-three/drei"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 
-// Import the global star model cache from reason-item.tsx
-declare global {
-  interface Window {
-    starModelCache?: {
-      isLoaded: boolean
-      isLoading: boolean
-      loadPromise: Promise<void> | null
-      model: THREE.Group | null
-      error: boolean
-    }
-  }
-}
-
-// Access the global cache
-const getStarModelCache = () => {
-  if (typeof window === "undefined") return null
-
-  // Initialize if not exists
-  if (!window.starModelCache) {
-    window.starModelCache = {
-      isLoaded: false,
-      isLoading: false,
-      loadPromise: null,
-      model: null,
-      error: false,
-    }
-  }
-
-  return window.starModelCache
+// Global star model cache
+const starModelCache = {
+  isLoaded: false,
+  isLoading: false,
+  loadPromise: null as Promise<THREE.Group> | null,
+  model: null as THREE.Group | null,
+  error: false,
 }
 
 // Preload the model globally
@@ -44,28 +22,20 @@ useGLTF.preload("/models/star.glb")
 
 // Function to load the model once and cache it
 const loadStarModel = (): Promise<THREE.Group> => {
-  const cache = getStarModelCache()
-
-  if (cache?.model) {
-    console.log("Using cached star model from global cache")
-    return Promise.resolve(cache.model)
+  if (starModelCache.model) {
+    console.log("Using cached star model")
+    return Promise.resolve(starModelCache.model)
   }
 
-  if (cache?.isLoading && cache?.loadPromise) {
+  if (starModelCache.isLoading && starModelCache.loadPromise) {
     console.log("Star model loading in progress, waiting...")
-    return cache.loadPromise.then(() => {
-      if (cache.model) return cache.model
-      throw new Error("Model loading completed but model is null")
-    })
+    return starModelCache.loadPromise
   }
 
   console.log("Loading star model in StarAnimation")
+  starModelCache.isLoading = true
 
-  if (cache) {
-    cache.isLoading = true
-  }
-
-  return new Promise((resolve, reject) => {
+  const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
     const loader = new GLTFLoader()
     loader.load(
       "/models/star.glb",
@@ -77,19 +47,15 @@ const loadStarModel = (): Promise<THREE.Group> => {
           model.position.set(0, 0, 0)
           model.rotation.set(0, 0, 0)
 
-          if (cache) {
-            cache.model = model
-            cache.isLoaded = true
-            cache.isLoading = false
-          }
+          starModelCache.model = model
+          starModelCache.isLoaded = true
+          starModelCache.isLoading = false
 
           resolve(model)
         } catch (error) {
           console.error("Error processing star model:", error)
-          if (cache) {
-            cache.error = true
-            cache.isLoading = false
-          }
+          starModelCache.error = true
+          starModelCache.isLoading = false
           reject(error)
         }
       },
@@ -101,14 +67,25 @@ const loadStarModel = (): Promise<THREE.Group> => {
       },
       (error) => {
         console.error("Error loading star model in StarAnimation:", error)
-        if (cache) {
-          cache.error = true
-          cache.isLoading = false
-        }
+        starModelCache.error = true
+        starModelCache.isLoading = false
         reject(error)
       },
     )
   })
+
+  starModelCache.loadPromise = loadPromise
+
+  // Set a timeout to prevent indefinite loading
+  setTimeout(() => {
+    if (!starModelCache.isLoaded && starModelCache.isLoading) {
+      console.warn("Star model loading timed out globally")
+      starModelCache.isLoading = false
+      starModelCache.error = true
+    }
+  }, 10000)
+
+  return loadPromise
 }
 
 // Start loading the model immediately
@@ -151,29 +128,18 @@ const StarMesh = React.memo(
     usePreloadedModel = false,
   }: StarMeshProps) => {
     const groupRef = useRef<THREE.Group>(null)
-    const materialRef = useRef<THREE.MeshPhysicalMaterial | null>(null)
+    const materialRef = useRef<THREE.MeshStandardMaterial | null>(null)
     const { gl } = useThree()
 
     // Error handling for model loading
     const [loadError, setLoadError] = useState(false)
     const [model, setModel] = useState<THREE.Group | null>(null)
 
-    // Create the material with the specified properties
+    // Create the material with the specified properties - using MeshStandardMaterial instead
     const starMaterial = useMemo(() => {
-      const material = new THREE.MeshPhysicalMaterial({
-        samples: quality === "high" ? 6 : 3,
-        thickness: 0.4,
+      const material = new THREE.MeshStandardMaterial({
         roughness: 0.03,
-        transmission: 1,
-        ior: 1.6,
-        chromaticAberration: quality === "high" ? 0.04 : 0.03,
-        distortion: 0.4,
-        distortionScale: 0.5,
-        temporalDistortion: 0.2,
         metalness: 0.8,
-        clearcoat: 1.2,
-        attenuationDistance: 0.6,
-        attenuationColor: new THREE.Color("#ffd700"),
         color: new THREE.Color("#daa520"),
         emissive: new THREE.Color("#ffd000"),
         emissiveIntensity: 0,
@@ -191,14 +157,12 @@ const StarMesh = React.memo(
 
       const loadModel = async () => {
         try {
-          // Check if we should use the preloaded model from the global cache
-          const cache = getStarModelCache()
-
-          if (usePreloadedModel && cache?.model) {
-            console.log("Using preloaded model from global cache")
+          // Try to get the model from the global cache
+          if (starModelCache.model) {
+            console.log("Using model from global cache")
             if (isMounted) {
               // Clone the model
-              const clonedModel = cache.model.clone()
+              const clonedModel = starModelCache.model.clone()
 
               // Apply material to all meshes
               clonedModel.traverse((child) => {
@@ -218,7 +182,7 @@ const StarMesh = React.memo(
             return
           }
 
-          // Otherwise load the model normally
+          // Otherwise load the model
           const loadedModel = await loadStarModel()
           if (isMounted) {
             // Clone the model
@@ -442,7 +406,7 @@ export const StarAnimation = React.memo(
     const hoverStateRef = useRef(false)
     const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
     const [hasErrored, setHasErrored] = useState(false)
-    const [isModelPreloaded, setIsModelPreloaded] = useState(false)
+    const [isModelPreloaded, setIsModelPreloaded] = useState(!!starModelCache.model)
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
@@ -467,19 +431,17 @@ export const StarAnimation = React.memo(
 
     // Check if the star model is preloaded from the global cache
     useEffect(() => {
-      const cache = getStarModelCache()
-
       if (isModelPreloaded) return
 
-      if (cache?.isLoaded && cache?.model) {
+      if (starModelCache.model) {
         console.log("Star model already loaded in global cache")
         setIsModelPreloaded(true)
         return
       }
 
-      if (cache?.isLoading && cache?.loadPromise) {
+      if (starModelCache.isLoading && starModelCache.loadPromise) {
         console.log("Star model loading in progress, waiting...")
-        cache.loadPromise
+        starModelCache.loadPromise
           .then(() => {
             console.log("Star model loaded from global promise")
             setIsModelPreloaded(true)
