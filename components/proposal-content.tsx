@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import HeroSection from "@/components/hero-section"
 import EnergyUsageSection from "@/components/energy-usage-section"
 import SolarDesignSection from "@/components/solar-design-section"
@@ -171,12 +171,24 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
   const [isLoading, setIsLoading] = useState(true)
   const [dataLoaded, setDataLoaded] = useState(false)
   const [heroReady, setHeroReady] = useState(false)
+  const [videoLoadProgress, setVideoLoadProgress] = useState(0) // New state for video loading progress
+  const [starModelLoaded, setStarModelLoaded] = useState(false)
+
+  // Add this function to check if all assets are loaded
+  const checkAllAssetsLoaded = useCallback(() => {
+    return dataLoaded && heroReady && videoLoadProgress >= 90
+  }, [dataLoaded, heroReady, videoLoadProgress])
 
   useEffect(() => {
     const fetchProposal = async () => {
       if (proposalId) {
         try {
+          // Set initial progress for data fetching
+          setVideoLoadProgress(5)
+
           const response = await fetch(`/api/proposals/${proposalId}`)
+          setVideoLoadProgress(10) // Update progress after fetch starts
+
           const data = await response.json()
           if (data.success) {
             console.log("Fetched proposal data:", data.proposal)
@@ -251,9 +263,15 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
     fetchProposal()
   }, [proposalId])
 
+  // Handle video loading progress updates
+  const handleVideoProgress = (progress: number) => {
+    // Only update if the new progress is higher than the current one
+    setVideoLoadProgress((current) => Math.max(current, progress))
+  }
+
   // Check if both data and hero are ready to hide the loader
   useEffect(() => {
-    if (dataLoaded && heroReady) {
+    if (checkAllAssetsLoaded()) {
       // Add a longer delay to ensure everything is rendered
       const timer = setTimeout(() => {
         setIsLoading(false)
@@ -261,7 +279,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
 
       return () => clearTimeout(timer)
     }
-  }, [dataLoaded, heroReady])
+  }, [checkAllAssetsLoaded])
 
   useEffect(() => {
     console.log("Current proposalData:", proposalData)
@@ -334,8 +352,8 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
 
   return (
     <div className="text-foreground bg-background">
-      {/* Loading overlay */}
-      <Loading isLoading={isLoading} />
+      {/* Loading overlay - now with progress from video loading */}
+      <Loading isLoading={isLoading} progress={videoLoadProgress} />
 
       {visibleSectionsList.length > 0 && (
         <nav className="fixed top-0 right-0 h-screen z-50 flex items-center">
@@ -380,11 +398,17 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
               if (el) sectionRefs.current.hero = el
             }}
           >
-            <HeroSection name={proposalData.name} address={proposalData.address} onReady={handleHeroReady} />
+            <HeroSection
+              name={proposalData.name}
+              address={proposalData.address}
+              onReady={handleHeroReady}
+              onProgress={handleVideoProgress} // Pass the progress handler
+            />
           </div>
         </ErrorBoundary>
       )}
 
+      {/* Rest of the sections remain unchanged */}
       {visibleSections.whySunStudios && (
         <ErrorBoundary fallback={<div>Error loading Why Sun Studios section</div>}>
           <div

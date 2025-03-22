@@ -1,99 +1,336 @@
 "use client"
 
-import { useRef, useState, useEffect } from "react"
-import { AnimatePresence } from "framer-motion"
+import { useRef, useState, useEffect, useCallback } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import Image from "next/image"
+import { useStableCallback } from "@/hooks/use-stable-callback"
 
 interface HeroSectionProps {
   name: string
   address: string
   onReady?: () => void
+  onProgress?: (progress: number) => void
 }
 
-export default function HeroSection({ name, address, onReady }: HeroSectionProps) {
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false)
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
-  const [showPlaceholder, setShowPlaceholder] = useState(true)
+// Global video cache to prevent reloading
+let cachedVideoUrl: string | null = null
+let isVideoPreloading = false
+let preloadPromise: Promise<string> | null = null
+
+export default function HeroSection({ name, address, onReady, onProgress }: HeroSectionProps) {
+  // Simplified state management
+  const [loadingState, setLoadingState] = useState<"loading" | "ready" | "error">("loading")
+  const [loadProgress, setLoadProgress] = useState(0)
+
+  // Refs
   const videoRef = useRef<HTMLVideoElement>(null)
+  const mountedRef = useRef(true)
+  const visibilityObserverRef = useRef<IntersectionObserver | null>(null)
+  const isVisibleRef = useRef(false)
 
   // Media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
-  // Simplified video loading strategy
+  // Create stable callbacks to prevent unnecessary effect reruns
+  const stableOnProgress = useStableCallback(onProgress || (() => {}))
+  const stableOnReady = useStableCallback(onReady || (() => {}))
+
+  // Preload video once and cache it
+  const preloadVideo = useCallback(async (): Promise<string> => {
+    // If we already have a cached URL, return it immediately
+    if (cachedVideoUrl) {
+      return cachedVideoUrl
+    }
+
+    // If preloading is in progress, return the existing promise
+    if (isVideoPreloading && preloadPromise) {
+      return preloadPromise
+    }
+
+    // Start preloading
+    isVideoPreloading = true
+
+    preloadPromise = new Promise<string>(async (resolve, reject) => {
+      try {
+        // Report initial progress
+        setLoadProgress(10)
+        stableOnProgress(10)
+
+        // Fetch the video
+        const response = await fetch("/video3.webm")
+
+        // Handle progress reporting if possible
+        if (response.body && response.headers.get("content-length")) {
+          const contentLength = Number(response.headers.get("content-length"))
+          let receivedLength = 0
+          const chunks: Uint8Array[] = []
+          const reader = response.body.getReader()
+
+          while (true) {
+            const { done, value } = await reader.read()
+
+            if (done) {
+              break
+            }
+
+            chunks.push(value)
+            receivedLength += value.length
+
+            // Calculate progress (10-90% range)
+            const progress = Math.round(10 + (receivedLength / contentLength) * 80)
+
+            if (mountedRef.current) {
+              setLoadProgress(progress)
+              stableOnProgress(progress)
+            }
+          }
+
+          // Create blob from chunks
+          const chunksAll = new Uint8Array(receivedLength)
+          let position = 0
+          for (const chunk of chunks) {
+            chunksAll.set(chunk, position)
+            position += chunk.length
+          }
+
+          const blob = new Blob([chunksAll], { type: "video/webm" })
+          const url = URL.createObjectURL(blob)
+
+          // Cache the URL
+          cachedVideoUrl = url
+          resolve(url)
+        } else {
+          // Fallback for browsers without ReadableStream support
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+
+          // Cache the URL
+          cachedVideoUrl = url
+          resolve(url)
+        }
+      } catch (error) {
+        console.error("Error preloading video:", error)
+        reject(error)
+      } finally {
+        isVideoPreloading = false
+      }
+    })
+
+    return preloadPromise
+  }, [stableOnProgress])
+
+  // Setup video and handle loading
   useEffect(() => {
     const video = videoRef.current
-    if (!video) {
-      // If video element isn't available, still notify we're ready
-      if (onReady) onReady()
-      return
-    }
+    if (!video) return
 
+    // Mark component as mounted
+    mountedRef.current = true
+
+    // Set up timeout for force completion
+    const forceCompleteTimer = setTimeout(() => {
+      if (loadingState === "loading" && mountedRef.current) {
+        console.log("Force completing video load due to timeout")
+        setLoadingState("ready")
+        setLoadProgress(100)
+        stableOnProgress(100)
+        stableOnReady()
+      }
+    }, 8000)
+
+    // Handle video loaded and ready to play
     const handleCanPlay = () => {
-      setIsVideoLoaded(true)
-      video
-        .play()
-        .then(() => {
-          setIsVideoPlaying(true)
-          setTimeout(() => {
-            setShowPlaceholder(false)
-            if (onReady) onReady()
-          }, 500)
-        })
-        .catch(() => {
-          // If autoplay fails, still mark as ready
-          if (onReady) onReady()
-        })
+      if (!mountedRef.current) return
+
+      console.log("Video can play now")
+      setLoadProgress(100)
+      stableOnProgress(100)
+
+      // Mark as ready and notify parent
+      setLoadingState("ready")
+      stableOnReady()
+
+      // Play video if it's visible
+      if (video.paused && isVisibleRef.current) {
+        // Add a small delay to ensure smooth transition
+        setTimeout(() => {
+          if (mountedRef.current && isVisibleRef.current) {
+            video.play().catch((err) => {
+              console.warn("Could not autoplay video:", err)
+            })
+          }
+        }, 100)
+      }
     }
 
-    // If video is already loaded
-    if (video.readyState >= 3) {
-      handleCanPlay()
-    } else {
-      video.addEventListener("canplay", handleCanPlay, { once: true })
+    // Handle video loading error
+    const handleError = (e: Event) => {
+      console.error("Video loading error:", e)
+      if (!mountedRef.current) return
+
+      setLoadingState("error")
+      setLoadProgress(100)
+      stableOnProgress(100)
+      stableOnReady()
     }
+
+    // Start loading the video
+    const loadVideo = async () => {
+      try {
+        // Get video URL (either from cache or by downloading)
+        const videoUrl = await preloadVideo()
+
+        if (!mountedRef.current) return
+
+        // Set video source
+        video.src = videoUrl
+
+        // Update progress
+        setLoadProgress(90)
+        stableOnProgress(90)
+
+        // Add event listeners
+        video.addEventListener("canplay", handleCanPlay, { once: true })
+        video.addEventListener("error", handleError, { once: true })
+
+        // Preload video data
+        video.load()
+      } catch (error) {
+        console.error("Error in video loading process:", error)
+
+        if (!mountedRef.current) return
+
+        // Handle error state
+        setLoadingState("error")
+        setLoadProgress(100)
+        stableOnProgress(100)
+        stableOnReady()
+      }
+    }
+
+    // Start loading
+    loadVideo()
+
+    // Clean up function
+    return () => {
+      mountedRef.current = false
+      clearTimeout(forceCompleteTimer)
+
+      // Remove event listeners
+      video.removeEventListener("canplay", handleCanPlay)
+      video.removeEventListener("error", handleError)
+    }
+  }, [loadingState, preloadVideo, stableOnProgress, stableOnReady])
+
+  // Set up visibility observer to handle scroll behavior - only created once
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    // Handle scroll events efficiently with IntersectionObserver
+    const handleVisibilityChange = (entries: IntersectionObserverEntry[]) => {
+      const [entry] = entries
+      isVisibleRef.current = entry.isIntersecting
+
+      if (entry.isIntersecting) {
+        // Element is visible, play video if it's loaded and not already playing
+        if (loadingState === "ready" && video.paused) {
+          // Add a small delay to prevent rapid play/pause during scroll bounces
+          const playTimer = setTimeout(() => {
+            if (mountedRef.current && isVisibleRef.current) {
+              video.play().catch((err) => {
+                console.warn("Could not play video on visibility change:", err)
+              })
+            }
+          }, 150)
+
+          return () => clearTimeout(playTimer)
+        }
+      } else {
+        // Element is not visible, pause video to save resources
+        // Only pause if it's actually playing to avoid unnecessary operations
+        if (!video.paused) {
+          video.pause()
+        }
+      }
+    }
+
+    // Create and setup IntersectionObserver with more appropriate thresholds
+    visibilityObserverRef.current = new IntersectionObserver(handleVisibilityChange, {
+      root: null,
+      rootMargin: "100px", // Increased margin to start loading earlier
+      threshold: [0.1, 0.3], // Multiple thresholds for smoother transitions
+    })
+
+    // Start observing the container rather than the video itself
+    const observeTarget = video.parentElement || video
+    visibilityObserverRef.current.observe(observeTarget)
 
     return () => {
-      video.removeEventListener("canplay", handleCanPlay)
+      // Clean up observer
+      if (visibilityObserverRef.current) {
+        visibilityObserverRef.current.disconnect()
+        visibilityObserverRef.current = null
+      }
     }
-  }, [onReady])
+  }, [loadingState]) // Only re-create when loadingState changes
+
+  // Clean up resources when component unmounts
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+
+      // Clean up visibility observer
+      if (visibilityObserverRef.current) {
+        visibilityObserverRef.current.disconnect()
+        visibilityObserverRef.current = null
+      }
+    }
+  }, [])
 
   return (
     <section className="relative h-screen w-full overflow-hidden">
-      {/* Static placeholder image that shows while video loads */}
+      {/* Loading placeholder */}
       <AnimatePresence>
-        {showPlaceholder && (
-          <div className="absolute inset-0 z-0 bg-black">
-            <Image
-              src="/night3.png"
-              alt="Solar background"
-              fill
-              priority
-              className="object-cover"
-              sizes="100vw"
-            />
+        {loadingState === "loading" && (
+          <motion.div
+            className="absolute inset-0 z-10 bg-black"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.5 } }}
+          >
+            <Image src="/night3.png" alt="Solar background" fill priority className="object-cover" sizes="100vw" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/30" />
-          </div>
+
+            {/* Loading indicator */}
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-black/50 px-4 py-2 rounded-full text-white text-sm">
+              Loading... {loadProgress}%
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Video Background */}
+      {/* Video Background - Always present but opacity controlled */}
       <div className="absolute inset-0 z-0">
         <div
-          className={`absolute inset-0 transition-opacity duration-1000 ${isVideoPlaying ? "opacity-100" : "opacity-0"}`}
+          className="absolute inset-0 will-change-opacity"
+          style={{
+            opacity: loadingState === "ready" ? 1 : 0,
+            transition: "opacity 1000ms cubic-bezier(0.4, 0.0, 0.2, 1)",
+          }}
         >
           <video
             ref={videoRef}
-            className="absolute h-full w-full object-cover"
-            autoPlay
+            className="absolute h-full w-full object-cover will-change-transform"
+            style={{ transform: "translateZ(0)" }}
             muted
             loop
             playsInline
             preload="auto"
           >
-            <source src="/video3.webm" type="video/webm" />
+            {/* Source set via JavaScript */}
             Your browser does not support the video tag.
           </video>
         </div>
@@ -103,7 +340,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
       </div>
 
       {/* Content Container */}
-      <div className="relative z-10 h-full flex flex-col">
+      <div className="relative z-5 h-full flex flex-col">
         {/* Top section with main heading */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 md:px-12">
           <div className="w-full max-w-6xl mx-auto">

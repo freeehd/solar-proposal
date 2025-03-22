@@ -156,42 +156,33 @@ export function CircularProgress({
       // Use a simpler quadratic curve instead of exponential
       const amplitudeFactor = normalizedPercent * normalizedPercent
 
-      const baseAmplitude = 0.3
-      const maxAmplitude = 10 // Slightly reduced from 12
-      const amplitude = baseAmplitude + (maxAmplitude - baseAmplitude) * amplitudeFactor
-
       // Pre-boom phase - extreme vibration
       if (preBoomPhase) {
-        // Simplified chaotic vibration
-        const randomAmplitudeX = (Math.random() * 2 - 1) * 12
-        const randomAmplitudeY = (Math.random() * 2 - 1) * 12
+        // Simplified chaotic vibration - only scale and rotate, no position change
         const randomRotate = (Math.random() * 2 - 1) * 3
 
         pulseControls.start({
-          x: randomAmplitudeX,
-          y: randomAmplitudeY,
           rotate: randomRotate,
           scale: 1 + (Math.random() * 0.08 - 0.04),
           transition: { duration: 0.03, ease: "linear" },
         })
       }
-      // Normal vibration - simplified patterns
+      // Normal vibration - simplified patterns with no position change
       else {
-        // Low percentage - simple vibration
+        // Low percentage - simple scale vibration
         if (percent < 30) {
+          const smallScale = 1 + (Math.random() * 0.01 - 0.005)
           pulseControls.start({
-            x: (Math.random() * 2 - 1) * amplitude * 0.5,
-            y: (Math.random() * 2 - 1) * amplitude * 0.5,
+            scale: smallScale,
             transition: { duration: 0.1, ease: "linear" },
           })
         }
         // Medium to high percentage - more complex vibration
         else {
-          const randomOffset = Math.random() * amplitude * 0.2
+          const rotationIntensity = Math.min(1, percent / 70)
           pulseControls.start({
-            x: (Math.random() * 2 - 1) * (amplitude + randomOffset),
-            y: (Math.random() * 2 - 1) * (amplitude + randomOffset),
-            rotate: (Math.random() * 2 - 1) * Math.min(1, percent / 70),
+            rotate: (Math.random() * 2 - 1) * rotationIntensity,
+            scale: 1 + (Math.random() * 0.02 - 0.01) * amplitudeFactor,
             transition: { duration: 0.08, ease: "linear" },
           })
 
@@ -336,10 +327,8 @@ export function CircularProgress({
       vibrationRef.current = null
     }
 
-    // Reset position
+    // Reset position and rotation
     pulseControls.start({
-      x: 0,
-      y: 0,
       rotate: 0,
       transition: { duration: 0.1 },
     })
@@ -541,23 +530,23 @@ export function CircularProgress({
           {showCompletionEffects && (
             <>
               {/* Main boom ring */}
-              <motion.div
+              {/* <motion.div
                 className="absolute inset-[-12px] rounded-full pointer-events-none"
                 animate={boomControls}
                 initial={{ scale: 1, opacity: 0 }}
                 style={{
                   border: `4px solid ${colors.start}`,
                   filter: "blur(2px)",
-                  background: `radial-gradient(circle, ${colors.start}20 0%, transparent 70%)`,
+                  background: `radial-gradient(circle, ${colors.start}20 0%, transparent 100%)`,
                 }}
-              />
+              /> */}
 
-              {/* Glow effect */}
+              {/* Glow effect
               <motion.div
                 className="absolute inset-0 rounded-full pointer-events-none"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{
-                  opacity: [0, 0.6, 0],
+                  opacity: [0, 0., 0],
                   scale: [0.9, 1.3, 1.4],
                 }}
                 transition={{
@@ -569,7 +558,7 @@ export function CircularProgress({
                   background: `radial-gradient(circle, ${colors.start}60 0%, transparent 70%)`,
                   filter: "blur(8px)",
                 }}
-              />
+              /> */}
             </>
           )}
         </div>

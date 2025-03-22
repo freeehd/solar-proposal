@@ -10,7 +10,7 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 const slides = [
   {
     id: 1,
-    image: "/app/1.png",
+    image: "/app/3.png",
     description: "Use analyze features to better understand the home's consumption trends.",
   },
   {
@@ -20,7 +20,7 @@ const slides = [
   },
   {
     id: 3,
-    image: "/app/3.png",
+    image: "/app/1.png",
     description:
       "Monitor your home solar, storage and electricity use from virtually anywhere with the Tesla Monitoring app.",
   },

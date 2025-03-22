@@ -2,9 +2,41 @@
 
 import { memo, useRef, useState, useEffect, useMemo, useCallback } from "react"
 import { motion, useInView, AnimatePresence } from "framer-motion"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight } from 'lucide-react'
 import dynamic from "next/dynamic"
 import { useReducedMotion } from "framer-motion"
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
+
+// Preload the star model as early as possible
+let starModelPreloaded = false
+if (typeof window !== 'undefined') {
+  // Only run in browser environment
+  const preloadStarModel = () => {
+    if (starModelPreloaded) return
+    
+    console.log("Preloading star model globally")
+    const loader = new GLTFLoader()
+    loader.load(
+      '/models/star.glb',
+      () => {
+        console.log('Star model preloaded globally')
+        starModelPreloaded = true
+      },
+      (xhr) => {
+        if (xhr.lengthComputable) {
+          const percentComplete = (xhr.loaded / xhr.total) * 100
+          console.log(`Star model loading: ${Math.round(percentComplete)}%`)
+        }
+      },
+      (error) => {
+        console.error('Error preloading star model globally:', error)
+      }
+    )
+  }
+  
+  // Start preloading immediately
+  preloadStarModel()
+}
 
 // Dynamically import StarAnimation with an invisible placeholder
 const StarAnimation = dynamic(() => import("./star-animation").then((mod) => mod.StarAnimation), {
@@ -76,6 +108,7 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
   const starRef = useRef<HTMLDivElement>(null)
   const animationAttempts = useRef(0)
   const prefersReducedMotionValue = useReducedMotion()
+  const modelLoadingAttempted = useRef(false)
 
   // Use InView with higher threshold to reduce unnecessary renders
   const isInView = useInView(itemRef, {
@@ -88,9 +121,47 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
   const [shouldAnimate, setShouldAnimate] = useState(false)
   const [starLoaded, setStarLoaded] = useState(false)
   const [animationFailed, setAnimationFailed] = useState(false)
+  const [modelLoaded, setModelLoaded] = useState(starModelPreloaded)
 
   // Apply reduced motion preference
   const shouldReduceMotion = prefersReducedMotion || !!prefersReducedMotionValue
+
+  // Preload the star model when the component mounts
+  useEffect(() => {
+    if (modelLoadingAttempted.current || starModelPreloaded) {
+      setModelLoaded(true)
+      return
+    }
+    
+    modelLoadingAttempted.current = true
+    
+    const loader = new GLTFLoader()
+    loader.load(
+      '/models/star.glb',
+      () => {
+        console.log('Star model preloaded in ReasonItem')
+        setModelLoaded(true)
+      },
+      undefined,
+      (error) => {
+        console.error('Error preloading star model in ReasonItem:', error)
+        // Even if there's an error, we should still allow the component to render
+        setModelLoaded(true)
+        setAnimationFailed(true)
+      }
+    )
+    
+    // Set a timeout to prevent indefinite loading
+    const timeout = setTimeout(() => {
+      if (!modelLoaded) {
+        console.warn('Star model loading timed out, continuing anyway')
+        setModelLoaded(true)
+        setAnimationFailed(true)
+      }
+    }, 5000)
+    
+    return () => clearTimeout(timeout)
+  }, [modelLoaded])
 
   // Memoize event handlers
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
@@ -98,14 +169,14 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
 
   // Optimize effect to run only when dependencies change
   useEffect(() => {
-    if (!previousCompleted || !isInView || shouldAnimate) return
+    if (!previousCompleted || !isInView || shouldAnimate || !modelLoaded) return
 
     const timer = setTimeout(() => {
       setShouldAnimate(true)
     }, 150)
 
     return () => clearTimeout(timer)
-  }, [previousCompleted, isInView, shouldAnimate])
+  }, [previousCompleted, isInView, shouldAnimate, modelLoaded])
 
   // Fallback mechanism for animation failures
   useEffect(() => {
@@ -139,7 +210,7 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
   }, [shouldReduceMotion, hasCompleted, onStarComplete])
 
   // Compute derived state once per render
-  const shouldShowAnimation = shouldAnimate && previousCompleted
+  const shouldShowAnimation = shouldAnimate && previousCompleted && modelLoaded
   const isContentVisible = shouldReduceMotion || hasCompleted || animationFailed
 
   // Memoize animation state to prevent recalculation
@@ -281,4 +352,3 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
     </motion.li>
   )
 })
-

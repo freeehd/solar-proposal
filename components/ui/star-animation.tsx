@@ -1,12 +1,20 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { motion, useReducedMotion } from "framer-motion"
-import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { Canvas, useFrame } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Center, useDetectGPU, Environment } from "@react-three/drei"
 import * as THREE from "three"
 import { useGLTF } from "@react-three/drei"
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
+
+// Preload the model globally
+useGLTF.preload("/models/star.glb")
+
+// Global model cache
+let cachedStarModel: THREE.Group | null = null
+let isModelLoading = false
+let modelLoadPromise: Promise<THREE.Group> | null = null
 
 interface StarMeshProps {
   isHovered: boolean
@@ -25,27 +33,64 @@ interface StarAnimationProps {
   prefersReducedMotion?: boolean
 }
 
-// Pre-create colors as constants outside component to avoid recreation
-const HOVER_COLOR = new THREE.Color("#ffd700")
-const DEFAULT_COLOR = new THREE.Color("#daa520")
-const ACCENT_COLOR = new THREE.Color("#f8f0e3")
-const EMISSIVE_COLOR = new THREE.Color(0xccac00)
-const FINAL_SCALE = 1
+// Constants
+const FINAL_SCALE = 0.8
 
-// Create a shared material to reuse
-const createStarMaterial = () => {
-  return new THREE.MeshStandardMaterial({
-    color: EMISSIVE_COLOR.clone(),
-    emissive: EMISSIVE_COLOR.clone(),
-    emissiveIntensity: 0,
-    metalness: 0.9,
-    roughness: 0.1,
+// Function to load the model once and cache it
+const loadStarModel = (): Promise<THREE.Group> => {
+  if (cachedStarModel) {
+    return Promise.resolve(cachedStarModel)
+  }
+
+  if (modelLoadPromise) {
+    return modelLoadPromise
+  }
+
+  isModelLoading = true
+
+  modelLoadPromise = new Promise((resolve, reject) => {
+    const loader = new GLTFLoader()
+    loader.load(
+      "/models/star.glb",
+      (gltf) => {
+        try {
+          const model = gltf.scene.clone()
+
+          // Center the model
+          model.position.set(0, 0, 0)
+          model.rotation.set(0, 0, 0)
+
+          cachedStarModel = model
+          isModelLoading = false
+          resolve(model)
+        } catch (error) {
+          console.error("Error processing star model:", error)
+          reject(error)
+        }
+      },
+      (progress) => {
+        if (progress.lengthComputable) {
+          const percentComplete = (progress.loaded / progress.total) * 100
+          console.log(`Star model loading: ${Math.round(percentComplete)}%`)
+        }
+      },
+      (error) => {
+        console.error("Error loading star model:", error)
+        isModelLoading = false
+        reject(error)
+      },
+    )
   })
+
+  return modelLoadPromise
 }
 
-// Shared material instance
-let sharedMaterial: THREE.MeshStandardMaterial | null = null
+// Start loading the model immediately
+if (typeof window !== "undefined") {
+  loadStarModel().catch(console.error)
+}
 
+// Star mesh component with material application
 const StarMesh = React.memo(
   ({
     isHovered,
@@ -57,72 +102,97 @@ const StarMesh = React.memo(
     inView = true,
   }: StarMeshProps) => {
     const groupRef = useRef<THREE.Group>(null)
+    const materialRef = useRef<THREE.MeshPhysicalMaterial | null>(null)
+    const { gl } = useThree()
 
     // Error handling for model loading
     const [loadError, setLoadError] = useState(false)
+    const [model, setModel] = useState<THREE.Group | null>(null)
 
-    // Use try-catch for model loading
-    const { scene } = useGLTF("/models/star.glb", true, undefined, (error) => {
-      console.error("Error loading star model:", error)
-      setLoadError(true)
-    }) as any
+    // Create the material with the specified properties
+    const starMaterial = useMemo(() => {
+      const material = new THREE.MeshPhysicalMaterial({
+        samples: quality === "high" ? 6 : 3,
+        thickness: 0.4,
+        roughness: 0.03,
+        transmission: 1,
+        ior: 1.6,
+        chromaticAberration: quality === "high" ? 0.04 : 0.03,
+        distortion: 0.4,
+        distortionScale: 0.5,
+        temporalDistortion: 0.2,
+        metalness: 0.8,
+        clearcoat: 1.2,
+        attenuationDistance: 0.6,
+        attenuationColor: new THREE.Color("#ffd700"),
+        color: new THREE.Color("#daa520"),
+        emissive: new THREE.Color("#ffd000"),
+        emissiveIntensity: 0,
+        transparent: true,
+        toneMapped: false,
+      })
 
-    // Clone the scene to avoid issues with multiple instances
-    const starModel = useMemo(() => {
-      if (loadError || !scene) {
+      materialRef.current = material
+      return material
+    }, [quality])
+
+    // Load the model when the component mounts
+    useEffect(() => {
+      let isMounted = true
+
+      const loadModel = async () => {
+        try {
+          const loadedModel = await loadStarModel()
+          if (isMounted) {
+            // Clone the model
+            const clonedModel = loadedModel.clone()
+
+            // Apply material to all meshes
+            clonedModel.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh) {
+                const mesh = child as THREE.Mesh
+                // Store original material for reference if needed
+                if (!mesh.userData.originalMaterial) {
+                  mesh.userData.originalMaterial = mesh.material
+                }
+                // Apply our custom material
+                mesh.material = starMaterial
+              }
+            })
+
+            setModel(clonedModel)
+          }
+        } catch (error) {
+          console.error("Error loading star model in component:", error)
+          if (isMounted) {
+            setLoadError(true)
+          }
+        }
+      }
+
+      loadModel()
+
+      return () => {
+        isMounted = false
+      }
+    }, [starMaterial])
+
+    // Create a fallback model if loading fails
+    const starModelOrFallback = useMemo(() => {
+      if (loadError || !model) {
         // Create a fallback geometry if model fails to load
         const geometry = new THREE.IcosahedronGeometry(1, 1)
-        const mesh = new THREE.Mesh(geometry, sharedMaterial || createStarMaterial())
-
-        // Save the material for reuse
-        if (!sharedMaterial) {
-          sharedMaterial = mesh.material as THREE.MeshStandardMaterial
-        }
+        const mesh = new THREE.Mesh(geometry, starMaterial)
 
         const group = new THREE.Group()
         group.add(mesh)
         return group
       }
 
-      try {
-        const clonedScene = scene.clone()
+      return model
+    }, [model, loadError, starMaterial])
 
-        // Center the model
-        clonedScene.position.set(0, 0, 0)
-        clonedScene.rotation.set(0, 0, 0)
-
-        // Create or reuse material
-        if (!sharedMaterial) {
-          sharedMaterial = createStarMaterial()
-        }
-
-        // Apply material to all meshes
-        clonedScene.traverse((child: THREE.Object3D) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh
-            mesh.material = sharedMaterial!.clone()
-          }
-        })
-
-        return clonedScene
-      } catch (error) {
-        console.error("Error cloning star model:", error)
-
-        // Fallback to simple geometry
-        const geometry = new THREE.IcosahedronGeometry(1, 1)
-        const mesh = new THREE.Mesh(geometry, sharedMaterial || createStarMaterial())
-
-        if (!sharedMaterial) {
-          sharedMaterial = mesh.material as THREE.MeshStandardMaterial
-        }
-
-        const group = new THREE.Group()
-        group.add(mesh)
-        return group
-      }
-    }, [scene, loadError])
-
-    // Use a ref for animation state to avoid re-renders
+    // Animation state reference to avoid re-renders
     const animationState = useRef({
       targetRotation: { x: 0, y: 0 },
       currentRotation: { x: 0, y: 0 },
@@ -132,7 +202,7 @@ const StarMesh = React.memo(
       lastUpdateTime: 0,
     })
 
-    // Optimize effect to run only when necessary
+    // Trigger animation completion
     useEffect(() => {
       if (!inView || animationState.current.animationCompleted) return
 
@@ -148,7 +218,19 @@ const StarMesh = React.memo(
       return () => clearTimeout(timer)
     }, [inView, onAnimationComplete])
 
-    // Optimize frame updates with throttling and early returns
+    // Handle material updates on hover
+    useEffect(() => {
+      if (!materialRef.current) return
+
+      // Update material properties on hover
+      if (isHovered) {
+        materialRef.current.emissiveIntensity = 0.2
+      } else {
+        materialRef.current.emissiveIntensity = 0
+      }
+    }, [isHovered])
+
+    // Animation frame updates
     useFrame((state, delta) => {
       if (!groupRef.current) return
       if (!inView && !animationState.current.hasStarted) return
@@ -263,28 +345,15 @@ const StarMesh = React.memo(
 
     return (
       <group ref={groupRef}>
-        <primitive
-          object={starModel}
-          position={[0, 0, 0]} // Fixed position at the center
-          rotation={[0, 0, 0]}
-          scale={[1, 1, 1]} // Initial scale will be animated
-        />
+        <primitive object={starModelOrFallback} position={[0, 0, 0]} rotation={[0, 0, 0]} scale={[1, 1, 1]} />
       </group>
-    )
-  },
-  // Custom comparison function to prevent unnecessary re-renders
-  (prevProps, nextProps) => {
-    return (
-      prevProps.isHovered === nextProps.isHovered &&
-      prevProps.hasCompletedEntrance === nextProps.hasCompletedEntrance &&
-      prevProps.inView === nextProps.inView &&
-      prevProps.prefersReducedMotion === nextProps.prefersReducedMotion
     )
   },
 )
 
 StarMesh.displayName = "StarMesh"
 
+// Main StarAnimation component
 export const StarAnimation = React.memo(
   ({
     delay = 0,
@@ -295,6 +364,7 @@ export const StarAnimation = React.memo(
     const hoverStateRef = useRef(false)
     const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
     const [hasErrored, setHasErrored] = useState(false)
+    const [isModelPreloaded, setIsModelPreloaded] = useState(!!cachedStarModel)
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
@@ -316,6 +386,30 @@ export const StarAnimation = React.memo(
     const quality = useMemo(() => {
       return gpu && gpu.tier >= 2 ? "high" : "low"
     }, [gpu])
+
+    // Preload the model when the component mounts
+    useEffect(() => {
+      if (isModelPreloaded) return
+
+      loadStarModel()
+        .then(() => {
+          setIsModelPreloaded(true)
+        })
+        .catch((error) => {
+          console.error("Error preloading star model in StarAnimation:", error)
+          setHasErrored(true)
+        })
+
+      // Set a timeout to prevent indefinite loading
+      const timeout = setTimeout(() => {
+        if (!isModelPreloaded) {
+          console.warn("Star model preloading timed out in StarAnimation")
+          setIsModelPreloaded(true)
+        }
+      }, 5000)
+
+      return () => clearTimeout(timeout)
+    }, [isModelPreloaded])
 
     // Memoize event handlers to prevent recreating on each render
     const handleMouseEnter = useCallback(() => {
@@ -403,6 +497,17 @@ export const StarAnimation = React.memo(
       return (
         <div className="w-full h-full flex items-center justify-center">
           <div className="w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center text-white text-2xl">
+            ★
+          </div>
+        </div>
+      )
+    }
+
+    // Show loading state if model is not yet preloaded
+    if (!isModelPreloaded) {
+      return (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-amber-400/50 flex items-center justify-center text-white text-2xl animate-pulse">
             ★
           </div>
         </div>
