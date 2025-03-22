@@ -11,6 +11,14 @@ interface LoadingProps {
   progress?: number
 }
 
+// Global star model cache
+const starModelCache = {
+  isLoaded: false,
+  isLoading: false,
+  loadPromise: null as Promise<void> | null,
+  error: false,
+}
+
 export default function Loading({ isLoading = true, onLoadingComplete, progress: externalProgress }: LoadingProps) {
   const [progress, setProgress] = useState(0)
   const [showLoader, setShowLoader] = useState(true)
@@ -31,46 +39,120 @@ export default function Loading({ isLoading = true, onLoadingComplete, progress:
       setProgress(10)
     }
 
+    // Check if the model is already loaded in the global cache
+    if (typeof window !== "undefined" && window.starModelCache?.isLoaded) {
+      console.log("Loading component: Star model already loaded in global cache")
+      setAssetsLoaded(true)
+      if (externalProgress === undefined) {
+        setProgress((prev) => Math.max(prev, 90))
+      }
+      return
+    }
+
+    // If the model is currently loading in the global cache, wait for it
+    if (typeof window !== "undefined" && window.starModelCache?.isLoading && window.starModelCache?.loadPromise) {
+      console.log("Loading component: Star model loading in progress in global cache, waiting...")
+      window.starModelCache.loadPromise
+        .then(() => {
+          console.log("Loading component: Star model loaded from global promise")
+          setAssetsLoaded(true)
+          if (externalProgress === undefined && mountedRef.current) {
+            setProgress((prev) => Math.max(prev, 90))
+          }
+        })
+        .catch((error) => {
+          console.error("Loading component: Error loading star model from global promise:", error)
+          setAssetsLoaded(true) // Continue anyway
+          if (externalProgress === undefined && mountedRef.current) {
+            setProgress((prev) => Math.max(prev, 90))
+          }
+        })
+      return
+    }
+
+    // Initialize the global cache if it doesn't exist
+    if (typeof window !== "undefined" && !window.starModelCache) {
+      window.starModelCache = {
+        isLoaded: false,
+        isLoading: false,
+        loadPromise: null,
+        error: false,
+      }
+    }
+
     // Create a loader for the GLTF model
     const gltfLoader = new GLTFLoader()
 
-    // Load the star model
-    gltfLoader.load(
-      "/models/star.glb",
-      () => {
-        console.log("Loading component: Star model loaded successfully")
-        setAssetsLoaded(true)
-        if (externalProgress === undefined) {
-          setProgress((prev) => Math.max(prev, 90))
-        }
-      },
-      (xhr) => {
-        // Update progress based on loading status
-        if (externalProgress === undefined && xhr.lengthComputable) {
-          const percentComplete = 10 + (xhr.loaded / xhr.total) * 80
-          setProgress(Math.round(percentComplete))
-        }
-      },
-      (error) => {
-        console.error("Loading component: Error loading star model:", error)
-        // Even if there's an error, mark as loaded so we don't block the app
-        setAssetsLoaded(true)
-        if (externalProgress === undefined) {
-          setProgress((prev) => Math.max(prev, 90))
-        }
-      },
-    )
+    // Set the global cache to loading state
+    if (typeof window !== "undefined") {
+      window.starModelCache.isLoading = true
+
+      // Create a promise for the loading process
+      window.starModelCache.loadPromise = new Promise<void>((resolve, reject) => {
+        // Load the star model
+        gltfLoader.load(
+          "/models/star.glb",
+          () => {
+            console.log("Loading component: Star model loaded successfully")
+            if (typeof window !== "undefined") {
+              window.starModelCache.isLoaded = true
+              window.starModelCache.isLoading = false
+            }
+            if (mountedRef.current) {
+              setAssetsLoaded(true)
+              if (externalProgress === undefined) {
+                setProgress((prev) => Math.max(prev, 90))
+              }
+            }
+            resolve()
+          },
+          (xhr) => {
+            // Update progress based on loading status
+            if (externalProgress === undefined && xhr.lengthComputable && mountedRef.current) {
+              const percentComplete = 10 + (xhr.loaded / xhr.total) * 80
+              setProgress(Math.round(percentComplete))
+            }
+          },
+          (error) => {
+            console.error("Loading component: Error loading star model:", error)
+            // Even if there's an error, mark as loaded so we don't block the app
+            if (typeof window !== "undefined") {
+              window.starModelCache.error = true
+              window.starModelCache.isLoading = false
+            }
+            if (mountedRef.current) {
+              setAssetsLoaded(true)
+              if (externalProgress === undefined) {
+                setProgress((prev) => Math.max(prev, 90))
+              }
+            }
+            reject(error)
+          },
+        )
+      })
+    } else {
+      // Fallback for SSR
+      setAssetsLoaded(true)
+      if (externalProgress === undefined) {
+        setProgress((prev) => Math.max(prev, 90))
+      }
+    }
 
     // Set a timeout to ensure we don't block indefinitely
     const timeout = setTimeout(() => {
       if (!assetsLoaded && mountedRef.current) {
         console.warn("Loading component: Asset loading timed out, continuing anyway")
+        if (typeof window !== "undefined") {
+          window.starModelCache.isLoaded = true
+          window.starModelCache.isLoading = false
+          window.starModelCache.error = true
+        }
         setAssetsLoaded(true)
         if (externalProgress === undefined) {
           setProgress((prev) => Math.max(prev, 90))
         }
       }
-    }, 8000) // Increased to 8 seconds
+    }, 10000) // 10 second timeout
 
     return () => clearTimeout(timeout)
   }, [isLoading, assetsLoaded, externalProgress])

@@ -1,10 +1,11 @@
 "use client"
 
-import { useRef, useState, useEffect, useCallback } from "react"
+import { useRef, useState, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import Image from "next/image"
+import { useStableCallback } from "@/hooks/use-stable-callback"
 
 interface HeroSectionProps {
   name: string
@@ -13,10 +14,22 @@ interface HeroSectionProps {
   onProgress?: (progress: number) => void
 }
 
-// Global video cache to prevent reloading
-let cachedVideoUrl: string | null = null
-let isVideoPreloading = false
-let preloadPromise: Promise<string> | null = null
+// Global video cache with browser detection
+const videoCache = {
+  url: null as string | null,
+  blob: null as Blob | null,
+  isSafari: false,
+  isLoading: false,
+  loadPromise: null as Promise<string> | null,
+  init: false,
+}
+
+// Initialize browser detection once
+if (typeof window !== "undefined" && !videoCache.init) {
+  videoCache.isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+  console.log(`Browser detected as ${videoCache.isSafari ? "Safari" : "not Safari"}`)
+  videoCache.init = true
+}
 
 export default function HeroSection({ name, address, onReady, onProgress }: HeroSectionProps) {
   // Core state
@@ -30,30 +43,43 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null)
   const isVisibleRef = useRef(true)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const videoUrlRef = useRef<string | null>(null)
 
   // Media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
   // Preload video once and cache it
-  const preloadVideo = useCallback(async (): Promise<string> => {
+  const preloadVideo = useStableCallback(async (): Promise<string> => {
     // If we already have a cached URL, return it immediately
-    if (cachedVideoUrl) {
-      console.log("Using cached video URL")
-      return cachedVideoUrl
+    if (videoCache.url && !videoCache.isSafari) {
+      console.log("Using cached video URL (non-Safari)")
+      return videoCache.url
+    }
+
+    // For Safari, we need to recreate the blob URL each time
+    if (videoCache.blob && videoCache.isSafari) {
+      console.log("Recreating blob URL for Safari")
+      // Revoke previous URL if it exists to prevent memory leaks
+      if (videoUrlRef.current) {
+        URL.revokeObjectURL(videoUrlRef.current)
+      }
+      const newUrl = URL.createObjectURL(videoCache.blob)
+      videoUrlRef.current = newUrl
+      return newUrl
     }
 
     // If preloading is in progress, return the existing promise
-    if (isVideoPreloading && preloadPromise) {
+    if (videoCache.isLoading && videoCache.loadPromise) {
       console.log("Video preloading already in progress, waiting...")
-      return preloadPromise
+      return videoCache.loadPromise
     }
 
     console.log("Starting video preload")
     // Start preloading
-    isVideoPreloading = true
+    videoCache.isLoading = true
 
-    preloadPromise = new Promise<string>(async (resolve, reject) => {
+    videoCache.loadPromise = new Promise<string>(async (resolve, reject) => {
       try {
         // Report initial progress
         setLoadProgress(10)
@@ -62,6 +88,10 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
         // Fetch the video
         console.log("Fetching video file")
         const response = await fetch("/video3.webm")
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch video: ${response.status} ${response.statusText}`)
+        }
 
         // Handle progress reporting if possible
         if (response.body && response.headers.get("content-length")) {
@@ -99,31 +129,59 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
 
           console.log("Video download complete, creating blob URL")
           const blob = new Blob([chunksAll], { type: "video/webm" })
-          const url = URL.createObjectURL(blob)
 
-          // Cache the URL
-          cachedVideoUrl = url
+          // Store the blob in cache
+          videoCache.blob = blob
+
+          // Create and store URL
+          // Revoke previous URL if it exists
+          if (videoUrlRef.current) {
+            URL.revokeObjectURL(videoUrlRef.current)
+          }
+
+          const url = URL.createObjectURL(blob)
+          videoUrlRef.current = url
+
+          // Only store in global cache for non-Safari browsers
+          if (!videoCache.isSafari) {
+            videoCache.url = url
+          }
+
           resolve(url)
         } else {
           // Fallback for browsers without ReadableStream support
           console.log("Using fallback download method")
           const blob = await response.blob()
-          const url = URL.createObjectURL(blob)
 
-          // Cache the URL
-          cachedVideoUrl = url
+          // Store the blob in cache
+          videoCache.blob = blob
+
+          // Create and store URL
+          // Revoke previous URL if it exists
+          if (videoUrlRef.current) {
+            URL.revokeObjectURL(videoUrlRef.current)
+          }
+
+          const url = URL.createObjectURL(blob)
+          videoUrlRef.current = url
+
+          // Only store in global cache for non-Safari browsers
+          if (!videoCache.isSafari) {
+            videoCache.url = url
+          }
+
           resolve(url)
         }
       } catch (error) {
         console.error("Error preloading video:", error)
         reject(error)
       } finally {
-        isVideoPreloading = false
+        videoCache.isLoading = false
       }
     })
 
-    return preloadPromise
-  }, [onProgress])
+    return videoCache.loadPromise
+  })
 
   // Initialize component
   useEffect(() => {
@@ -144,6 +202,13 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
         visibilityObserverRef.current.disconnect()
         visibilityObserverRef.current = null
       }
+
+      // Don't revoke the URL on unmount for non-Safari browsers to maintain the cache
+      // For Safari, we'll recreate it each time anyway
+      if (videoCache.isSafari && videoUrlRef.current) {
+        URL.revokeObjectURL(videoUrlRef.current)
+        videoUrlRef.current = null
+      }
     }
   }, [])
 
@@ -160,7 +225,7 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
         if (onProgress) onProgress(100)
         if (onReady) onReady()
       }
-    }, 15000) // Increased to 15 seconds for production
+    }, 15000) // 15 seconds timeout
 
     return () => {
       if (loadingTimeoutRef.current) {
@@ -212,6 +277,14 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
       console.error("Video loading error:", e)
       if (!mountedRef.current) return
 
+      // Try one more time with a direct src if using blob URL failed
+      if (videoUrlRef.current && videoUrlRef.current.startsWith("blob:")) {
+        console.log("Blob URL failed, trying direct file URL")
+        video.src = "/video3.webm"
+        video.load()
+        return
+      }
+
       setLoadingState("error")
       setLoadProgress(100)
       if (onProgress) onProgress(100)
@@ -226,21 +299,54 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
     const loadVideo = async () => {
       try {
         console.log("Starting video loading process")
-        // Get video URL (either from cache or by downloading)
-        const videoUrl = await preloadVideo()
 
-        if (!mountedRef.current) return
+        // For Safari, we'll try the direct file first if we haven't cached the blob yet
+        if (videoCache.isSafari && !videoCache.blob) {
+          console.log("Safari detected, trying direct file first")
+          video.src = "/video3.webm"
+          video.load()
 
-        console.log("Setting video source to:", videoUrl)
-        // Set video source
-        video.src = videoUrl
+          // Set a timeout to try blob URL if direct loading takes too long
+          const safariTimeout = setTimeout(() => {
+            if (!videoReady && mountedRef.current) {
+              console.log("Direct loading taking too long, trying blob approach")
+              loadWithBlob()
+            }
+          }, 3000)
 
-        // Update progress
-        setLoadProgress(90)
-        if (onProgress) onProgress(90)
+          return () => clearTimeout(safariTimeout)
+        } else {
+          return loadWithBlob()
+        }
 
-        // Preload video data
-        video.load()
+        function loadWithBlob() {
+          // Get video URL (either from cache or by downloading)
+          preloadVideo()
+            .then((videoUrl) => {
+              if (!mountedRef.current) return
+
+              console.log("Setting video source to:", videoUrl)
+              // Set video source
+              video.src = videoUrl
+
+              // Update progress
+              setLoadProgress(90)
+              if (onProgress) onProgress(90)
+
+              // Preload video data
+              video.load()
+            })
+            .catch((error) => {
+              console.error("Error in blob video loading:", error)
+
+              if (!mountedRef.current) return
+
+              // Fallback to direct file URL
+              console.log("Falling back to direct file URL")
+              video.src = "/video3.webm"
+              video.load()
+            })
+        }
       } catch (error) {
         console.error("Error in video loading process:", error)
 
@@ -263,7 +369,7 @@ export default function HeroSection({ name, address, onReady, onProgress }: Hero
       video.removeEventListener("canplay", handleCanPlay)
       video.removeEventListener("error", handleError)
     }
-  }, [loadingState, preloadVideo, onProgress, onReady])
+  }, [loadingState, preloadVideo, onProgress, onReady, videoReady])
 
   // Set up visibility observer to handle scroll behavior
   useEffect(() => {

@@ -2,38 +2,68 @@
 
 import { memo, useRef, useState, useEffect, useMemo, useCallback } from "react"
 import { motion, useInView, AnimatePresence } from "framer-motion"
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight } from "lucide-react"
 import dynamic from "next/dynamic"
 import { useReducedMotion } from "framer-motion"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
+import type * as THREE from "three" // Import THREE
+
+// Global star model cache
+const starModelCache = {
+  isLoaded: false,
+  isLoading: false,
+  loadPromise: null as Promise<void> | null,
+  model: null as THREE.Group | null,
+  error: false,
+}
 
 // Preload the star model as early as possible
-let starModelPreloaded = false
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   // Only run in browser environment
   const preloadStarModel = () => {
-    if (starModelPreloaded) return
-    
+    if (starModelCache.isLoaded || starModelCache.isLoading) return
+
     console.log("Preloading star model globally")
+    starModelCache.isLoading = true
+
     const loader = new GLTFLoader()
-    loader.load(
-      '/models/star.glb',
-      () => {
-        console.log('Star model preloaded globally')
-        starModelPreloaded = true
-      },
-      (xhr) => {
-        if (xhr.lengthComputable) {
-          const percentComplete = (xhr.loaded / xhr.total) * 100
-          console.log(`Star model loading: ${Math.round(percentComplete)}%`)
-        }
-      },
-      (error) => {
-        console.error('Error preloading star model globally:', error)
+
+    starModelCache.loadPromise = new Promise<void>((resolve, reject) => {
+      loader.load(
+        "/models/star.glb",
+        (gltf) => {
+          console.log("Star model preloaded globally")
+          starModelCache.model = gltf.scene.clone()
+          starModelCache.isLoaded = true
+          starModelCache.isLoading = false
+          resolve()
+        },
+        (xhr) => {
+          if (xhr.lengthComputable) {
+            const percentComplete = (xhr.loaded / xhr.total) * 100
+            console.log(`Star model loading: ${Math.round(percentComplete)}%`)
+          }
+        },
+        (error) => {
+          console.error("Error preloading star model globally:", error)
+          starModelCache.error = true
+          starModelCache.isLoading = false
+          reject(error)
+        },
+      )
+    })
+
+    // Set a timeout to prevent indefinite loading
+    setTimeout(() => {
+      if (!starModelCache.isLoaded && starModelCache.isLoading) {
+        console.warn("Star model loading timed out globally")
+        starModelCache.isLoaded = true
+        starModelCache.isLoading = false
+        starModelCache.error = true
       }
-    )
+    }, 10000) // 10 second timeout
   }
-  
+
   // Start preloading immediately
   preloadStarModel()
 }
@@ -121,45 +151,66 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
   const [shouldAnimate, setShouldAnimate] = useState(false)
   const [starLoaded, setStarLoaded] = useState(false)
   const [animationFailed, setAnimationFailed] = useState(false)
-  const [modelLoaded, setModelLoaded] = useState(starModelPreloaded)
+  const [modelLoaded, setModelLoaded] = useState(starModelCache.isLoaded)
 
   // Apply reduced motion preference
   const shouldReduceMotion = prefersReducedMotion || !!prefersReducedMotionValue
 
-  // Preload the star model when the component mounts
+  // Check if the star model is loaded from the global cache
   useEffect(() => {
-    if (modelLoadingAttempted.current || starModelPreloaded) {
+    if (modelLoaded || modelLoadingAttempted.current) return
+
+    modelLoadingAttempted.current = true
+
+    if (starModelCache.isLoaded) {
+      console.log("Star model already loaded in global cache")
       setModelLoaded(true)
       return
     }
-    
-    modelLoadingAttempted.current = true
-    
+
+    if (starModelCache.isLoading && starModelCache.loadPromise) {
+      console.log("Star model loading in progress, waiting...")
+      starModelCache.loadPromise
+        .then(() => {
+          console.log("Star model loaded from global promise")
+          setModelLoaded(true)
+        })
+        .catch(() => {
+          console.error("Error loading star model from global promise")
+          setModelLoaded(true) // Continue anyway
+          setAnimationFailed(true)
+        })
+      return
+    }
+
+    // If not loading or loaded, start loading now
+    console.log("Starting star model loading in ReasonItem")
     const loader = new GLTFLoader()
     loader.load(
-      '/models/star.glb',
+      "/models/star.glb",
       () => {
-        console.log('Star model preloaded in ReasonItem')
+        console.log("Star model loaded in ReasonItem")
+        starModelCache.isLoaded = true
         setModelLoaded(true)
       },
       undefined,
       (error) => {
-        console.error('Error preloading star model in ReasonItem:', error)
+        console.error("Error loading star model in ReasonItem:", error)
         // Even if there's an error, we should still allow the component to render
         setModelLoaded(true)
         setAnimationFailed(true)
-      }
+      },
     )
-    
+
     // Set a timeout to prevent indefinite loading
     const timeout = setTimeout(() => {
       if (!modelLoaded) {
-        console.warn('Star model loading timed out, continuing anyway')
+        console.warn("Star model loading timed out in ReasonItem, continuing anyway")
         setModelLoaded(true)
         setAnimationFailed(true)
       }
-    }, 5000)
-    
+    }, 8000) // 8 second timeout
+
     return () => clearTimeout(timeout)
   }, [modelLoaded])
 
@@ -262,7 +313,12 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
             onAnimationComplete={handleStarComplete}
           >
             {/* Only render StarAnimation when it should be visible */}
-            <StarAnimation onAnimationComplete={() => {}} inView={isInView} prefersReducedMotion={shouldReduceMotion} />
+            <StarAnimation
+              onAnimationComplete={() => {}}
+              inView={isInView}
+              prefersReducedMotion={shouldReduceMotion}
+              usePreloadedModel={true}
+            />
           </motion.div>
         )}
 
@@ -352,3 +408,4 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
     </motion.li>
   )
 })
+
