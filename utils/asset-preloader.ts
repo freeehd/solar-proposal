@@ -7,7 +7,7 @@ const FALLBACK_STAR_MODEL_URL =
   "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-fallback-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
 const VIDEO_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-1qC3I0KH9sIPRy0jKZzLCzPt09d1Xx.webm"
 const FALLBACK_VIDEO_URL =
-  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-fallback-1qC3I0KH9sIPRy0jKZzLCzPt09d1Xx.mp4"
+  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-rAkQAMhZySExrESChs56oUvTsY14kl.mp4"
 
 // Device detection helpers
 export const isAppleDevice =
