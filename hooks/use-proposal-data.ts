@@ -19,7 +19,24 @@ interface SectionVisibility {
   callToAction: boolean
 }
 
-// Update interface to use only snake_case properties
+// Interface for tracking which finance fields are enabled
+export interface EnabledFinanceFields {
+  financingType: boolean
+  paybackPeriod: boolean
+  totalSystemCost: boolean
+  lifetimeSavings: boolean
+  netCost: boolean
+  apr: boolean
+  duration: boolean
+  downPayment: boolean
+  financedAmount: boolean
+  monthlyPayments: boolean
+  solarRate: boolean
+  escalationRate: boolean
+  year1MonthlyPayments: boolean
+}
+
+// Update interface to use only snake_case properties and include new financial fields
 export interface ProposalData {
   id: number
   name: string
@@ -30,6 +47,8 @@ export interface ProposalData {
   monthly_bill: string
   number_of_solar_panels: string
   yearly_energy_produced: string
+  yearly_energy_usage?: string
+  system_size?: string
   energy_offset: string
   solar_panel_design: string
   battery_name: string
@@ -55,10 +74,38 @@ export interface ProposalData {
   storage_system_quantity: string
   storage_system_price: string
   energy_data: string
+  // New financial fields
+  financing_type?: string
+  apr?: string
+  duration?: string
+  down_payment?: string
+  financed_amount?: string
+  monthly_payments?: string
+  solar_rate?: string
+  escalation_rate?: string
+  year1_monthly_payments?: string
+  enabled_finance_fields?: EnabledFinanceFields
   section_visibility?: SectionVisibility
 }
 
-// Update default data to use snake_case
+// Default enabled finance fields
+export const defaultEnabledFinanceFields: EnabledFinanceFields = {
+  financingType: true,
+  paybackPeriod: true,
+  totalSystemCost: true,
+  lifetimeSavings: true,
+  netCost: true,
+  apr: false,
+  duration: false,
+  downPayment: false,
+  financedAmount: false,
+  monthlyPayments: false,
+  solarRate: false,
+  escalationRate: false,
+  year1MonthlyPayments: false,
+}
+
+// Update default data to use snake_case and include new financial fields
 export const defaultProposalData: ProposalData = {
   id: 0,
   name: "Guest",
@@ -69,6 +116,8 @@ export const defaultProposalData: ProposalData = {
   monthly_bill: "200",
   number_of_solar_panels: "10",
   yearly_energy_produced: "10000",
+  yearly_energy_usage: "12000",
+  system_size: "3.5",
   energy_offset: "80",
   solar_panel_design: "/placeholder.svg",
   battery_name: "Default Battery",
@@ -93,6 +142,17 @@ export const defaultProposalData: ProposalData = {
   storage_system_model: "Default Storage Model",
   storage_system_quantity: "1",
   storage_system_price: "10000",
+  // New financial fields with default values
+  financing_type: "Cash",
+  apr: "",
+  duration: "",
+  down_payment: "",
+  financed_amount: "",
+  monthly_payments: "",
+  solar_rate: "",
+  escalation_rate: "",
+  year1_monthly_payments: "",
+  enabled_finance_fields: defaultEnabledFinanceFields,
   energy_data: `Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
 Energy usage (kWh)	973	844	916	932	1,029	1,171	1,521	800	1,700	1,060	1,060	1,440
 New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	1,475	1,093	784`,
@@ -120,10 +180,12 @@ interface UseProposalDataProps {
 interface UseProposalDataResult {
   proposalData: ProposalData
   visibleSections: SectionVisibility
+  enabledFinanceFields: EnabledFinanceFields
   dataLoaded: boolean
   loadingProgress: number
   setProposalData: React.Dispatch<React.SetStateAction<ProposalData>>
   toggleSectionVisibility: (sectionId: keyof SectionVisibility) => void
+  toggleFinanceField: (fieldName: keyof EnabledFinanceFields) => void
   refreshProposal: () => Promise<void>
 }
 
@@ -135,6 +197,7 @@ export function useProposalData({
   const [proposalData, setProposalData] = useState<ProposalData>(() => {
     return { ...defaultProposalData, ...initialData }
   })
+
   const [visibleSections, setVisibleSections] = useState<SectionVisibility>(
     defaultProposalData.section_visibility || {
       hero: true,
@@ -150,6 +213,11 @@ export function useProposalData({
       callToAction: false,
     },
   )
+
+  const [enabledFinanceFields, setEnabledFinanceFields] = useState<EnabledFinanceFields>(
+    proposalData.enabled_finance_fields || defaultEnabledFinanceFields,
+  )
+
   const [dataLoaded, setDataLoaded] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const isMountedRef = useRef(true)
@@ -178,6 +246,21 @@ export function useProposalData({
       setProposalData((current) => ({
         ...current,
         section_visibility: updated,
+      }))
+
+      return updated
+    })
+  }, [])
+
+  // Toggle finance field visibility
+  const toggleFinanceField = useCallback((fieldName: keyof EnabledFinanceFields) => {
+    setEnabledFinanceFields((prev) => {
+      const updated = { ...prev, [fieldName]: !prev[fieldName] }
+
+      // Update proposal data with new finance field settings
+      setProposalData((current) => ({
+        ...current,
+        enabled_finance_fields: updated,
       }))
 
       return updated
@@ -236,14 +319,30 @@ export function useProposalData({
             console.error("Error parsing section visibility:", error)
           }
 
+          // Extract enabled finance fields if they exist
+          let enabledFields = defaultEnabledFinanceFields
+          try {
+            if (data.proposal.enabled_finance_fields) {
+              if (typeof data.proposal.enabled_finance_fields === "string") {
+                enabledFields = JSON.parse(data.proposal.enabled_finance_fields)
+              } else {
+                enabledFields = data.proposal.enabled_finance_fields
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing enabled finance fields:", error)
+          }
+
           if (isMountedRef.current) {
             setVisibleSections(sectionVisibility || defaultProposalData.section_visibility)
+            setEnabledFinanceFields(enabledFields || defaultEnabledFinanceFields)
 
             // Set proposal data directly from API response (all snake_case)
             setProposalData((prevData) => ({
               ...prevData,
               ...data.proposal,
               section_visibility: sectionVisibility,
+              enabled_finance_fields: enabledFields,
             }))
 
             updateProgress(80) // Update progress after data is set
@@ -300,6 +399,11 @@ export function useProposalData({
               setVisibleSections(parsedData.section_visibility)
             }
 
+            // Extract enabled finance fields if they exist
+            if (parsedData.enabled_finance_fields) {
+              setEnabledFinanceFields(parsedData.enabled_finance_fields)
+            }
+
             setProposalData((prevData) => ({ ...prevData, ...parsedData }))
             updateProgress(80) // Update progress after data is set
           }
@@ -348,10 +452,12 @@ export function useProposalData({
   return {
     proposalData,
     visibleSections,
+    enabledFinanceFields,
     dataLoaded,
     loadingProgress,
     setProposalData,
     toggleSectionVisibility,
+    toggleFinanceField,
     refreshProposal,
   }
 }

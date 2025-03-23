@@ -1,6 +1,5 @@
 import { Suspense } from "react"
 import ProposalDashboard from "@/components/proposal-dashboard"
-import Loading from "../../components/ui/loading"
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 
@@ -14,8 +13,6 @@ export default async function DashboardPage() {
     }
     
     return (
-        <Suspense fallback={<Loading />}>
             <ProposalDashboard />
-        </Suspense>
     )
 }

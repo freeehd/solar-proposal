@@ -359,6 +359,17 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 net_cost: proposalData.net_cost,
                 monthly_bill: proposalData.monthly_bill,
                 escalation: proposalData.escalation,
+                // Add new financial fields
+                financing_type: proposalData.financing_type,
+                apr: proposalData.apr,
+                duration: proposalData.duration,
+                down_payment: proposalData.down_payment,
+                financed_amount: proposalData.financed_amount,
+                monthly_payments: proposalData.monthly_payments,
+                solar_rate: proposalData.solar_rate,
+                escalation_rate: proposalData.escalation_rate,
+                year1_monthly_payments: proposalData.year1_monthly_payments,
+                enabled_finance_fields: proposalData.enabled_finance_fields,
               }}
             />
           </div>
