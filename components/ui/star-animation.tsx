@@ -32,6 +32,22 @@ const STAR_MODEL_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/
 const FALLBACK_STAR_MODEL_URL =
   "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-fallback-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
 
+// Global model cache to prevent reloading
+const modelCache = {
+  primary: null as THREE.Group | null,
+  fallback: null as THREE.Group | null,
+  simple: null as THREE.Group | null,
+  loading: false,
+  error: null as Error | null,
+  loadPromise: null as Promise<THREE.Group> | null,
+}
+
+// Platform detection
+const isMacOS =
+  typeof navigator !== "undefined" &&
+  (/Mac/.test(navigator.platform) ||
+    (/Mac/.test(navigator.userAgent) && /(Safari|AppleWebKit)/.test(navigator.userAgent)))
+
 // WebGL context loss handler component
 const WebGLContextHandler = () => {
   const { gl } = useThree()
@@ -64,6 +80,12 @@ const WebGLContextHandler = () => {
 
 // Create a star model on demand - no preloading required
 const createStarModel = () => {
+  // Return cached model if available
+  if (modelCache.simple) {
+    return modelCache.simple.clone()
+  }
+
+  console.log("Creating simple star model")
   const group = new THREE.Group()
   const geometry = new THREE.IcosahedronGeometry(1, 1)
   const material = new THREE.MeshStandardMaterial({
@@ -75,10 +97,162 @@ const createStarModel = () => {
   })
   const mesh = new THREE.Mesh(geometry, material)
   group.add(mesh)
+
+  // Cache the model
+  modelCache.simple = group.clone()
+
   return group
 }
 
-// Update the StarMesh component to load the GLB model
+// Preload the star model to ensure it's available immediately
+const preloadStarModel = (): Promise<THREE.Group> => {
+  // If we already have the model cached, return it immediately
+  if (modelCache.primary) {
+    return Promise.resolve(modelCache.primary.clone())
+  }
+
+  // If we're already loading, return the existing promise
+  if (modelCache.loading && modelCache.loadPromise) {
+    return modelCache.loadPromise.then((model) => model.clone())
+  }
+
+  // Start loading
+  modelCache.loading = true
+
+  const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
+    const loader = new GLTFLoader()
+    loader.setCrossOrigin("anonymous")
+
+    // Add specific headers for Safari/macOS if needed
+    if (isMacOS) {
+      console.log("Using macOS-specific loading configuration")
+    }
+
+    // Set a timeout to prevent indefinite loading
+    const timeout = setTimeout(() => {
+      console.warn("Star model loading timed out, using fallback")
+      const fallbackModel = createStarModel()
+      resolve(fallbackModel)
+    }, 8000) // 8 second timeout
+
+    // First try the primary URL
+    loader.load(
+      STAR_MODEL_URL,
+      (gltf) => {
+        clearTimeout(timeout)
+        console.log("Star model loaded successfully from primary URL")
+
+        const loadedModel = gltf.scene.clone()
+        processModel(loadedModel)
+
+        // Cache the model
+        modelCache.primary = loadedModel.clone()
+        modelCache.loading = false
+
+        resolve(loadedModel)
+      },
+      (progress) => {
+        // Loading progress
+        if (progress.lengthComputable) {
+          const percentComplete = Math.round((progress.loaded / progress.total) * 100)
+          console.log(`Loading star model: ${percentComplete}%`)
+        }
+      },
+      (error) => {
+        console.warn("Error loading primary star model, trying fallback:", error)
+
+        // Try the fallback URL
+        loader.load(
+          FALLBACK_STAR_MODEL_URL,
+          (gltf) => {
+            clearTimeout(timeout)
+            console.log("Star model loaded successfully from fallback URL")
+
+            const loadedModel = gltf.scene.clone()
+            processModel(loadedModel)
+
+            // Cache the fallback model
+            modelCache.fallback = loadedModel.clone()
+            modelCache.loading = false
+
+            resolve(loadedModel)
+          },
+          undefined,
+          (fallbackError) => {
+            clearTimeout(timeout)
+            console.error("Error loading fallback star model, using simple model:", fallbackError)
+
+            // Create and use a simple fallback model
+            const fallbackModel = createStarModel()
+            modelCache.loading = false
+            modelCache.error = fallbackError
+
+            resolve(fallbackModel)
+          },
+        )
+      },
+    )
+  })
+
+  // Store the promise in the cache
+  modelCache.loadPromise = loadPromise
+
+  return loadPromise
+}
+
+// Process the loaded model to optimize it
+const processModel = (model: THREE.Group) => {
+  model.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh
+
+      // Create an optimized material
+      const material = new THREE.MeshStandardMaterial({
+        roughness: 0.03,
+        metalness: 0.8,
+        color: new THREE.Color("#daa520"),
+        emissive: new THREE.Color("#ffd000"),
+        emissiveIntensity: 0,
+        transparent: true,
+        toneMapped: false,
+      })
+
+      // Apply the material
+      mesh.material = material
+
+      // Optimize geometry if needed
+      if (mesh.geometry && !mesh.geometry.attributes.normal) {
+        mesh.geometry.computeVertexNormals()
+      }
+    }
+  })
+
+  return model
+}
+
+// Start preloading the model immediately
+if (typeof window !== "undefined") {
+  // Use requestIdleCallback to load during idle time
+  if ("requestIdleCallback" in window) {
+    ;(window as any).requestIdleCallback(
+      () => {
+        preloadStarModel().catch((err) => {
+          console.error("Error preloading star model:", err)
+        })
+      },
+      { timeout: 2000 },
+    )
+  } else {
+    // Fallback for browsers without requestIdleCallback
+    setTimeout(() => {
+      preloadStarModel().catch((err) => {
+        console.error("Error preloading star model:", err)
+      })
+    }, 200)
+  }
+}
+
+// Update the StarMesh component to use the preloaded model
 const StarMesh = React.memo(
   ({
     isHovered,
@@ -95,9 +269,8 @@ const StarMesh = React.memo(
     const animationStartedRef = useRef(false)
     const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const [modelError, setModelError] = useState(false)
-
-    // Try to load the GLB model
     const [model, setModel] = useState<THREE.Group | null>(null)
+    const loadAttemptRef = useRef(0)
 
     // Load the model when the component mounts
     useEffect(() => {
@@ -106,105 +279,48 @@ const StarMesh = React.memo(
       // Once we start loading, we don't stop even if inView changes
       animationStartedRef.current = true
 
-      const loader = new GLTFLoader()
-      loader.setCrossOrigin("anonymous")
+      // Try to get the model from cache first
+      if (modelCache.primary) {
+        console.log("Using cached star model")
+        setModel(modelCache.primary.clone())
+        return
+      }
 
-      // First try the primary URL
-      loader.load(
-        STAR_MODEL_URL,
-        (gltf) => {
-          console.log("Star model loaded successfully from primary URL")
-          const loadedModel = gltf.scene.clone()
+      // Load the model
+      const loadModel = async () => {
+        try {
+          const loadedModel = await preloadStarModel()
+          if (loadedModel) {
+            setModel(loadedModel.clone())
 
-          // Process the model - apply materials, etc.
-          loadedModel.traverse((child) => {
-            if ((child as THREE.Mesh).isMesh) {
-              const mesh = child as THREE.Mesh
-
-              // Create a new material for this mesh
-              const material = new THREE.MeshStandardMaterial({
-                roughness: 0.03,
-                metalness: 0.8,
-                color: new THREE.Color("#daa520"),
-                emissive: new THREE.Color("#ffd000"),
-                emissiveIntensity: 0,
-                transparent: true,
-                toneMapped: false,
-              })
-
-              // Store the material for later updates
-              if (!materialRef.current) {
-                materialRef.current = material
-              }
-
-              // Apply the material
-              mesh.material = material
-
-              // Optimize geometry if needed
-              if (mesh.geometry && !mesh.geometry.attributes.normal) {
-                mesh.geometry.computeVertexNormals()
-              }
-            }
-          })
-
-          setModel(loadedModel)
-        },
-        undefined,
-        (error) => {
-          console.warn("Error loading primary star model, trying fallback:", error)
-
-          // Try the fallback URL
-          loader.load(
-            FALLBACK_STAR_MODEL_URL,
-            (gltf) => {
-              console.log("Star model loaded successfully from fallback URL")
-              const loadedModel = gltf.scene.clone()
-
-              // Process the model - apply materials, etc.
-              loadedModel.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                  const mesh = child as THREE.Mesh
-
-                  // Create a new material for this mesh
-                  const material = new THREE.MeshStandardMaterial({
-                    roughness: 0.03,
-                    metalness: 0.8,
-                    color: new THREE.Color("#daa520"),
-                    emissive: new THREE.Color("#ffd000"),
-                    emissiveIntensity: 0,
-                    transparent: true,
-                    toneMapped: false,
-                  })
-
-                  // Store the material for later updates
-                  if (!materialRef.current) {
-                    materialRef.current = material
-                  }
-
-                  // Apply the material
-                  mesh.material = material
-
-                  // Optimize geometry if needed
-                  if (mesh.geometry && !mesh.geometry.attributes.normal) {
-                    mesh.geometry.computeVertexNormals()
-                  }
+            // Store material reference for hover effects
+            loadedModel.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh) {
+                const mesh = child as THREE.Mesh
+                if (mesh.material && !materialRef.current) {
+                  materialRef.current = mesh.material as THREE.MeshStandardMaterial
                 }
-              })
+              }
+            })
+          }
+        } catch (error) {
+          console.error("Error loading star model:", error)
+          setModelError(true)
 
-              setModel(loadedModel)
-            },
-            undefined,
-            (fallbackError) => {
-              console.error("Error loading fallback star model, using simple model:", fallbackError)
-              setModelError(true)
+          // Create a fallback model
+          const fallbackModel = createStarModel()
+          setModel(fallbackModel)
 
-              // Create a fallback model
-              const fallbackModel = createStarModel()
-              setModel(fallbackModel)
-            },
-          )
-        },
-      )
+          // Try again if we haven't exceeded max attempts
+          if (loadAttemptRef.current < 2) {
+            loadAttemptRef.current++
+            console.log(`Retrying model load (attempt ${loadAttemptRef.current})`)
+            setTimeout(loadModel, 1000)
+          }
+        }
+      }
+
+      loadModel()
 
       // Set up completion timeout
       if (!animationCompletedRef.current && !completionTimeoutRef.current) {
@@ -422,7 +538,16 @@ export const StarAnimation = React.memo(
     const initialRenderTimeRef = useRef<number | null>(null)
 
     // Calculate DPR once during initialization
-    const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
+    const dpr = useMemo(() => {
+      if (typeof window === "undefined") return 1
+
+      // Lower DPR for Safari/macOS to improve performance
+      if (isMacOS) {
+        return Math.min(1.25, window.devicePixelRatio)
+      }
+
+      return Math.min(1.5, window.devicePixelRatio)
+    }, [])
 
     const containerRef = useRef<HTMLDivElement>(null)
     const systemPrefersReducedMotion = useReducedMotion()
@@ -431,6 +556,11 @@ export const StarAnimation = React.memo(
     // Detect GPU capabilities once and memoize the result
     const gpu = useDetectGPU()
     const quality = useMemo(() => {
+      // Lower quality for Safari/macOS to improve performance
+      if (isMacOS) {
+        return "low"
+      }
+
       return gpu && gpu.tier >= 2 ? "high" : "low"
     }, [gpu])
 
@@ -458,7 +588,7 @@ export const StarAnimation = React.memo(
         // Set 3D ready after a short delay to ensure smooth transition
         const readyTimer = setTimeout(() => {
           setIs3DReady(true)
-        }, 100) // Short delay to ensure the 3D scene has time to initialize
+        }, 50) // Shorter delay for faster initialization
 
         return () => clearTimeout(readyTimer)
       }
@@ -516,16 +646,19 @@ export const StarAnimation = React.memo(
     }, [onAnimationComplete])
 
     // Handle errors in Three.js
-    const handleError = useCallback(() => {
-      console.error("StarAnimation: Three.js error occurred")
-      setHasErrored(true)
+    const handleError = useCallback(
+      (error: Error) => {
+        console.error("StarAnimation: Three.js error occurred", error)
+        setHasErrored(true)
 
-      if (!hasCalledCompletionRef.current) {
-        setHasCompletedEntrance(true)
-        hasCalledCompletionRef.current = true
-        onAnimationComplete?.()
-      }
-    }, [onAnimationComplete])
+        if (!hasCalledCompletionRef.current) {
+          setHasCompletedEntrance(true)
+          hasCalledCompletionRef.current = true
+          onAnimationComplete?.()
+        }
+      },
+      [onAnimationComplete],
+    )
 
     // Memoize canvas props to avoid recreating on each render
     const canvasProps = useMemo(
@@ -542,6 +675,13 @@ export const StarAnimation = React.memo(
           depth: true,
           stencil: false,
           logarithmicDepthBuffer: true,
+          // Safari-specific WebGL context attributes
+          ...(isMacOS
+            ? {
+                powerPreference: "default" as WebGLPowerPreference,
+                antialias: false,
+              }
+            : {}),
         },
         onError: handleError,
       }),
