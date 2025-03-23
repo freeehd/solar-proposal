@@ -16,36 +16,66 @@ interface ReasonItemProps {
 
 export function ReasonItem({ reason, index, previousCompleted = true, onStarComplete }: ReasonItemProps) {
   const [hasAnimated, setHasAnimated] = useState(false)
+  const [hasBeenInView, setHasBeenInView] = useState(false)
   const itemRef = useRef<HTMLLIElement>(null)
+  const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Use Framer Motion's useInView for more reliable detection
+  // Use Framer Motion's useInView with once:true to only trigger once
   const isInView = useInView(itemRef, {
-    once: false,
+    once: true, // Changed to true so it only triggers once
     amount: 0.3,
     margin: "100px 0px",
   })
 
-  // Handle animation completion
+  // When it comes into view, mark it
+  useEffect(() => {
+    if (isInView && !hasBeenInView) {
+      console.log(`ReasonItem ${index}: Has entered view for the first time`)
+      setHasBeenInView(true)
+    }
+  }, [isInView, hasBeenInView, index])
+
+  // Handle animation completion - ensure it only fires once
   const handleStarComplete = () => {
-    console.log(`ReasonItem ${index}: Star animation completed`)
     if (!hasAnimated) {
+      console.log(`ReasonItem ${index}: Star animation completed`)
       setHasAnimated(true)
+
+      // Clear any pending timeout
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+        completionTimeoutRef.current = null
+      }
+
+      // Notify parent only once
       onStarComplete?.()
     }
   }
 
-  // Force completion after a timeout
+  // Force completion after a timeout if needed
   useEffect(() => {
-    if (isInView && previousCompleted && !hasAnimated) {
+    if (hasBeenInView && previousCompleted && !hasAnimated) {
       console.log(`ReasonItem ${index}: Setting up force completion timeout`)
-      const timer = setTimeout(() => {
+
+      // Clear any existing timeout
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+      }
+
+      // Set new timeout
+      completionTimeoutRef.current = setTimeout(() => {
         console.log(`ReasonItem ${index}: Force completing animation after timeout`)
         handleStarComplete()
       }, 5000) // Force complete after 5 seconds if animation doesn't trigger
-
-      return () => clearTimeout(timer)
     }
-  }, [isInView, previousCompleted, hasAnimated, index])
+
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+        completionTimeoutRef.current = null
+      }
+    }
+  }, [hasBeenInView, previousCompleted, hasAnimated, index])
 
   return (
     <li ref={itemRef} className="flex items-start gap-4 md:gap-6">
@@ -53,14 +83,16 @@ export function ReasonItem({ reason, index, previousCompleted = true, onStarComp
         <StarAnimation
           delay={index * 0.3}
           onAnimationComplete={handleStarComplete}
-          inView={isInView && previousCompleted}
+          // Always show animation once it's been in view, regardless of current visibility
+          inView={hasBeenInView && previousCompleted}
         />
       </div>
 
       <div className="flex-1">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={isInView && previousCompleted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          // Always show content once it's been in view
+          animate={hasBeenInView && previousCompleted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.5, delay: index * 0.3 + 0.2 }}
         >
           <h3 className="text-lg md:text-xl font-medium mb-2">{reason.text}</h3>

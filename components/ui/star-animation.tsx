@@ -73,6 +73,19 @@ const createFallbackStarModel = () => {
   return group
 }
 
+// Memoize the star material to avoid recreating it for each star
+const createStarMaterial = (quality: "high" | "low") => {
+  return new THREE.MeshStandardMaterial({
+    roughness: 0.03,
+    metalness: 0.8,
+    color: new THREE.Color("#daa520"),
+    emissive: new THREE.Color("#ffd000"),
+    emissiveIntensity: 0,
+    transparent: true,
+    toneMapped: false,
+  })
+}
+
 // Star mesh component with material application
 const StarMesh = React.memo(
   ({
@@ -87,22 +100,15 @@ const StarMesh = React.memo(
     const groupRef = useRef<THREE.Group>(null)
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null)
     const animationCompletedRef = useRef(false)
+    const animationStartedRef = useRef(false)
+    const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     // Get preloaded star model - NEVER triggers loading
     const { starModel, isLoaded } = usePreloadedAssets()
 
-    // Create the material with the specified properties
+    // Create the material with the specified properties - memoized to avoid recreation
     const starMaterial = useMemo(() => {
-      const material = new THREE.MeshStandardMaterial({
-        roughness: 0.03,
-        metalness: 0.8,
-        color: new THREE.Color("#daa520"),
-        emissive: new THREE.Color("#ffd000"),
-        emissiveIntensity: 0,
-        transparent: true,
-        toneMapped: false,
-      })
-
+      const material = createStarMaterial(quality)
       materialRef.current = material
       return material
     }, [quality])
@@ -151,19 +157,29 @@ const StarMesh = React.memo(
 
     // Trigger animation completion
     useEffect(() => {
-      if (!inView || animationCompletedRef.current) return
+      if (!inView && !animationStartedRef.current) return
 
+      // Once we start the animation, we don't stop it even if inView changes
+      animationStartedRef.current = true
       animationState.current.hasStarted = true
 
-      const timer = setTimeout(() => {
-        if (!animationCompletedRef.current) {
-          console.log("StarMesh: Animation completion timeout triggered")
-          animationCompletedRef.current = true
-          onAnimationComplete?.()
-        }
-      }, 1500)
+      // Set up completion timeout
+      if (!animationCompletedRef.current && !completionTimeoutRef.current) {
+        completionTimeoutRef.current = setTimeout(() => {
+          if (!animationCompletedRef.current) {
+            console.log("StarMesh: Animation completion timeout triggered")
+            animationCompletedRef.current = true
+            onAnimationComplete?.()
+          }
+        }, 1500)
+      }
 
-      return () => clearTimeout(timer)
+      return () => {
+        if (completionTimeoutRef.current) {
+          clearTimeout(completionTimeoutRef.current)
+          completionTimeoutRef.current = null
+        }
+      }
     }, [inView, onAnimationComplete])
 
     // Handle material updates on hover
@@ -181,7 +197,9 @@ const StarMesh = React.memo(
     // Animation frame updates
     useFrame((state, delta) => {
       if (!groupRef.current) return
-      if (!inView && !animationState.current.hasStarted) return
+
+      // If animation hasn't started and we're not in view, don't animate
+      if (!animationStartedRef.current && !inView) return
 
       const group = groupRef.current
       const anim = animationState.current
@@ -235,7 +253,6 @@ const StarMesh = React.memo(
         const spinRotations = 2
         const spinEasing = 1 - Math.pow(1 - progress, 4)
         group.rotation.y = (1 - spinEasing) * Math.PI * 2 * spinRotations
-        group.rotation.x = (1 - easeOutQuint) * Math.PI * 0 * Math.PI * 2 * spinRotations
         group.rotation.x = (1 - easeOutQuint) * Math.PI * 0.35
 
         // Fixed position - no movement
@@ -244,6 +261,13 @@ const StarMesh = React.memo(
         if (progress > 0.95 && !hasCompletedEntrance && !animationCompletedRef.current) {
           group.scale.setScalar(FINAL_SCALE)
           animationCompletedRef.current = true
+
+          // Clear any pending timeout
+          if (completionTimeoutRef.current) {
+            clearTimeout(completionTimeoutRef.current)
+            completionTimeoutRef.current = null
+          }
+
           onAnimationComplete?.()
         }
       } else {
@@ -314,7 +338,9 @@ export const StarAnimation = React.memo(
     const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
     const [hasErrored, setHasErrored] = useState(false)
     const [isRendered, setIsRendered] = useState(false)
+    const [hasStartedAnimation, setHasStartedAnimation] = useState(false)
     const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const hasCalledCompletionRef = useRef(false)
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
@@ -332,22 +358,36 @@ export const StarAnimation = React.memo(
       return gpu && gpu.tier >= 2 ? "high" : "low"
     }, [gpu])
 
-    // Ensure we render when in view
+    // Ensure we render when in view or if animation has started
     useEffect(() => {
-      if (inView && !isRendered) {
-        console.log("StarAnimation: Component in view, setting rendered state")
+      if ((inView && !isRendered) || hasStartedAnimation) {
+        console.log("StarAnimation: Component in view or animation started, setting rendered state")
         setIsRendered(true)
+
+        // Once we start rendering, we don't stop
+        if (inView && !hasStartedAnimation) {
+          setHasStartedAnimation(true)
+        }
       }
-    }, [inView, isRendered])
+    }, [inView, isRendered, hasStartedAnimation])
 
     // Force completion after a timeout
     useEffect(() => {
-      if (inView && !hasCompletedEntrance) {
+      if ((inView || hasStartedAnimation) && !hasCompletedEntrance && !hasCalledCompletionRef.current) {
         console.log("StarAnimation: Setting up completion timeout")
+
+        // Clear any existing timeout
+        if (completionTimeoutRef.current) {
+          clearTimeout(completionTimeoutRef.current)
+        }
+
         completionTimeoutRef.current = setTimeout(() => {
-          console.log("StarAnimation: Force completing animation after timeout")
-          setHasCompletedEntrance(true)
-          onAnimationComplete?.()
+          if (!hasCompletedEntrance && !hasCalledCompletionRef.current) {
+            console.log("StarAnimation: Force completing animation after timeout")
+            setHasCompletedEntrance(true)
+            hasCalledCompletionRef.current = true
+            onAnimationComplete?.()
+          }
         }, 5000) // Force complete after 5 seconds
       }
 
@@ -357,7 +397,7 @@ export const StarAnimation = React.memo(
           completionTimeoutRef.current = null
         }
       }
-    }, [inView, hasCompletedEntrance, onAnimationComplete])
+    }, [inView, hasStartedAnimation, hasCompletedEntrance, onAnimationComplete])
 
     // Memoize event handlers to prevent recreating on each render
     const handleMouseEnter = useCallback(() => {
@@ -373,17 +413,25 @@ export const StarAnimation = React.memo(
         clearTimeout(completionTimeoutRef.current)
         completionTimeoutRef.current = null
       }
-      console.log("StarAnimation: Animation completed")
-      setHasCompletedEntrance(true)
-      onAnimationComplete?.()
+
+      if (!hasCalledCompletionRef.current) {
+        console.log("StarAnimation: Animation completed")
+        setHasCompletedEntrance(true)
+        hasCalledCompletionRef.current = true
+        onAnimationComplete?.()
+      }
     }, [onAnimationComplete])
 
     // Handle errors in Three.js
     const handleError = useCallback(() => {
       console.error("StarAnimation: Three.js error occurred")
       setHasErrored(true)
-      setHasCompletedEntrance(true)
-      onAnimationComplete?.()
+
+      if (!hasCalledCompletionRef.current) {
+        setHasCompletedEntrance(true)
+        hasCalledCompletionRef.current = true
+        onAnimationComplete?.()
+      }
     }, [onAnimationComplete])
 
     // Memoize canvas props to avoid recreating on each render
@@ -393,7 +441,7 @@ export const StarAnimation = React.memo(
         camera: { position: [0, 0, 2] as [number, number, number], fov: 35 },
         className: "w-full h-full",
         style: { background: "transparent" },
-        frameloop: inView ? "always" : "demand", // Only run animation loop when in view
+        frameloop: inView || hasStartedAnimation ? "always" : "demand", // Only run animation loop when in view or started
         gl: {
           antialias: quality === "high", // Only use antialias for high quality
           alpha: true,
@@ -404,7 +452,7 @@ export const StarAnimation = React.memo(
         },
         onError: handleError,
       }),
-      [dpr, inView, quality, handleError],
+      [dpr, inView, hasStartedAnimation, quality, handleError],
     )
 
     // Fallback for errors
@@ -430,8 +478,8 @@ export const StarAnimation = React.memo(
       )
     }
 
-    // Don't render if not in view and not completed entrance
-    if (!inView && !hasCompletedEntrance && !isRendered) {
+    // Don't render if not in view, hasn't started animation, and hasn't completed entrance
+    if (!inView && !hasStartedAnimation && !hasCompletedEntrance && !isRendered) {
       return null
     }
 
@@ -440,7 +488,7 @@ export const StarAnimation = React.memo(
         ref={containerRef}
         initial={{ opacity: 0 }}
         animate={{
-          opacity: inView || hasCompletedEntrance ? 1 : 0,
+          opacity: inView || hasStartedAnimation || hasCompletedEntrance ? 1 : 0,
         }}
         transition={{
           duration: 0.2, // Faster fade-in
@@ -467,12 +515,12 @@ export const StarAnimation = React.memo(
               delay={0} // No delay since we're handling timing in the parent
               prefersReducedMotion={prefersReducedMotion}
               quality={quality}
-              inView={inView}
+              inView={inView || hasStartedAnimation}
             />
           </Center>
 
-          {/* Only render lights and environment when in view */}
-          {inView && (
+          {/* Only render lights and environment when in view or animation has started */}
+          {(inView || hasStartedAnimation) && (
             <>
               <ambientLight intensity={0.6} />
               <pointLight position={[5, 5, 5]} intensity={0.7} />
@@ -485,7 +533,7 @@ export const StarAnimation = React.memo(
         <div
           className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300"
           style={{
-            opacity: hoverStateRef.current && (inView || hasCompletedEntrance) ? 0.4 : 0,
+            opacity: hoverStateRef.current && (inView || hasStartedAnimation || hasCompletedEntrance) ? 0.4 : 0,
             background: "radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)",
           }}
         />
