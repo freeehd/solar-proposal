@@ -17,6 +17,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
   // Core state
   const [loadingState, setLoadingState] = useState<"initial" | "loading" | "ready" | "error">("initial")
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  const [fallbackImageVisible, setFallbackImageVisible] = useState(false)
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -56,23 +57,54 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
 
     console.log("Using preloaded video")
 
-    // Clone the preloaded video's properties to our video element
-    video.src = preloadedVideo.src
+    try {
+      // Clone the preloaded video's properties to our video element
+      if (preloadedVideo.src) {
+        video.src = preloadedVideo.src
+      } else {
+        // If no src, use fallback image
+        console.log("No video source, using fallback image")
+        setFallbackImageVisible(true)
+      }
 
-    // Mark as ready
-    setLoadingState("ready")
-    setInitialLoadComplete(true)
+      // Mark as ready
+      setLoadingState("ready")
+      setInitialLoadComplete(true)
 
-    // Notify parent component
-    if (onReady) onReady()
+      // Notify parent component
+      if (onReady) onReady()
 
-    // Start playing if visible
-    if (isVisibleRef.current) {
-      video.play().catch((err) => {
-        console.warn("Could not autoplay video:", err)
-      })
+      // Start playing if visible
+      if (isVisibleRef.current && video.src) {
+        video.play().catch((err) => {
+          console.warn("Could not autoplay video:", err)
+          // Show fallback image if video can't play
+          setFallbackImageVisible(true)
+        })
+      }
+    } catch (error) {
+      console.error("Error setting up video:", error)
+      // Show fallback image on error
+      setFallbackImageVisible(true)
+      setLoadingState("ready")
+      setInitialLoadComplete(true)
+      if (onReady) onReady()
     }
   }, [preloadedVideo, loadingState, onReady])
+
+  // Handle video errors
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const handleError = () => {
+      console.error("Video error in hero section:", video.error)
+      setFallbackImageVisible(true)
+    }
+
+    video.addEventListener("error", handleError)
+    return () => video.removeEventListener("error", handleError)
+  }, [])
 
   // Set up visibility observer to handle play/pause
   useEffect(() => {
@@ -90,10 +122,11 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
 
       if (entry.isIntersecting && !wasVisible) {
         // Element is visible, play video if it's loaded and in ready state
-        if (loadingState === "ready" && video.paused) {
+        if (loadingState === "ready" && video.paused && video.src && !fallbackImageVisible) {
           console.log("Playing video on visibility change")
           video.play().catch((err) => {
             console.warn("Could not play video on visibility change:", err)
+            setFallbackImageVisible(true)
           })
         }
       } else if (!entry.isIntersecting && wasVisible) {
@@ -122,7 +155,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
         visibilityObserverRef.current = null
       }
     }
-  }, [loadingState])
+  }, [loadingState, fallbackImageVisible])
 
   return (
     <section ref={containerRef} className="relative h-screen w-full overflow-hidden">
@@ -144,10 +177,17 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
 
       {/* Video Background - Always present but opacity controlled */}
       <div className="absolute inset-0 z-0">
+        {/* Fallback image - shown when video fails */}
+        {fallbackImageVisible && (
+          <div className="absolute inset-0">
+            <Image src="/night3.png" alt="Solar background" fill priority className="object-cover" sizes="100vw" />
+          </div>
+        )}
+
         <div
           className="absolute inset-0 will-change-opacity"
           style={{
-            opacity: loadingState === "ready" ? 1 : 0,
+            opacity: loadingState === "ready" && !fallbackImageVisible ? 1 : 0,
             transition: "opacity 1000ms cubic-bezier(0.4, 0.0, 0.2, 1)",
           }}
         >
@@ -159,6 +199,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
             loop
             playsInline
             preload="auto"
+            crossOrigin="anonymous"
             disablePictureInPicture
             poster="/night3.png"
           >

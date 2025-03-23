@@ -7,7 +7,7 @@ const FALLBACK_STAR_MODEL_URL =
   "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-fallback-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
 const VIDEO_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-1qC3I0KH9sIPRy0jKZzLCzPt09d1Xx.webm"
 const FALLBACK_VIDEO_URL =
-  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-fallback-1qC3I0KH9sIPRy0jKZzLCzPt09d1Xx.mp4"
+  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-rAkQAMhZySExrESChs56oUvTsY14kl.mp4"
 
 // Device detection helpers
 export const isIOS =
@@ -359,29 +359,17 @@ export function getCachedAssets() {
 
 // Check if all assets are loaded
 export function areAllAssetsLoaded(): boolean {
-  // Check both the isLoaded flag and the actual presence of the assets
-  return (
-    assetCache.starModel.isLoaded &&
-    assetCache.starModel.model !== null &&
-    assetCache.video.isLoaded &&
-    assetCache.video.element !== null
-  )
+  return assetCache.starModel.isLoaded && assetCache.video.isLoaded
 }
 
 // Get overall loading progress (0-100)
 export function getOverallProgress(): number {
-  // If both assets are fully loaded, return 100% immediately
-  if (assetCache.starModel.isLoaded && assetCache.video.isLoaded) {
-    return 100
-  }
-
-  // Get actual progress values from the cache
+  // Get progress values, defaulting to 0 if not loaded
   const starModelProgress = assetCache.starModel.isLoaded
     ? 100
     : assetCache.starModel.isLoading
       ? Math.min(99, progressListeners.length > 0 ? 50 : 0)
       : 0
-
   const videoProgress = assetCache.video.isLoaded
     ? 100
     : assetCache.video.isLoading
