@@ -10,6 +10,9 @@ interface LoadingScreenProps {
   progress?: number // Add optional progress prop
 }
 
+// Add a minimum display time of 3 seconds (3000ms)
+const MINIMUM_DISPLAY_TIME = 3000
+
 export default function LoadingScreen({ onLoadingComplete, progress: externalProgress }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0)
   const [displayProgress, setDisplayProgress] = useState(0)
@@ -20,6 +23,9 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
   const [showParticles, setShowParticles] = useState(false)
   const progressRef = useRef(0)
   const isMountedRef = useRef(true)
+  const assetsLoadedRef = useRef(false)
+  const startTimeRef = useRef(Date.now())
+  const removeListenerRef = useRef<(() => void) | undefined>(undefined)
 
   // Block scrolling when loading screen is visible
   useEffect(() => {
@@ -63,8 +69,13 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
     return () => clearTimeout(timer)
   }, [])
 
+  // Handle loading and ensure minimum display time
   useEffect(() => {
     isMountedRef.current = true
+    console.log("LoadingScreen: Initializing")
+
+    // Record start time
+    startTimeRef.current = Date.now()
 
     // Update loading message based on progress
     if (progressRef.current < 20) {
@@ -81,6 +92,8 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
     let removeListener: (() => void) | undefined
 
     if (externalProgress === undefined) {
+      console.log("LoadingScreen: Setting up progress tracking")
+
       // Listen for progress updates
       removeListener = addProgressListener((type, assetProgress) => {
         if (!isMountedRef.current) return
@@ -98,44 +111,44 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
 
         // If both assets are loaded, ensure we show 100%
         if (assetProgress === 100 && areAllAssetsLoaded()) {
+          assetsLoadedRef.current = true
           progressRef.current = 100
           setProgress(100)
         }
       })
 
-      // Start preloading assets
-      const preloadPromise = preloadAllAssets()
-
-      // Define areAllAssetsLoaded here, inside the scope where preloadPromise is available
-      const checkAssetsLoaded = () => {
-        return starModelProgress === 100 && videoProgress === 100
-      }
-
-      preloadPromise
+      // Start preloading assets - this is the ONLY place we trigger loading
+      console.log("LoadingScreen: Starting asset preloading")
+      preloadAllAssets()
         .then(() => {
           if (!isMountedRef.current) return
+
+          console.log("LoadingScreen: All assets loaded successfully")
+          assetsLoadedRef.current = true
 
           // Set progress to 100% when complete
           progressRef.current = 100
           setProgress(100)
           setLoadingMessage("Ready!")
 
-          // Delay hiding the loading screen to show the 100% state
+          // Simple approach: Always wait at least MINIMUM_DISPLAY_TIME before hiding
           setTimeout(() => {
             if (!isMountedRef.current) return
+            console.log("LoadingScreen: Starting fade-out after minimum display time")
             setIsVisible(false)
 
             // Notify parent component after fade-out animation
             setTimeout(() => {
               if (!isMountedRef.current) return
+              console.log("LoadingScreen: Notifying parent of completion")
               onLoadingComplete()
             }, 1300)
-          }, 1200)
+          }, MINIMUM_DISPLAY_TIME)
         })
         .catch((error) => {
-          console.error("Error preloading assets:", error)
+          console.error("LoadingScreen: Error preloading assets:", error)
 
-          // Even on error, proceed after a delay
+          // Even on error, wait the minimum time
           setTimeout(() => {
             if (!isMountedRef.current) return
             setIsVisible(false)
@@ -145,7 +158,7 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
               if (!isMountedRef.current) return
               onLoadingComplete()
             }, 800)
-          }, 1000)
+          }, MINIMUM_DISPLAY_TIME)
         })
     } else {
       // If external progress is provided, use it
@@ -153,11 +166,11 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
       setProgress(externalProgress)
     }
 
-    // If progress reaches 100%, complete loading
+    // If progress reaches 100%, complete loading after minimum time
     if (progressRef.current >= 100) {
       setLoadingMessage("Ready!")
 
-      // Delay hiding the loading screen to show the 100% state
+      // Always wait the minimum time
       setTimeout(() => {
         if (!isMountedRef.current) return
         setIsVisible(false)
@@ -167,7 +180,7 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
           if (!isMountedRef.current) return
           onLoadingComplete()
         }, 1300)
-      }, 1200)
+      }, MINIMUM_DISPLAY_TIME)
     }
 
     // Force completion after timeout (15 seconds)
@@ -175,11 +188,12 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
       if (!isMountedRef.current) return
 
       if (isVisible) {
-        console.warn("Force completing loading after timeout")
+        console.warn("LoadingScreen: Force completing loading after timeout")
         progressRef.current = 100
         setProgress(100)
         setLoadingMessage("Ready!")
 
+        // Still ensure minimum display time
         setTimeout(() => {
           if (!isMountedRef.current) return
           setIsVisible(false)
@@ -189,7 +203,7 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
             if (!isMountedRef.current) return
             onLoadingComplete()
           }, 1300)
-        }, 1200)
+        }, MINIMUM_DISPLAY_TIME / 2) // Use half the minimum time since we've already waited 15 seconds
       }
     }, 15000)
 

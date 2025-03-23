@@ -57,6 +57,22 @@ const WebGLContextHandler = () => {
   return null
 }
 
+// Create a fallback star model
+const createFallbackStarModel = () => {
+  const group = new THREE.Group()
+  const geometry = new THREE.IcosahedronGeometry(1, 1)
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color("#daa520"),
+    emissive: new THREE.Color("#ffd000"),
+    emissiveIntensity: 0.2,
+    roughness: 0.3,
+    metalness: 0.7,
+  })
+  const mesh = new THREE.Mesh(geometry, material)
+  group.add(mesh)
+  return group
+}
+
 // Star mesh component with material application
 const StarMesh = React.memo(
   ({
@@ -70,8 +86,9 @@ const StarMesh = React.memo(
   }: StarMeshProps) => {
     const groupRef = useRef<THREE.Group>(null)
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null)
+    const animationCompletedRef = useRef(false)
 
-    // Get preloaded star model
+    // Get preloaded star model - NEVER triggers loading
     const { starModel, isLoaded } = usePreloadedAssets()
 
     // Create the material with the specified properties
@@ -90,34 +107,37 @@ const StarMesh = React.memo(
       return material
     }, [quality])
 
-    // Clone and prepare the model
+    // Clone and prepare the model - use the preloaded model or fallback
     const preparedModel = useMemo(() => {
+      // If no model is available, use fallback
       if (!starModel) {
-        // Create a fallback geometry if model is not available
-        const geometry = new THREE.IcosahedronGeometry(1, 1)
-        const mesh = new THREE.Mesh(geometry, starMaterial)
-        const group = new THREE.Group()
-        group.add(mesh)
-        return group
+        console.log("StarMesh: No star model available, using fallback")
+        return createFallbackStarModel()
       }
 
-      // Clone the model
-      const clonedModel = starModel.clone()
+      try {
+        // Clone the model
+        console.log("StarMesh: Cloning preloaded star model")
+        const clonedModel = starModel.clone()
 
-      // Apply material to all meshes
-      clonedModel.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh
-          // Store original material for reference if needed
-          if (!mesh.userData.originalMaterial) {
-            mesh.userData.originalMaterial = mesh.material
+        // Apply material to all meshes
+        clonedModel.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh
+            // Store original material for reference if needed
+            if (!mesh.userData.originalMaterial) {
+              mesh.userData.originalMaterial = mesh.material
+            }
+            // Apply our custom material
+            mesh.material = starMaterial
           }
-          // Apply our custom material
-          mesh.material = starMaterial
-        }
-      })
+        })
 
-      return clonedModel
+        return clonedModel
+      } catch (error) {
+        console.error("StarMesh: Error preparing star model:", error)
+        return createFallbackStarModel()
+      }
     }, [starModel, starMaterial])
 
     // Animation state reference to avoid re-renders
@@ -125,20 +145,20 @@ const StarMesh = React.memo(
       targetRotation: { x: 0, y: 0 },
       currentRotation: { x: 0, y: 0 },
       startTime: null as number | null,
-      animationCompleted: false,
       hasStarted: false,
       lastUpdateTime: 0,
     })
 
     // Trigger animation completion
     useEffect(() => {
-      if (!inView || animationState.current.animationCompleted) return
+      if (!inView || animationCompletedRef.current) return
 
       animationState.current.hasStarted = true
 
       const timer = setTimeout(() => {
-        if (!animationState.current.animationCompleted) {
-          animationState.current.animationCompleted = true
+        if (!animationCompletedRef.current) {
+          console.log("StarMesh: Animation completion timeout triggered")
+          animationCompletedRef.current = true
           onAnimationComplete?.()
         }
       }, 1500)
@@ -168,12 +188,12 @@ const StarMesh = React.memo(
 
       // Fast path for reduced motion
       if (prefersReducedMotion) {
-        if (!anim.animationCompleted) {
+        if (!animationCompletedRef.current) {
           group.scale.setScalar(FINAL_SCALE)
           group.position.y = 0
           group.rotation.set(0, 0, 0)
           if (!hasCompletedEntrance) {
-            anim.animationCompleted = true
+            animationCompletedRef.current = true
             onAnimationComplete?.()
           }
         }
@@ -215,14 +235,15 @@ const StarMesh = React.memo(
         const spinRotations = 2
         const spinEasing = 1 - Math.pow(1 - progress, 4)
         group.rotation.y = (1 - spinEasing) * Math.PI * 2 * spinRotations
+        group.rotation.x = (1 - easeOutQuint) * Math.PI * 0 * Math.PI * 2 * spinRotations
         group.rotation.x = (1 - easeOutQuint) * Math.PI * 0.35
 
         // Fixed position - no movement
         group.position.set(0, 0, 0)
 
-        if (progress > 0.95 && !hasCompletedEntrance && !anim.animationCompleted) {
+        if (progress > 0.95 && !hasCompletedEntrance && !animationCompletedRef.current) {
           group.scale.setScalar(FINAL_SCALE)
-          anim.animationCompleted = true
+          animationCompletedRef.current = true
           onAnimationComplete?.()
         }
       } else {
@@ -292,6 +313,8 @@ export const StarAnimation = React.memo(
     const hoverStateRef = useRef(false)
     const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
     const [hasErrored, setHasErrored] = useState(false)
+    const [isRendered, setIsRendered] = useState(false)
+    const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
@@ -300,14 +323,41 @@ export const StarAnimation = React.memo(
     const systemPrefersReducedMotion = useReducedMotion()
     const prefersReducedMotion = propsPrefersReducedMotion || !!systemPrefersReducedMotion
 
-    // Check if assets are loaded
-    const { isLoaded } = usePreloadedAssets()
+    // Check if assets are loaded - NEVER triggers loading
+    const { isLoaded, starModel } = usePreloadedAssets()
 
     // Detect GPU capabilities once and memoize the result
     const gpu = useDetectGPU()
     const quality = useMemo(() => {
       return gpu && gpu.tier >= 2 ? "high" : "low"
     }, [gpu])
+
+    // Ensure we render when in view
+    useEffect(() => {
+      if (inView && !isRendered) {
+        console.log("StarAnimation: Component in view, setting rendered state")
+        setIsRendered(true)
+      }
+    }, [inView, isRendered])
+
+    // Force completion after a timeout
+    useEffect(() => {
+      if (inView && !hasCompletedEntrance) {
+        console.log("StarAnimation: Setting up completion timeout")
+        completionTimeoutRef.current = setTimeout(() => {
+          console.log("StarAnimation: Force completing animation after timeout")
+          setHasCompletedEntrance(true)
+          onAnimationComplete?.()
+        }, 5000) // Force complete after 5 seconds
+      }
+
+      return () => {
+        if (completionTimeoutRef.current) {
+          clearTimeout(completionTimeoutRef.current)
+          completionTimeoutRef.current = null
+        }
+      }
+    }, [inView, hasCompletedEntrance, onAnimationComplete])
 
     // Memoize event handlers to prevent recreating on each render
     const handleMouseEnter = useCallback(() => {
@@ -318,27 +368,19 @@ export const StarAnimation = React.memo(
       hoverStateRef.current = false
     }, [])
 
-    // Optimize effect to run only when necessary
-    useEffect(() => {
-      if (inView && !hasCompletedEntrance) {
-        const completionTimer = setTimeout(() => {
-          if (!hasCompletedEntrance) {
-            setHasCompletedEntrance(true)
-            onAnimationComplete?.()
-          }
-        }, 1000) // Reduced from 1500 for faster completion
-
-        return () => clearTimeout(completionTimer)
-      }
-    }, [inView, hasCompletedEntrance, onAnimationComplete])
-
     const handleComplete = useCallback(() => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+        completionTimeoutRef.current = null
+      }
+      console.log("StarAnimation: Animation completed")
       setHasCompletedEntrance(true)
       onAnimationComplete?.()
     }, [onAnimationComplete])
 
     // Handle errors in Three.js
     const handleError = useCallback(() => {
+      console.error("StarAnimation: Three.js error occurred")
       setHasErrored(true)
       setHasCompletedEntrance(true)
       onAnimationComplete?.()
@@ -365,11 +407,6 @@ export const StarAnimation = React.memo(
       [dpr, inView, quality, handleError],
     )
 
-    // Early return if not in view and animation not completed
-    if (!inView && !hasCompletedEntrance) {
-      return null
-    }
-
     // Fallback for errors
     if (hasErrored) {
       return (
@@ -382,7 +419,8 @@ export const StarAnimation = React.memo(
     }
 
     // Show loading state if assets are not yet loaded
-    if (!isLoaded) {
+    if (!isLoaded || !starModel) {
+      console.log("StarAnimation: Assets not loaded, showing placeholder")
       return (
         <div className="w-full h-full flex items-center justify-center">
           <div className="w-12 h-12 rounded-full bg-amber-400/50 flex items-center justify-center text-white text-2xl animate-pulse">
@@ -390,6 +428,11 @@ export const StarAnimation = React.memo(
           </div>
         </div>
       )
+    }
+
+    // Don't render if not in view and not completed entrance
+    if (!inView && !hasCompletedEntrance && !isRendered) {
+      return null
     }
 
     return (
