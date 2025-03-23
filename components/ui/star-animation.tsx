@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Center, useDetectGPU, Environment } from "@react-three/drei"
 import * as THREE from "three"
-import { usePreloadedAssets, useStarMaterial } from "@/hooks/use-preloaded-assets"
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 
 interface StarMeshProps {
   isHovered: boolean
@@ -26,6 +26,11 @@ interface StarAnimationProps {
 
 // Constants
 const FINAL_SCALE = 0.8
+
+// Add the model URLs
+const STAR_MODEL_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
+const FALLBACK_STAR_MODEL_URL =
+  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-fallback-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
 
 // WebGL context loss handler component
 const WebGLContextHandler = () => {
@@ -57,8 +62,8 @@ const WebGLContextHandler = () => {
   return null
 }
 
-// Create a fallback star model
-const createFallbackStarModel = () => {
+// Create a star model on demand - no preloading required
+const createStarModel = () => {
   const group = new THREE.Group()
   const geometry = new THREE.IcosahedronGeometry(1, 1)
   const material = new THREE.MeshStandardMaterial({
@@ -73,7 +78,7 @@ const createFallbackStarModel = () => {
   return group
 }
 
-// Star mesh component with material application
+// Update the StarMesh component to load the GLB model
 const StarMesh = React.memo(
   ({
     isHovered,
@@ -89,21 +94,144 @@ const StarMesh = React.memo(
     const animationCompletedRef = useRef(false)
     const animationStartedRef = useRef(false)
     const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const [modelError, setModelError] = useState(false)
 
-    // Get preloaded star model - NEVER triggers loading
-    const { starModel, isLoaded } = usePreloadedAssets()
+    // Try to load the GLB model
+    const [model, setModel] = useState<THREE.Group | null>(null)
 
-    // Get shared material from the hook
-    const sharedMaterial = useStarMaterial("star")
+    // Load the model when the component mounts
+    useEffect(() => {
+      if (!inView && !animationStartedRef.current) return
 
-    // Create the material with the specified properties - use shared material if available
-    const starMaterial = useMemo(() => {
-      if (sharedMaterial) {
-        materialRef.current = sharedMaterial as THREE.MeshStandardMaterial
-        return sharedMaterial
+      // Once we start loading, we don't stop even if inView changes
+      animationStartedRef.current = true
+
+      const loader = new GLTFLoader()
+      loader.setCrossOrigin("anonymous")
+
+      // First try the primary URL
+      loader.load(
+        STAR_MODEL_URL,
+        (gltf) => {
+          console.log("Star model loaded successfully from primary URL")
+          const loadedModel = gltf.scene.clone()
+
+          // Process the model - apply materials, etc.
+          loadedModel.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh
+
+              // Create a new material for this mesh
+              const material = new THREE.MeshStandardMaterial({
+                roughness: 0.03,
+                metalness: 0.8,
+                color: new THREE.Color("#daa520"),
+                emissive: new THREE.Color("#ffd000"),
+                emissiveIntensity: 0,
+                transparent: true,
+                toneMapped: false,
+              })
+
+              // Store the material for later updates
+              if (!materialRef.current) {
+                materialRef.current = material
+              }
+
+              // Apply the material
+              mesh.material = material
+
+              // Optimize geometry if needed
+              if (mesh.geometry && !mesh.geometry.attributes.normal) {
+                mesh.geometry.computeVertexNormals()
+              }
+            }
+          })
+
+          setModel(loadedModel)
+        },
+        undefined,
+        (error) => {
+          console.warn("Error loading primary star model, trying fallback:", error)
+
+          // Try the fallback URL
+          loader.load(
+            FALLBACK_STAR_MODEL_URL,
+            (gltf) => {
+              console.log("Star model loaded successfully from fallback URL")
+              const loadedModel = gltf.scene.clone()
+
+              // Process the model - apply materials, etc.
+              loadedModel.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh) {
+                  const mesh = child as THREE.Mesh
+
+                  // Create a new material for this mesh
+                  const material = new THREE.MeshStandardMaterial({
+                    roughness: 0.03,
+                    metalness: 0.8,
+                    color: new THREE.Color("#daa520"),
+                    emissive: new THREE.Color("#ffd000"),
+                    emissiveIntensity: 0,
+                    transparent: true,
+                    toneMapped: false,
+                  })
+
+                  // Store the material for later updates
+                  if (!materialRef.current) {
+                    materialRef.current = material
+                  }
+
+                  // Apply the material
+                  mesh.material = material
+
+                  // Optimize geometry if needed
+                  if (mesh.geometry && !mesh.geometry.attributes.normal) {
+                    mesh.geometry.computeVertexNormals()
+                  }
+                }
+              })
+
+              setModel(loadedModel)
+            },
+            undefined,
+            (fallbackError) => {
+              console.error("Error loading fallback star model, using simple model:", fallbackError)
+              setModelError(true)
+
+              // Create a fallback model
+              const fallbackModel = createStarModel()
+              setModel(fallbackModel)
+            },
+          )
+        },
+      )
+
+      // Set up completion timeout
+      if (!animationCompletedRef.current && !completionTimeoutRef.current) {
+        completionTimeoutRef.current = setTimeout(() => {
+          if (!animationCompletedRef.current) {
+            console.log("StarMesh: Animation completion timeout triggered")
+            animationCompletedRef.current = true
+            onAnimationComplete?.()
+          }
+        }, 1000) // Reduced timeout for faster completion
       }
 
-      // Fallback to creating a new material
+      return () => {
+        if (completionTimeoutRef.current) {
+          clearTimeout(completionTimeoutRef.current)
+          completionTimeoutRef.current = null
+        }
+      }
+    }, [inView, onAnimationComplete])
+
+    // Create a fallback star model if needed
+    const fallbackStarModel = useMemo(() => {
+      return createStarModel()
+    }, [])
+
+    // Create the material with the specified properties
+    const starMaterial = useMemo(() => {
       const material = new THREE.MeshStandardMaterial({
         roughness: 0.03,
         metalness: 0.8,
@@ -116,40 +244,7 @@ const StarMesh = React.memo(
 
       materialRef.current = material
       return material
-    }, [sharedMaterial, quality])
-
-    // Clone and prepare the model - use the preloaded model or fallback
-    const preparedModel = useMemo(() => {
-      // If no model is available, use fallback
-      if (!starModel) {
-        console.log("StarMesh: No star model available, using fallback")
-        return createFallbackStarModel()
-      }
-
-      try {
-        // Clone the model
-        console.log("StarMesh: Cloning preloaded star model")
-        const clonedModel = starModel.clone()
-
-        // Apply material to all meshes
-        clonedModel.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh
-            // Store original material for reference if needed
-            if (!mesh.userData.originalMaterial) {
-              mesh.userData.originalMaterial = mesh.material
-            }
-            // Apply our custom material
-            mesh.material = starMaterial
-          }
-        })
-
-        return clonedModel
-      } catch (error) {
-        console.error("StarMesh: Error preparing star model:", error)
-        return createFallbackStarModel()
-      }
-    }, [starModel, starMaterial])
+    }, [quality])
 
     // Animation state reference to avoid re-renders
     const animationState = useRef({
@@ -159,33 +254,6 @@ const StarMesh = React.memo(
       hasStarted: false,
       lastUpdateTime: 0,
     })
-
-    // Trigger animation completion
-    useEffect(() => {
-      if (!inView && !animationStartedRef.current) return
-
-      // Once we start the animation, we don't stop it even if inView changes
-      animationStartedRef.current = true
-      animationState.current.hasStarted = true
-
-      // Set up completion timeout
-      if (!animationCompletedRef.current && !completionTimeoutRef.current) {
-        completionTimeoutRef.current = setTimeout(() => {
-          if (!animationCompletedRef.current) {
-            console.log("StarMesh: Animation completion timeout triggered")
-            animationCompletedRef.current = true
-            onAnimationComplete?.()
-          }
-        }, 1500)
-      }
-
-      return () => {
-        if (completionTimeoutRef.current) {
-          clearTimeout(completionTimeoutRef.current)
-          completionTimeoutRef.current = null
-        }
-      }
-    }, [inView, onAnimationComplete])
 
     // Handle material updates on hover
     useEffect(() => {
@@ -231,7 +299,7 @@ const StarMesh = React.memo(
       }
 
       const timeSinceStart = state.clock.elapsedTime - anim.startTime
-      const entryDuration = 0.8 // Reduced for faster animation
+      const entryDuration = 0.6 // Reduced for faster animation
 
       if (timeSinceStart < 0) {
         group.scale.set(0, 0, 0)
@@ -323,7 +391,11 @@ const StarMesh = React.memo(
 
     return (
       <group ref={groupRef}>
-        <primitive object={preparedModel} position={[0, 0, 0]} rotation={[0, 0, 0]} scale={[1, 1, 1]} />
+        {model ? (
+          <primitive object={model} position={[0, 0, 0]} rotation={[0, 0, 0]} scale={[1, 1, 1]} />
+        ) : (
+          <primitive object={fallbackStarModel} position={[0, 0, 0]} rotation={[0, 0, 0]} scale={[1, 1, 1]} />
+        )}
       </group>
     )
   },
@@ -331,7 +403,7 @@ const StarMesh = React.memo(
 
 StarMesh.displayName = "StarMesh"
 
-// Main StarAnimation component
+// Main StarAnimation component with immediate rendering
 export const StarAnimation = React.memo(
   ({
     delay = 0,
@@ -344,8 +416,10 @@ export const StarAnimation = React.memo(
     const [hasErrored, setHasErrored] = useState(false)
     const [isRendered, setIsRendered] = useState(false)
     const [hasStartedAnimation, setHasStartedAnimation] = useState(false)
+    const [is3DReady, setIs3DReady] = useState(false)
     const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const hasCalledCompletionRef = useRef(false)
+    const initialRenderTimeRef = useRef<number | null>(null)
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
@@ -353,9 +427,6 @@ export const StarAnimation = React.memo(
     const containerRef = useRef<HTMLDivElement>(null)
     const systemPrefersReducedMotion = useReducedMotion()
     const prefersReducedMotion = propsPrefersReducedMotion || !!systemPrefersReducedMotion
-
-    // Check if assets are loaded - NEVER triggers loading
-    const { isLoaded, starModel } = usePreloadedAssets()
 
     // Detect GPU capabilities once and memoize the result
     const gpu = useDetectGPU()
@@ -369,12 +440,29 @@ export const StarAnimation = React.memo(
         console.log("StarAnimation: Component in view or animation started, setting rendered state")
         setIsRendered(true)
 
+        // Record initial render time
+        if (initialRenderTimeRef.current === null) {
+          initialRenderTimeRef.current = Date.now()
+        }
+
         // Once we start rendering, we don't stop
         if (inView && !hasStartedAnimation) {
           setHasStartedAnimation(true)
         }
       }
     }, [inView, isRendered, hasStartedAnimation])
+
+    // Handle 3D readiness
+    useEffect(() => {
+      if (isRendered) {
+        // Set 3D ready after a short delay to ensure smooth transition
+        const readyTimer = setTimeout(() => {
+          setIs3DReady(true)
+        }, 100) // Short delay to ensure the 3D scene has time to initialize
+
+        return () => clearTimeout(readyTimer)
+      }
+    }, [isRendered])
 
     // Force completion after a timeout
     useEffect(() => {
@@ -393,7 +481,7 @@ export const StarAnimation = React.memo(
             hasCalledCompletionRef.current = true
             onAnimationComplete?.()
           }
-        }, 5000) // Force complete after 5 seconds
+        }, 1000) // Reduced timeout for faster completion
       }
 
       return () => {
@@ -464,21 +552,7 @@ export const StarAnimation = React.memo(
     if (hasErrored) {
       return (
         <div className="w-full h-full flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center text-white text-2xl">
-            ★
-          </div>
-        </div>
-      )
-    }
-
-    // Show loading state if assets are not yet loaded
-    if (!isLoaded || !starModel) {
-      console.log("StarAnimation: Assets not loaded, showing placeholder")
-      return (
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-amber-400/50 flex items-center justify-center text-white text-2xl animate-pulse">
-            ★
-          </div>
+          <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
         </div>
       )
     }
@@ -508,35 +582,44 @@ export const StarAnimation = React.memo(
           backfaceVisibility: "hidden",
         }}
       >
-        <Canvas {...canvasProps}>
-          {/* Add WebGL context handler */}
-          <WebGLContextHandler />
+        {/* Render 3D star when ready */}
+        <div
+          className="absolute inset-0 z-10 transition-opacity duration-500"
+          style={{
+            opacity: is3DReady ? 1 : 0,
+            pointerEvents: is3DReady ? "auto" : "none",
+          }}
+        >
+          <Canvas {...canvasProps}>
+            {/* Add WebGL context handler */}
+            <WebGLContextHandler />
 
-          <Center>
-            <StarMesh
-              isHovered={hoverStateRef.current}
-              hasCompletedEntrance={hasCompletedEntrance}
-              onAnimationComplete={handleComplete}
-              delay={0} // No delay since we're handling timing in the parent
-              prefersReducedMotion={prefersReducedMotion}
-              quality={quality}
-              inView={inView || hasStartedAnimation}
-            />
-          </Center>
+            <Center>
+              <StarMesh
+                isHovered={hoverStateRef.current}
+                hasCompletedEntrance={hasCompletedEntrance}
+                onAnimationComplete={handleComplete}
+                delay={0} // No delay since we're handling timing in the parent
+                prefersReducedMotion={prefersReducedMotion}
+                quality={quality}
+                inView={inView || hasStartedAnimation}
+              />
+            </Center>
 
-          {/* Only render lights and environment when in view or animation has started */}
-          {(inView || hasStartedAnimation) && (
-            <>
-              <ambientLight intensity={0.6} />
-              <pointLight position={[5, 5, 5]} intensity={0.7} />
-              <pointLight position={[-5, -5, 5]} intensity={0.3} color="#ffd700" />
-              <Environment preset="apartment" background={false} />
-            </>
-          )}
-        </Canvas>
+            {/* Only render lights and environment when in view or animation has started */}
+            {(inView || hasStartedAnimation) && (
+              <>
+                <ambientLight intensity={0.6} />
+                <pointLight position={[5, 5, 5]} intensity={0.7} />
+                <pointLight position={[-5, -5, 5]} intensity={0.3} color="#ffd700" />
+                <Environment preset="apartment" background={false} />
+              </>
+            )}
+          </Canvas>
+        </div>
 
         <div
-          className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300"
+          className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300 z-30"
           style={{
             opacity: hoverStateRef.current && (inView || hasStartedAnimation || hasCompletedEntrance) ? 0.4 : 0,
             background: "radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)",

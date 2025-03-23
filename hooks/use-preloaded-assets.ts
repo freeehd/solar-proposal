@@ -39,6 +39,7 @@ export function usePreloadedAssets(): PreloadedAssets {
 
   const isMountedRef = useRef(true)
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // This effect runs only once per app lifecycle
   useEffect(() => {
@@ -55,42 +56,44 @@ export function usePreloadedAssets(): PreloadedAssets {
       console.log("usePreloadedAssets: Initiating global asset loading")
       globalLoadingInitiated = true
 
-      // Start loading assets
-      preloadAllAssets()
-        .then(() => {
-          if (!isMountedRef.current) return
+      // Start loading assets with a slight delay to prioritize UI rendering
+      loadTimeoutRef.current = setTimeout(() => {
+        preloadAllAssets()
+          .then(() => {
+            if (!isMountedRef.current) return
 
-          console.log("usePreloadedAssets: Assets loaded successfully")
-          const cached = getCachedAssets()
-          console.log("usePreloadedAssets after load:", {
-            hasStarModel: !!cached.starModel,
-            hasVideo: !!cached.video,
-            isLoaded: cached.isLoaded,
-            materialsCount: cached.materials ? cached.materials.size : 0,
+            console.log("usePreloadedAssets: Assets loaded successfully")
+            const cached = getCachedAssets()
+            console.log("usePreloadedAssets after load:", {
+              hasStarModel: !!cached.starModel,
+              hasVideo: !!cached.video,
+              isLoaded: cached.isLoaded,
+              materialsCount: cached.materials ? cached.materials.size : 0,
+            })
+            setAssets({
+              starModel: cached.starModel,
+              video: cached.video,
+              isLoading: false,
+              isLoaded: true,
+              materials: cached.materials,
+            })
           })
-          setAssets({
-            starModel: cached.starModel,
-            video: cached.video,
-            isLoading: false,
-            isLoaded: true,
-            materials: cached.materials,
-          })
-        })
-        .catch((error) => {
-          console.error("usePreloadedAssets: Error loading assets:", error)
+          .catch((error) => {
+            console.error("usePreloadedAssets: Error loading assets:", error)
 
-          if (!isMountedRef.current) return
+            if (!isMountedRef.current) return
 
-          // Even on error, update state with whatever we have
-          const cached = getCachedAssets()
-          setAssets({
-            starModel: cached.starModel,
-            video: cached.video,
-            isLoading: false,
-            isLoaded: cached.isLoaded,
-            materials: cached.materials,
+            // Even on error, update state with whatever we have
+            const cached = getCachedAssets()
+            setAssets({
+              starModel: cached.starModel,
+              video: cached.video,
+              isLoading: false,
+              isLoaded: cached.isLoaded,
+              materials: cached.materials,
+            })
           })
-        })
+      }, 500) // Small delay to prioritize UI rendering
     } else {
       console.log("usePreloadedAssets: Global loading already initiated, waiting for completion")
 
@@ -134,6 +137,10 @@ export function usePreloadedAssets(): PreloadedAssets {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current)
         checkIntervalRef.current = null
+      }
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current)
+        loadTimeoutRef.current = null
       }
     }
   }, [assets.isLoaded])

@@ -26,8 +26,8 @@ type AssetCache = {
     isLoading: boolean
     error: Error | null
     loadPromise: Promise<THREE.Group> | null
-    // Add material cache to reuse materials across instances
     materials: Map<string, THREE.Material>
+    lastLoadAttempt: number
   }
   video: {
     element: HTMLVideoElement | null
@@ -35,10 +35,9 @@ type AssetCache = {
     isLoading: boolean
     error: Error | null
     loadPromise: Promise<HTMLVideoElement> | null
+    lastLoadAttempt: number
   }
-  // Track if initial loading is complete
   initialLoadComplete: boolean
-  // Track if preloading has been initiated
   preloadingInitiated: boolean
 }
 
@@ -51,6 +50,7 @@ const assetCache: AssetCache = {
     error: null,
     loadPromise: null,
     materials: new Map(),
+    lastLoadAttempt: 0,
   },
   video: {
     element: null,
@@ -58,6 +58,7 @@ const assetCache: AssetCache = {
     isLoading: false,
     error: null,
     loadPromise: null,
+    lastLoadAttempt: 0,
   },
   initialLoadComplete: false,
   preloadingInitiated: false,
@@ -157,11 +158,16 @@ function preprocessStarModel(model: THREE.Group): THREE.Group {
 
 // Load star model with improved reliability - only loads once
 export function preloadStarModel(): Promise<THREE.Group> {
+  // Check if we've attempted to load recently (within 5 seconds)
+  const now = Date.now()
+  const recentlyAttempted = now - assetCache.starModel.lastLoadAttempt < 5000
+
   console.log("preloadStarModel called, current state:", {
     isLoaded: assetCache.starModel.isLoaded,
     isLoading: assetCache.starModel.isLoading,
     hasModel: !!assetCache.starModel.model,
     materialsCount: assetCache.starModel.materials.size,
+    recentlyAttempted,
   })
 
   // Return cached model if already loaded
@@ -170,11 +176,14 @@ export function preloadStarModel(): Promise<THREE.Group> {
     return Promise.resolve(assetCache.starModel.model)
   }
 
-  // Return existing promise if loading is in progress
-  if (assetCache.starModel.isLoading && assetCache.starModel.loadPromise) {
+  // Return existing promise if loading is in progress and not stale
+  if (assetCache.starModel.isLoading && assetCache.starModel.loadPromise && !recentlyAttempted) {
     console.log("Star model loading in progress, returning existing promise")
     return assetCache.starModel.loadPromise
   }
+
+  // Update last attempt timestamp
+  assetCache.starModel.lastLoadAttempt = now
 
   // Start loading
   console.log("Starting star model loading")
@@ -205,7 +214,7 @@ export function preloadStarModel(): Promise<THREE.Group> {
 
       notifyProgress("starModel", 100)
       resolve(fallbackModel)
-    }, 15000) // 15 second timeout
+    }, 10000) // Reduced timeout to 10 seconds
 
     // Try primary URL
     loader.load(
@@ -303,9 +312,14 @@ export function preloadStarModel(): Promise<THREE.Group> {
 
 // Preload video with improved reliability - only loads once
 export function preloadVideo(): Promise<HTMLVideoElement> {
+  // Check if we've attempted to load recently (within 5 seconds)
+  const now = Date.now()
+  const recentlyAttempted = now - assetCache.video.lastLoadAttempt < 5000
+
   console.log("preloadVideo called, current state:", {
     isLoaded: assetCache.video.isLoaded,
     isLoading: assetCache.video.isLoading,
+    recentlyAttempted,
   })
 
   // Return cached video if already loaded
@@ -314,11 +328,14 @@ export function preloadVideo(): Promise<HTMLVideoElement> {
     return Promise.resolve(assetCache.video.element)
   }
 
-  // Return existing promise if loading is in progress
-  if (assetCache.video.isLoading && assetCache.video.loadPromise) {
+  // Return existing promise if loading is in progress and not stale
+  if (assetCache.video.isLoading && assetCache.video.loadPromise && !recentlyAttempted) {
     console.log("Video loading in progress, returning existing promise")
     return assetCache.video.loadPromise
   }
+
+  // Update last attempt timestamp
+  assetCache.video.lastLoadAttempt = now
 
   // Start loading
   console.log("Starting video loading")
@@ -468,7 +485,7 @@ export function preloadVideo(): Promise<HTMLVideoElement> {
           resolve(placeholderVideo)
         }
       }
-    }, 15000)
+    }, 10000) // Reduced timeout to 10 seconds
 
     // Set source and start loading
     video.src = videoUrl
@@ -645,22 +662,25 @@ export function getStarMaterial(key = "default"): THREE.Material {
   return material
 }
 
-// Force preloading to start immediately
+// Force preloading to start immediately but with lower priority
 if (typeof window !== "undefined" && !assetCache.preloadingInitiated) {
-  console.log("Starting immediate asset preloading")
+  console.log("Scheduling background asset preloading")
 
   // Use requestIdleCallback for non-blocking loading
   const startPreloading = () => {
     preloadAllAssets().catch((error) => {
-      console.warn("Error during initial asset preloading:", error)
+      console.warn("Error during background asset preloading:", error)
     })
   }
 
-  if ("requestIdleCallback" in window) {
-    ;(window as any).requestIdleCallback(startPreloading, { timeout: 1000 })
-  } else {
-    // Fallback for browsers without requestIdleCallback
-    setTimeout(startPreloading, 100) // Start sooner than before
-  }
+  // Delay preloading to prioritize visible content first
+  setTimeout(() => {
+    if ("requestIdleCallback" in window) {
+      ;(window as any).requestIdleCallback(startPreloading, { timeout: 2000 })
+    } else {
+      // Fallback for browsers without requestIdleCallback
+      setTimeout(startPreloading, 1000) // Delay preloading to prioritize visible content
+    }
+  }, 1000)
 }
 

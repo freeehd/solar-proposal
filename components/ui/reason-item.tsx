@@ -62,11 +62,11 @@ export function ReasonItem({ reason, index, previousCompleted = true, onStarComp
         clearTimeout(completionTimeoutRef.current)
       }
 
-      // Set new timeout - reduced to 1 second for faster fallback
+      // Set new timeout - reduced to 500ms for faster fallback
       completionTimeoutRef.current = setTimeout(() => {
         console.log(`ReasonItem ${index}: Force completing animation after timeout`)
         handleStarComplete()
-      }, 1000) // Force complete after 1 second if animation doesn't trigger
+      }, 500) // Force complete after 500ms if animation doesn't trigger
     }
 
     return () => {
@@ -81,7 +81,7 @@ export function ReasonItem({ reason, index, previousCompleted = true, onStarComp
     <li ref={itemRef} className="flex items-start gap-4 md:gap-6">
       <div className="flex-shrink-0 w-[100px] h-[100px]">
         <StarAnimation
-          delay={index * 0.3}
+          delay={index * 0.2} // Reduced delay for faster appearance
           onAnimationComplete={handleStarComplete}
           // Always show animation once it's been in view, regardless of current visibility
           inView={hasBeenInView && previousCompleted}
@@ -93,7 +93,7 @@ export function ReasonItem({ reason, index, previousCompleted = true, onStarComp
           initial={{ opacity: 0, y: 20 }}
           // Always show content once it's been in view
           animate={hasBeenInView && previousCompleted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.5, delay: index * 0.3 + 0.2 }}
+          transition={{ duration: 0.5, delay: index * 0.2 + 0.1 }} // Reduced delay for faster appearance
         >
           <h3 className="text-lg md:text-xl font-medium mb-2">{reason.text}</h3>
           <p className="text-gray-600 text-sm md:text-base">{reason.description}</p>

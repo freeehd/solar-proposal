@@ -42,6 +42,7 @@ export default function WhySunStudios() {
   const sectionRef = useRef(null)
   const titleRef = useRef(null)
   const [isClient, setIsClient] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
 
   // Use media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
@@ -63,6 +64,13 @@ export default function WhySunStudios() {
     amount: 0.3,
     margin: "50px 0px",
   })
+
+  // Set visibility when section comes into view
+  useEffect(() => {
+    if (isSectionInView) {
+      setIsVisible(true)
+    }
+  }, [isSectionInView])
 
   // Handle star animation completion
   const handleStarComplete = (index: number) => {

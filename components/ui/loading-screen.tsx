@@ -11,8 +11,8 @@ interface LoadingScreenProps {
   minDisplayTime?: number // Minimum time to display the loading screen
 }
 
-// Default minimum display time of 3 seconds (3000ms)
-const DEFAULT_MINIMUM_DISPLAY_TIME = 3000
+// Default minimum display time of 2 seconds (2000ms) - reduced from 3000ms
+const DEFAULT_MINIMUM_DISPLAY_TIME = 2000
 
 export default function LoadingScreen({
   onLoadingComplete,
@@ -71,7 +71,7 @@ export default function LoadingScreen({
       if (isMountedRef.current) {
         setShowParticles(true)
       }
-    }, 1000)
+    }, 500) // Reduced from 1000ms for faster appearance
 
     return () => clearTimeout(timer)
   }, [])
@@ -97,7 +97,7 @@ export default function LoadingScreen({
       if (!isMountedRef.current) return
       console.log("LoadingScreen: Notifying parent of completion")
       onLoadingComplete()
-    }, 1300)
+    }, 800) // Reduced from 1300ms for faster transition
   }
 
   // Handle loading and ensure minimum display time
@@ -112,9 +112,9 @@ export default function LoadingScreen({
     if (progressRef.current < 20) {
       setLoadingMessage("Initializing...")
     } else if (progressRef.current < 40) {
-      setLoadingMessage("Loading 3D assets...")
+      setLoadingMessage("Loading assets...")
     } else if (progressRef.current < 80) {
-      setLoadingMessage("Loading video...")
+      setLoadingMessage("Preparing content...")
     } else {
       setLoadingMessage("Almost ready...")
     }
@@ -217,7 +217,7 @@ export default function LoadingScreen({
       }, remainingTime)
     }
 
-    // Force completion after timeout (15 seconds)
+    // Force completion after timeout (10 seconds) - reduced from 15 seconds
     const forceCompleteTimeout = setTimeout(() => {
       if (!isMountedRef.current) return
 
@@ -236,9 +236,9 @@ export default function LoadingScreen({
             completeLoading()
           },
           Math.min(remainingTime, minDisplayTime / 2),
-        ) // Use half the minimum time if we've already waited 15 seconds
+        ) // Use half the minimum time if we've already waited 10 seconds
       }
-    }, 15000)
+    }, 10000) // Reduced from 15000ms
 
     return () => {
       isMountedRef.current = false
@@ -256,7 +256,7 @@ export default function LoadingScreen({
       style={{
         opacity: isVisible ? 1 : 0,
         visibility: isVisible ? "visible" : "hidden",
-        transition: "opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 1.2s",
+        transition: "opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.8s",
         pointerEvents: isVisible ? "auto" : "none",
       }}
     >
