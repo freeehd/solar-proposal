@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import HeroSection from "@/components/hero-section"
 import EnergyUsageSection from "@/components/energy-usage-section"
 import SolarDesignSection from "@/components/solar-design-section"
@@ -15,9 +15,17 @@ import ErrorBoundary from "@/components/error-boundary"
 import WhySunStudios from "@/components/why-sun-studios"
 import HowSolarWorksx from "@/components/how-solar-worksx"
 import AppSection from "@/components/app-section"
-import Loading from "@/components/ui/loading"
+import LoadingScreen from "@/components/ui/loading-screen"
 import { Sun, EyeOff } from "lucide-react"
 import { useProposalData, type ProposalData } from "@/hooks/use-proposal-data"
+import { preloadAllAssets, addProgressListener, areAllAssetsLoaded } from "@/utils/asset-preloader"
+
+// Start preloading assets as early as possible
+if (typeof window !== "undefined") {
+  preloadAllAssets().catch((error) => {
+    console.warn("Error during initial asset preloading:", error)
+  })
+}
 
 interface ProposalContentProps {
   proposalId?: string
@@ -42,51 +50,83 @@ const sections = [
 export default function ProposalContent({ proposalId, initialData = {} }: ProposalContentProps) {
   const [activeSection, setActiveSection] = useState("hero")
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({})
-  // Add this to the ProposalContent function, replacing the existing state management
-  const [videoLoadProgress, setVideoLoadProgress] = useState(0)
-  const [dataLoadProgress, setDataLoadProgress] = useState(0)
-  const [heroReady, setHeroReady] = useState(false)
-  const [starModelLoaded, setStarModelLoaded] = useState(false)
-
-  // Calculate combined progress (50% video, 50% data)
-  const combinedProgress = useMemo(() => {
-    return Math.round(videoLoadProgress * 0.5 + dataLoadProgress * 0.5)
-  }, [videoLoadProgress, dataLoadProgress])
-
-  // Use our new hook for proposal data
-  const { proposalData, visibleSections, dataLoaded, setProposalData } = useProposalData({
-    proposalId,
-    initialData,
-    onProgress: setDataLoadProgress,
+  const [isLoading, setIsLoading] = useState(true)
+  const [assetProgress, setAssetProgress] = useState({
+    starModel: 0,
+    video: 0,
   })
 
-  // Handle video loading progress updates
-  const handleVideoProgress = (progress: number) => {
-    // Only update if the new progress is higher than the current one
-    setVideoLoadProgress((current) => Math.max(current, progress))
-  }
+  // Use our hook for proposal data
+  const {
+    proposalData,
+    visibleSections,
+    dataLoaded,
+    setProposalData,
+    loadingProgress: dataProgress,
+  } = useProposalData({
+    proposalId,
+    initialData,
+  })
 
-  // Check if all assets are loaded
-  const checkAllAssetsLoaded = useCallback(() => {
-    // Only consider assets loaded if data is loaded AND hero is ready
-    return dataLoaded && heroReady
-  }, [dataLoaded, heroReady])
+  // Handle loading completion
+  const handleLoadingComplete = useCallback(() => {
+    setIsLoading(false)
+  }, [])
 
-  // Add loading state
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Check if both data and hero are ready to hide the loader
+  // Track asset loading progress
   useEffect(() => {
-    if (checkAllAssetsLoaded()) {
-      // Add a longer delay to ensure everything is rendered
-      const timer = setTimeout(() => {
-        setIsLoading(false)
-      }, 800)
+    const removeListener = addProgressListener((type, progress) => {
+      setAssetProgress((prev) => ({
+        ...prev,
+        [type]: progress,
+      }))
+    })
 
-      return () => clearTimeout(timer)
+    return () => removeListener()
+  }, [])
+
+  // Calculate overall progress for loading screen
+  const getOverallProgress = useCallback(() => {
+    // If data is loaded and assets are loaded, return 100%
+    if (dataLoaded && areAllAssetsLoaded()) {
+      return 100
     }
-  }, [checkAllAssetsLoaded])
 
+    // Weight: 40% data, 30% star model, 30% video
+    const dataProgressValue = typeof dataProgress === "number" ? dataProgress : 0
+    const starModelProgressValue = typeof assetProgress.starModel === "number" ? assetProgress.starModel : 0
+    const videoProgressValue = typeof assetProgress.video === "number" ? assetProgress.video : 0
+
+    // Calculate weighted average
+    const calculatedProgress = Math.round(
+      dataProgressValue * 0.4 + starModelProgressValue * 0.3 + videoProgressValue * 0.3,
+    )
+
+    // Ensure we return a value between 0-100
+    return Math.max(0, Math.min(100, calculatedProgress))
+  }, [dataProgress, assetProgress.starModel, assetProgress.video, dataLoaded])
+
+  // Check if everything is loaded and hide loading screen
+  useEffect(() => {
+    // Only hide loading when both data and assets are loaded
+    if (dataLoaded && areAllAssetsLoaded()) {
+      // We don't immediately set isLoading to false
+      // Instead, we let the LoadingScreen component handle its own fade-out
+      // The onLoadingComplete callback will set isLoading to false after animation completes
+
+      // Force hide loader after a maximum time (15 seconds) as a fallback
+      const forceHideTimeout = setTimeout(() => {
+        if (isLoading) {
+          console.warn("Force hiding loader after timeout")
+          setIsLoading(false)
+        }
+      }, 15000)
+
+      return () => clearTimeout(forceHideTimeout)
+    }
+  }, [dataLoaded, isLoading])
+
+  // Handle scroll position for navigation
   useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY + window.innerHeight / 2
@@ -137,18 +177,21 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
     setProposalData((prevData) => ({ ...prevData, [name]: value }))
   }
 
-  // Handle hero section ready state
-  const handleHeroReady = () => {
-    setHeroReady(true)
-  }
-
   // Filter visible sections for navigation
   const visibleSectionsList = sections.filter((section) => visibleSections[section.id as keyof typeof visibleSections])
 
   return (
     <div className="text-foreground bg-background">
-      {/* Loading overlay - now with combined progress from video loading and data loading */}
-      <Loading isLoading={isLoading} progress={combinedProgress} />
+      {/* Centralized loading screen - only place we show loading UI */}
+      {isLoading && (
+        <LoadingScreen
+          onLoadingComplete={() => {
+            // This callback is triggered after the fade-out animation completes
+            setIsLoading(false)
+          }}
+          progress={getOverallProgress()}
+        />
+      )}
 
       {visibleSectionsList.length > 0 && (
         <nav className="fixed top-0 right-0 h-screen z-50 flex items-center">
@@ -180,10 +223,10 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
           </ul>
         </nav>
       )}
-
+{/* 
       <div className="fixed top-4 left-4 z-50">
         <ThemeToggle />
-      </div>
+      </div> */}
 
       {/* Render sections based on visibility settings */}
       {visibleSections.hero && (
@@ -193,12 +236,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
               if (el) sectionRefs.current.hero = el
             }}
           >
-            <HeroSection
-              name={proposalData.name}
-              address={proposalData.address}
-              onReady={handleHeroReady}
-              onProgress={handleVideoProgress} // Pass the progress handler
-            />
+            <HeroSection name={proposalData.name} address={proposalData.address} />
           </div>
         </ErrorBoundary>
       )}
@@ -276,16 +314,16 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 lifetime_savings: proposalData.lifetime_savings,
                 solar_panel_design: proposalData.solar_panel_design,
                 // Add storage section props - only show if storage section is visible
-                battery_name: visibleSections.storage ? proposalData.battery_name : '" : "',
-                inverter_name: visibleSections.storage ? proposalData.inverter_name : '" : "',
-                capacity: visibleSections.storage ? proposalData.capacity : '" : "',
-                output_kw: visibleSections.storage ? proposalData.output_kw : '" : "',
-                operating_mode: visibleSections.storage ? proposalData.operating_mode : '" : "',
-                backup_allocation: visibleSections.storage ? proposalData.backup_allocation : '" : "',
-                battery_image: visibleSections.storage ? proposalData.battery_image : '" : "',
-                essentials_days: visibleSections.storage ? proposalData.essentials_days : '" : "',
-                appliances_days: visibleSections.storage ? proposalData.appliances_days : '" : "',
-                whole_home_days: visibleSections.storage ? proposalData.whole_home_days : '" : "',
+                battery_name: visibleSections.storage ? proposalData.battery_name : "",
+                inverter_name: visibleSections.storage ? proposalData.inverter_name : "",
+                capacity: visibleSections.storage ? proposalData.capacity : "",
+                output_kw: visibleSections.storage ? proposalData.output_kw : "",
+                operating_mode: visibleSections.storage ? proposalData.operating_mode : "",
+                backup_allocation: visibleSections.storage ? proposalData.backup_allocation : "",
+                battery_image: visibleSections.storage ? proposalData.battery_image : "",
+                essentials_days: visibleSections.storage ? proposalData.essentials_days : "",
+                appliances_days: visibleSections.storage ? proposalData.appliances_days : "",
+                whole_home_days: visibleSections.storage ? proposalData.whole_home_days : "",
               }}
             />
           </div>

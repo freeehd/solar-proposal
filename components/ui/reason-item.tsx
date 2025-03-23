@@ -8,6 +8,9 @@ import { useReducedMotion } from "framer-motion"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import type * as THREE from "three" // Import THREE
 
+// Star model Vercel Blob URL
+const STAR_MODEL_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
+
 // Global star model cache
 const starModelCache = {
   isLoaded: false,
@@ -30,7 +33,7 @@ if (typeof window !== "undefined") {
 
     starModelCache.loadPromise = new Promise<void>((resolve, reject) => {
       loader.load(
-        "/models/star.glb",
+        STAR_MODEL_URL, // Use Vercel Blob URL
         (gltf) => {
           console.log("Star model preloaded globally")
           starModelCache.model = gltf.scene.clone()
@@ -187,7 +190,7 @@ export const OptimizedReasonItem = memo(function OptimizedReasonItem({
     console.log("Starting star model loading in ReasonItem")
     const loader = new GLTFLoader()
     loader.load(
-      "/models/star.glb",
+      STAR_MODEL_URL, // Use Vercel Blob URL
       () => {
         console.log("Star model loaded in ReasonItem")
         starModelCache.isLoaded = true

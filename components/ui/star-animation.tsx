@@ -5,93 +5,7 @@ import { motion, useReducedMotion } from "framer-motion"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Center, useDetectGPU, Environment } from "@react-three/drei"
 import * as THREE from "three"
-import { useGLTF } from "@react-three/drei"
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
-
-// Global star model cache
-const starModelCache = {
-  isLoaded: false,
-  isLoading: false,
-  loadPromise: null as Promise<THREE.Group> | null,
-  model: null as THREE.Group | null,
-  error: false,
-}
-
-// Preload the model globally
-useGLTF.preload("/models/star.glb")
-
-// Function to load the model once and cache it
-const loadStarModel = (): Promise<THREE.Group> => {
-  if (starModelCache.model) {
-    console.log("Using cached star model")
-    return Promise.resolve(starModelCache.model)
-  }
-
-  if (starModelCache.isLoading && starModelCache.loadPromise) {
-    console.log("Star model loading in progress, waiting...")
-    return starModelCache.loadPromise
-  }
-
-  console.log("Loading star model in StarAnimation")
-  starModelCache.isLoading = true
-
-  const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
-    const loader = new GLTFLoader()
-    loader.load(
-      "/models/star.glb",
-      (gltf) => {
-        try {
-          const model = gltf.scene.clone()
-
-          // Center the model
-          model.position.set(0, 0, 0)
-          model.rotation.set(0, 0, 0)
-
-          starModelCache.model = model
-          starModelCache.isLoaded = true
-          starModelCache.isLoading = false
-
-          resolve(model)
-        } catch (error) {
-          console.error("Error processing star model:", error)
-          starModelCache.error = true
-          starModelCache.isLoading = false
-          reject(error)
-        }
-      },
-      (progress) => {
-        if (progress.lengthComputable) {
-          const percentComplete = (progress.loaded / progress.total) * 100
-          console.log(`Star model loading in StarAnimation: ${Math.round(percentComplete)}%`)
-        }
-      },
-      (error) => {
-        console.error("Error loading star model in StarAnimation:", error)
-        starModelCache.error = true
-        starModelCache.isLoading = false
-        reject(error)
-      },
-    )
-  })
-
-  starModelCache.loadPromise = loadPromise
-
-  // Set a timeout to prevent indefinite loading
-  setTimeout(() => {
-    if (!starModelCache.isLoaded && starModelCache.isLoading) {
-      console.warn("Star model loading timed out globally")
-      starModelCache.isLoading = false
-      starModelCache.error = true
-    }
-  }, 10000)
-
-  return loadPromise
-}
-
-// Start loading the model immediately
-if (typeof window !== "undefined") {
-  loadStarModel().catch(console.error)
-}
+import { usePreloadedAssets } from "@/hooks/use-preloaded-assets"
 
 interface StarMeshProps {
   isHovered: boolean
@@ -101,7 +15,6 @@ interface StarMeshProps {
   prefersReducedMotion: boolean
   quality: "high" | "low"
   inView?: boolean
-  usePreloadedModel?: boolean
 }
 
 interface StarAnimationProps {
@@ -109,11 +22,40 @@ interface StarAnimationProps {
   onAnimationComplete?: () => void
   inView?: boolean
   prefersReducedMotion?: boolean
-  usePreloadedModel?: boolean
 }
 
 // Constants
 const FINAL_SCALE = 0.8
+
+// WebGL context loss handler component
+const WebGLContextHandler = () => {
+  const { gl } = useThree()
+
+  useEffect(() => {
+    const canvas = gl.domElement
+
+    const handleContextLost = (event: Event) => {
+      event.preventDefault()
+      console.warn("WebGL context lost")
+    }
+
+    const handleContextRestored = () => {
+      console.log("WebGL context restored")
+      // Force a re-render
+      gl.render(gl.scene, gl.camera)
+    }
+
+    canvas.addEventListener("webglcontextlost", handleContextLost)
+    canvas.addEventListener("webglcontextrestored", handleContextRestored)
+
+    return () => {
+      canvas.removeEventListener("webglcontextlost", handleContextLost)
+      canvas.removeEventListener("webglcontextrestored", handleContextRestored)
+    }
+  }, [gl])
+
+  return null
+}
 
 // Star mesh component with material application
 const StarMesh = React.memo(
@@ -125,17 +67,14 @@ const StarMesh = React.memo(
     prefersReducedMotion,
     quality,
     inView = true,
-    usePreloadedModel = false,
   }: StarMeshProps) => {
     const groupRef = useRef<THREE.Group>(null)
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null)
-    const { gl } = useThree()
 
-    // Error handling for model loading
-    const [loadError, setLoadError] = useState(false)
-    const [model, setModel] = useState<THREE.Group | null>(null)
+    // Get preloaded star model
+    const { starModel, isLoaded } = usePreloadedAssets()
 
-    // Create the material with the specified properties - using MeshStandardMaterial instead
+    // Create the material with the specified properties
     const starMaterial = useMemo(() => {
       const material = new THREE.MeshStandardMaterial({
         roughness: 0.03,
@@ -151,87 +90,35 @@ const StarMesh = React.memo(
       return material
     }, [quality])
 
-    // Load the model when the component mounts
-    useEffect(() => {
-      let isMounted = true
-
-      const loadModel = async () => {
-        try {
-          // Try to get the model from the global cache
-          if (starModelCache.model) {
-            console.log("Using model from global cache")
-            if (isMounted) {
-              // Clone the model
-              const clonedModel = starModelCache.model.clone()
-
-              // Apply material to all meshes
-              clonedModel.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                  const mesh = child as THREE.Mesh
-                  // Store original material for reference if needed
-                  if (!mesh.userData.originalMaterial) {
-                    mesh.userData.originalMaterial = mesh.material
-                  }
-                  // Apply our custom material
-                  mesh.material = starMaterial
-                }
-              })
-
-              setModel(clonedModel)
-            }
-            return
-          }
-
-          // Otherwise load the model
-          const loadedModel = await loadStarModel()
-          if (isMounted) {
-            // Clone the model
-            const clonedModel = loadedModel.clone()
-
-            // Apply material to all meshes
-            clonedModel.traverse((child) => {
-              if ((child as THREE.Mesh).isMesh) {
-                const mesh = child as THREE.Mesh
-                // Store original material for reference if needed
-                if (!mesh.userData.originalMaterial) {
-                  mesh.userData.originalMaterial = mesh.material
-                }
-                // Apply our custom material
-                mesh.material = starMaterial
-              }
-            })
-
-            setModel(clonedModel)
-          }
-        } catch (error) {
-          console.error("Error loading star model in component:", error)
-          if (isMounted) {
-            setLoadError(true)
-          }
-        }
-      }
-
-      loadModel()
-
-      return () => {
-        isMounted = false
-      }
-    }, [starMaterial, usePreloadedModel])
-
-    // Create a fallback model if loading fails
-    const starModelOrFallback = useMemo(() => {
-      if (loadError || !model) {
-        // Create a fallback geometry if model fails to load
+    // Clone and prepare the model
+    const preparedModel = useMemo(() => {
+      if (!starModel) {
+        // Create a fallback geometry if model is not available
         const geometry = new THREE.IcosahedronGeometry(1, 1)
         const mesh = new THREE.Mesh(geometry, starMaterial)
-
         const group = new THREE.Group()
         group.add(mesh)
         return group
       }
 
-      return model
-    }, [model, loadError, starMaterial])
+      // Clone the model
+      const clonedModel = starModel.clone()
+
+      // Apply material to all meshes
+      clonedModel.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh
+          // Store original material for reference if needed
+          if (!mesh.userData.originalMaterial) {
+            mesh.userData.originalMaterial = mesh.material
+          }
+          // Apply our custom material
+          mesh.material = starMaterial
+        }
+      })
+
+      return clonedModel
+    }, [starModel, starMaterial])
 
     // Animation state reference to avoid re-renders
     const animationState = useRef({
@@ -386,7 +273,7 @@ const StarMesh = React.memo(
 
     return (
       <group ref={groupRef}>
-        <primitive object={starModelOrFallback} position={[0, 0, 0]} rotation={[0, 0, 0]} scale={[1, 1, 1]} />
+        <primitive object={preparedModel} position={[0, 0, 0]} rotation={[0, 0, 0]} scale={[1, 1, 1]} />
       </group>
     )
   },
@@ -401,12 +288,10 @@ export const StarAnimation = React.memo(
     onAnimationComplete,
     inView = true,
     prefersReducedMotion: propsPrefersReducedMotion,
-    usePreloadedModel = false,
   }: StarAnimationProps) => {
     const hoverStateRef = useRef(false)
     const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
     const [hasErrored, setHasErrored] = useState(false)
-    const [isModelPreloaded, setIsModelPreloaded] = useState(!!starModelCache.model)
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => (typeof window !== "undefined" ? Math.min(1.5, window.devicePixelRatio) : 1), [])
@@ -415,13 +300,8 @@ export const StarAnimation = React.memo(
     const systemPrefersReducedMotion = useReducedMotion()
     const prefersReducedMotion = propsPrefersReducedMotion || !!systemPrefersReducedMotion
 
-    const timerRefs = useRef<{
-      hover: NodeJS.Timeout | null
-      completion: NodeJS.Timeout | null
-    }>({
-      hover: null,
-      completion: null,
-    })
+    // Check if assets are loaded
+    const { isLoaded } = usePreloadedAssets()
 
     // Detect GPU capabilities once and memoize the result
     const gpu = useDetectGPU()
@@ -429,94 +309,26 @@ export const StarAnimation = React.memo(
       return gpu && gpu.tier >= 2 ? "high" : "low"
     }, [gpu])
 
-    // Check if the star model is preloaded from the global cache
-    useEffect(() => {
-      if (isModelPreloaded) return
-
-      if (starModelCache.model) {
-        console.log("Star model already loaded in global cache")
-        setIsModelPreloaded(true)
-        return
-      }
-
-      if (starModelCache.isLoading && starModelCache.loadPromise) {
-        console.log("Star model loading in progress, waiting...")
-        starModelCache.loadPromise
-          .then(() => {
-            console.log("Star model loaded from global promise")
-            setIsModelPreloaded(true)
-          })
-          .catch(() => {
-            console.error("Error loading star model from global promise")
-            setIsModelPreloaded(true) // Continue anyway
-            setHasErrored(true)
-          })
-        return
-      }
-
-      // If not loading or loaded, start loading now
-      loadStarModel()
-        .then(() => {
-          setIsModelPreloaded(true)
-        })
-        .catch((error) => {
-          console.error("Error preloading star model in StarAnimation:", error)
-          setHasErrored(true)
-          setIsModelPreloaded(true) // Continue anyway
-        })
-
-      // Set a timeout to prevent indefinite loading
-      const timeout = setTimeout(() => {
-        if (!isModelPreloaded) {
-          console.warn("Star model preloading timed out in StarAnimation")
-          setIsModelPreloaded(true)
-          setHasErrored(true)
-        }
-      }, 8000) // 8 second timeout
-
-      return () => clearTimeout(timeout)
-    }, [isModelPreloaded])
-
     // Memoize event handlers to prevent recreating on each render
     const handleMouseEnter = useCallback(() => {
-      if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover)
-      timerRefs.current.hover = setTimeout(() => {
-        hoverStateRef.current = true
-      }, 50)
+      hoverStateRef.current = true
     }, [])
 
     const handleMouseLeave = useCallback(() => {
-      if (timerRefs.current.hover) clearTimeout(timerRefs.current.hover)
-      timerRefs.current.hover = setTimeout(() => {
-        hoverStateRef.current = false
-      }, 50)
+      hoverStateRef.current = false
     }, [])
 
     // Optimize effect to run only when necessary
     useEffect(() => {
       if (inView && !hasCompletedEntrance) {
-        timerRefs.current.completion = setTimeout(() => {
+        const completionTimer = setTimeout(() => {
           if (!hasCompletedEntrance) {
             setHasCompletedEntrance(true)
             onAnimationComplete?.()
           }
         }, 1000) // Reduced from 1500 for faster completion
-      }
 
-      // Fallback timer in case of errors
-      const fallbackTimer = setTimeout(() => {
-        if (!hasCompletedEntrance) {
-          setHasCompletedEntrance(true)
-          setHasErrored(true)
-          onAnimationComplete?.()
-        }
-      }, 5000)
-
-      return () => {
-        Object.values(timerRefs.current).forEach((timer) => {
-          if (timer) clearTimeout(timer)
-        })
-        clearTimeout(fallbackTimer)
+        return () => clearTimeout(completionTimer)
       }
     }, [inView, hasCompletedEntrance, onAnimationComplete])
 
@@ -569,8 +381,8 @@ export const StarAnimation = React.memo(
       )
     }
 
-    // Show loading state if model is not yet preloaded
-    if (!isModelPreloaded) {
+    // Show loading state if assets are not yet loaded
+    if (!isLoaded) {
       return (
         <div className="w-full h-full flex items-center justify-center">
           <div className="w-12 h-12 rounded-full bg-amber-400/50 flex items-center justify-center text-white text-2xl animate-pulse">
@@ -601,6 +413,9 @@ export const StarAnimation = React.memo(
         }}
       >
         <Canvas {...canvasProps}>
+          {/* Add WebGL context handler */}
+          <WebGLContextHandler />
+
           <Center>
             <StarMesh
               isHovered={hoverStateRef.current}
@@ -610,7 +425,6 @@ export const StarAnimation = React.memo(
               prefersReducedMotion={prefersReducedMotion}
               quality={quality}
               inView={inView}
-              usePreloadedModel={usePreloadedModel}
             />
           </Center>
 

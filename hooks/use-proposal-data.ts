@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { toast } from "@/components/ui/use-toast"
 
 interface SectionVisibility {
@@ -121,7 +121,10 @@ interface UseProposalDataResult {
   proposalData: ProposalData
   visibleSections: SectionVisibility
   dataLoaded: boolean
+  loadingProgress: number
   setProposalData: React.Dispatch<React.SetStateAction<ProposalData>>
+  toggleSectionVisibility: (sectionId: keyof SectionVisibility) => void
+  refreshProposal: () => Promise<void>
 }
 
 export function useProposalData({
@@ -148,23 +151,76 @@ export function useProposalData({
     },
   )
   const [dataLoaded, setDataLoaded] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState(0)
+  const isMountedRef = useRef(true)
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Update progress and notify parent
+  const updateProgress = useCallback(
+    (progress: number) => {
+      if (!isMountedRef.current) return
+
+      // Ensure progress is a valid number between 0-100
+      const validProgress = Math.max(0, Math.min(100, isNaN(progress) ? 0 : progress))
+
+      setLoadingProgress(validProgress)
+      if (onProgress) onProgress(validProgress)
+    },
+    [onProgress],
+  )
+
+  // Toggle section visibility
+  const toggleSectionVisibility = useCallback((sectionId: keyof SectionVisibility) => {
+    setVisibleSections((prev) => {
+      const updated = { ...prev, [sectionId]: !prev[sectionId] }
+
+      // Update proposal data with new visibility settings
+      setProposalData((current) => ({
+        ...current,
+        section_visibility: updated,
+      }))
+
+      return updated
+    })
+  }, [])
 
   // Function to fetch proposal data
   const fetchProposal = useCallback(async () => {
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current)
+      loadingTimeoutRef.current = null
+    }
+
+    // Reset loading state
+    setDataLoaded(false)
+    updateProgress(0)
+
+    // Set a timeout to ensure loading eventually completes
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return
+
+      if (!dataLoaded) {
+        console.warn("Force completing data loading after timeout")
+        setDataLoaded(true)
+        updateProgress(100)
+      }
+    }, 10000)
+
     if (proposalId) {
       try {
         // Set initial progress for data fetching
-        if (onProgress) onProgress(5)
+        updateProgress(5)
 
         const response = await fetch(`/api/proposals/${proposalId}`)
-        if (onProgress) onProgress(20) // Update progress after fetch starts
+        updateProgress(20) // Update progress after fetch starts
 
         const data = await response.json()
-        if (onProgress) onProgress(40) // Update progress after data is received
+        updateProgress(40) // Update progress after data is received
 
         if (data.success) {
           console.log("Fetched proposal data:", data.proposal)
-          if (onProgress) onProgress(60) // Update progress after data is processed
+          updateProgress(60) // Update progress after data is processed
 
           // Extract section visibility if it exists
           let sectionVisibility = defaultProposalData.section_visibility
@@ -180,29 +236,39 @@ export function useProposalData({
             console.error("Error parsing section visibility:", error)
           }
 
-          setVisibleSections(sectionVisibility || defaultProposalData.section_visibility)
+          if (isMountedRef.current) {
+            setVisibleSections(sectionVisibility || defaultProposalData.section_visibility)
 
-          // Set proposal data directly from API response (all snake_case)
-          setProposalData((prevData) => ({
-            ...prevData,
-            ...data.proposal,
-            section_visibility: sectionVisibility,
-          }))
+            // Set proposal data directly from API response (all snake_case)
+            setProposalData((prevData) => ({
+              ...prevData,
+              ...data.proposal,
+              section_visibility: sectionVisibility,
+            }))
 
-          if (onProgress) onProgress(80) // Update progress after data is set
+            updateProgress(80) // Update progress after data is set
 
-          // Mark data as loaded
-          setDataLoaded(true)
-          if (onProgress) onProgress(100) // Final progress update
+            // Add a small delay before marking as complete for smoother UX
+            setTimeout(() => {
+              if (!isMountedRef.current) return
+
+              // Mark data as loaded
+              setDataLoaded(true)
+              updateProgress(100) // Final progress update
+            }, 300)
+          }
         } else {
           toast({
             title: "Error",
             description: "Failed to fetch proposal details",
             variant: "destructive",
           })
-          // Even on error, we should stop showing the loading state
-          setDataLoaded(true)
-          if (onProgress) onProgress(100) // Final progress update on error
+
+          if (isMountedRef.current) {
+            // Even on error, we should stop showing the loading state
+            setDataLoaded(true)
+            updateProgress(100) // Final progress update on error
+          }
         }
       } catch (error) {
         console.error("Error fetching proposal:", error)
@@ -211,13 +277,16 @@ export function useProposalData({
           description: "Failed to fetch proposal details",
           variant: "destructive",
         })
-        // Even on error, we should stop showing the loading state
-        setDataLoaded(true)
-        if (onProgress) onProgress(100) // Final progress update on error
+
+        if (isMountedRef.current) {
+          // Even on error, we should stop showing the loading state
+          setDataLoaded(true)
+          updateProgress(100) // Final progress update on error
+        }
       }
     } else {
       // Set initial progress for local storage loading
-      if (onProgress) onProgress(20)
+      updateProgress(20)
 
       const storedData = localStorage.getItem("solarProposalData")
       if (storedData) {
@@ -225,27 +294,48 @@ export function useProposalData({
           const parsedData = JSON.parse(storedData)
           console.log("Parsed stored data:", parsedData)
 
-          // Extract section visibility if it exists
-          if (parsedData.section_visibility) {
-            setVisibleSections(parsedData.section_visibility)
-          }
+          if (isMountedRef.current) {
+            // Extract section visibility if it exists
+            if (parsedData.section_visibility) {
+              setVisibleSections(parsedData.section_visibility)
+            }
 
-          setProposalData((prevData) => ({ ...prevData, ...parsedData }))
-          if (onProgress) onProgress(80) // Update progress after data is set
+            setProposalData((prevData) => ({ ...prevData, ...parsedData }))
+            updateProgress(80) // Update progress after data is set
+          }
         } catch (error) {
           console.error("Error parsing stored data:", error)
         }
       }
 
-      // Mark data as loaded for localStorage case
-      setDataLoaded(true)
-      if (onProgress) onProgress(100) // Final progress update
+      // Add a small delay for smoother UX
+      setTimeout(() => {
+        if (!isMountedRef.current) return
+
+        // Mark data as loaded for localStorage case
+        setDataLoaded(true)
+        updateProgress(100) // Final progress update
+      }, 300)
     }
-  }, [proposalId, onProgress])
+  }, [proposalId, updateProgress])
+
+  // Expose refresh function
+  const refreshProposal = useCallback(async () => {
+    await fetchProposal()
+  }, [fetchProposal])
 
   // Load proposal data on mount
   useEffect(() => {
+    isMountedRef.current = true
     fetchProposal()
+
+    return () => {
+      isMountedRef.current = false
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+    }
   }, [fetchProposal])
 
   // Save proposal data to localStorage when it changes (if not using proposalId)
@@ -259,7 +349,10 @@ export function useProposalData({
     proposalData,
     visibleSections,
     dataLoaded,
+    loadingProgress,
     setProposalData,
+    toggleSectionVisibility,
+    refreshProposal,
   }
 }
 
