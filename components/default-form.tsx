@@ -21,7 +21,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Eye, EyeOff, Info, Loader2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Modified schema to make initial validation less strict
+// Modified schema to make initial validation less strict but require necessary fields
 const formSchema = z.object({
   name: z
     .string()
@@ -35,122 +35,212 @@ const formSchema = z.object({
       message: "Address must be at least 2 characters.",
     })
     .default("123 Solar Street"),
-  averageRateKWh: z.string().optional(),
-  fixedCosts: z.string().optional(),
-  escalation: z.string().optional(),
-  monthlyBill: z.string().optional(),
-  numberOfSolarPanels: z.string().optional(),
-  yearlyEnergyProduced: z.string().optional(),
-  yearlyEnergyUsage: z.string().optional(),
-  systemSize: z.string().optional(),
-  energyOffset: z.string().optional(),
+  averageRateKWh: z.string().min(1, { message: "Average rate is required" }).default("0.15"),
+  fixedCosts: z.string().default("0.00"),
+  escalation: z.string().default("0.00"),
+  monthlyBill: z.string().default("0.00"),
+  numberOfSolarPanels: z.string().default("0"),
+  yearlyEnergyProduced: z.string().default("0"),
+  yearlyEnergyUsage: z.string().default("0"),
+  systemSize: z.string().default("0.00"),
+  energyOffset: z.string().default("0"),
   solarPanelDesign: z.string().optional(),
   batteryName: z.string().optional(),
   inverterName: z.string().optional(),
   operatingMode: z.string().default("Backup"),
-  capacity: z.string().optional(),
-  outputKW: z.string().optional(),
-  cost: z.string().optional(),
+  capacity: z.string().default("0.00"),
+  outputKW: z.string().default("0.00"),
+  cost: z.string().default("0.00"),
   backupAllocation: z.string().optional(),
   batteryImage: z.string().optional(),
-  paybackPeriod: z.string().optional(),
-  totalSystemCost: z.string().optional(),
-  lifetimeSavings: z.string().optional(),
-  netCost: z.string().optional(),
-  incentives: z.string().optional(),
+  paybackPeriod: z.string().default("0.00"),
+  totalSystemCost: z.string().default("0.00"),
+  lifetimeSavings: z.string().default("0.00"),
+  netCost: z.string().default("0.00"),
+  incentives: z.string().default("0.00"),
   solarSystemModel: z.string().optional(),
-  solarSystemQuantity: z.string().optional(),
-  solarSystemPrice: z.string().optional(),
+  solarSystemQuantity: z.string().default("0"),
+  solarSystemPrice: z.string().default("0.00"),
   storageSystemModel: z.string().optional(),
-  storageSystemQuantity: z.string().optional(),
-  storageSystemPrice: z.string().optional(),
+  storageSystemQuantity: z.string().default("0"),
+  storageSystemPrice: z.string().default("0.00"),
   financingType: z.string().default("Cash"),
-  apr: z.string().optional(),
-  duration: z.string().optional(),
-  downPayment: z.string().optional(),
-  financedAmount: z.string().optional(),
-  monthlyPayments: z.string().optional(),
-  solarRate: z.string().optional(),
-  escalationRate: z.string().optional(),
-  year1MonthlyPayments: z.string().optional(),
+  apr: z.string().default("0.00"),
+  duration: z.string().default("0"),
+  downPayment: z.string().default("0.00"),
+  financedAmount: z.string().default("0.00"),
+  monthlyPayments: z.string().default("0.00"),
+  solarRate: z.string().default("0.00"),
+  escalationRate: z.string().default("0.00"),
+  year1MonthlyPayments: z.string().default("0.00"),
 })
 
-export function DefaultForm() {
-  // Add new fields to the formData state
-  const [formData, setFormData] = useState({
+export interface EnabledFinanceFields {
+  financingType: boolean
+  paybackPeriod: boolean
+  totalSystemCost: boolean
+  lifetimeSavings: boolean
+  netCost: boolean
+  apr: boolean
+  duration: boolean
+  downPayment: boolean
+  financedAmount: boolean
+  monthlyPayments: boolean
+  solarRate: boolean
+  escalationRate: boolean
+  year1MonthlyPayments: boolean
+}
+
+interface DefaultFormProps {
+  initialData?: any
+  isEditing?: boolean
+  proposalId?: string | null
+  onSubmitSuccess?: ((data: any) => void) | null
+}
+
+export function DefaultForm({
+  initialData = null,
+  isEditing = false,
+  proposalId = null,
+  onSubmitSuccess = null,
+}: DefaultFormProps) {
+  // Map snake_case database fields to camelCase for the form
+  const mapDatabaseToForm = (data: any) => {
+    if (!data) return null
+
+    return {
+      name: data.name || "Guest",
+      address: data.address || "123 Solar Street",
+      averageRateKWh: data.average_rate_kwh || "0.15",
+      fixedCosts: data.fixed_costs || "0.00",
+      escalation: data.escalation || "0.00",
+      monthlyBill: data.monthly_bill || "0.00",
+      numberOfSolarPanels: data.number_of_solar_panels || "0",
+      yearlyEnergyProduced: data.yearly_energy_produced || "0",
+      yearlyEnergyUsage: data.yearly_energy_usage || "0",
+      systemSize: data.system_size || "0.00",
+      energyOffset: data.energy_offset || "0",
+      solarPanelDesign: data.solar_panel_design || "",
+      batteryName: data.battery_name || "",
+      inverterName: data.inverter_name || "",
+      operatingMode: data.operating_mode || "Backup",
+      capacity: data.capacity || "0.00",
+      outputKW: data.output_kw || "0.00",
+      cost: data.cost || "0.00",
+      backupAllocation: data.backup_allocation || "",
+      batteryImage: data.battery_image || "",
+      paybackPeriod: data.payback_period || "0.00",
+      totalSystemCost: data.total_system_cost || "0.00",
+      lifetimeSavings: data.lifetime_savings || "0.00",
+      netCost: data.net_cost || "0.00",
+      incentives: data.incentives || "0.00",
+      solarSystemModel: data.solar_system_model || "",
+      solarSystemQuantity: data.solar_system_quantity || "0",
+      solarSystemPrice: data.solar_system_price || "0.00",
+      storageSystemModel: data.storage_system_model || "",
+      storageSystemQuantity: data.storage_system_quantity || "0",
+      storageSystemPrice: data.storage_system_price || "0.00",
+      financingType: data.financing_type || "Cash",
+      apr: data.apr || "0.00",
+      duration: data.duration || "0",
+      downPayment: data.down_payment || "0.00",
+      financedAmount: data.financed_amount || "0.00",
+      monthlyPayments: data.monthly_payments || "0.00",
+      solarRate: data.solar_rate || "0.00",
+      escalationRate: data.escalation_rate || "0.00",
+      year1MonthlyPayments: data.year1_monthly_payments || "0.00",
+    }
+  }
+
+  // Initialize form data from initialData if provided
+  const mappedInitialData = mapDatabaseToForm(initialData)
+
+  // Default values for new proposals
+  const defaultFormData = {
     name: "Guest",
     address: "123 Solar Street",
-    averageRateKWh: "",
-    fixedCosts: "",
-    escalation: "",
-    monthlyBill: "",
-    numberOfSolarPanels: "",
-    yearlyEnergyProduced: "",
-    yearlyEnergyUsage: "",
-    systemSize: "",
-    energyOffset: "",
+    averageRateKWh: "0.15", // Default value for required field
+    fixedCosts: "0.00",
+    escalation: "0.00",
+    monthlyBill: "0.00",
+    numberOfSolarPanels: "0",
+    yearlyEnergyProduced: "0",
+    yearlyEnergyUsage: "0",
+    systemSize: "0.00",
+    energyOffset: "0",
     solarPanelDesign: "",
     batteryName: "",
     inverterName: "",
     operatingMode: "Backup",
-    capacity: "",
-    outputKW: "",
-    cost: "",
+    capacity: "0.00",
+    outputKW: "0.00",
+    cost: "0.00",
     backupAllocation: "",
     batteryImage: "",
-    paybackPeriod: "",
-    totalSystemCost: "",
-    lifetimeSavings: "",
-    netCost: "",
-    incentives: "",
+    paybackPeriod: "0.00",
+    totalSystemCost: "0.00",
+    lifetimeSavings: "0.00",
+    netCost: "0.00",
+    incentives: "0.00",
     solarSystemModel: "",
-    solarSystemQuantity: "",
-    solarSystemPrice: "",
+    solarSystemQuantity: "0",
+    solarSystemPrice: "0.00",
     storageSystemModel: "",
-    storageSystemQuantity: "",
-    storageSystemPrice: "",
-    financingType: "Cash", // Added previously
-    apr: "",
-    duration: "",
-    downPayment: "",
-    financedAmount: "",
-    monthlyPayments: "",
-    solarRate: "",
-    escalationRate: "",
-    year1MonthlyPayments: "",
-  })
+    storageSystemQuantity: "0",
+    storageSystemPrice: "0.00",
+    financingType: "Cash",
+    apr: "0.00",
+    duration: "0",
+    downPayment: "0.00",
+    financedAmount: "0.00",
+    monthlyPayments: "0.00",
+    solarRate: "0.00",
+    escalationRate: "0.00",
+    year1MonthlyPayments: "0.00",
+  }
+
+  // Add new fields to the formData state
+  const [formData, setFormData] = useState(mappedInitialData || defaultFormData)
 
   // Add section visibility state after the formData state
-  const [sectionVisibility, setSectionVisibility] = useState({
-    hero: true,
-    whySunStudios: true,
-    app: true,
-    howSolarWorks: true,
-    energyUsage: true,
-    solarDesign: true,
-    storage: true,
-    environmentalImpact: true,
-    financing: true,
-    systemSummary: true,
-    callToAction: false,
-  })
+  const [sectionVisibility, setSectionVisibility] = useState(
+    initialData && initialData.section_visibility
+      ? initialData.section_visibility
+      : {
+          hero: true,
+          whySunStudios: true,
+          app: true,
+          howSolarWorks: true,
+          energyUsage: true,
+          solarDesign: true,
+          storage: true,
+          environmentalImpact: true,
+          financing: true,
+          systemSummary: true,
+          callToAction: false,
+        },
+  )
 
   // Add a state to track which financial items are enabled
-  const [enabledFinanceFields, setEnabledFinanceFields] = useState({
-    financingType: true,
-    paybackPeriod: true,
-    totalSystemCost: true,
-    lifetimeSavings: true,
-    netCost: true,
-    apr: false,
-    duration: false,
-    downPayment: false,
-    financedAmount: false,
-    monthlyPayments: false,
-    solarRate: false,
-    escalationRate: false,
-    year1MonthlyPayments: false,
-  })
+  const [enabledFinanceFields, setEnabledFinanceFields] = useState<EnabledFinanceFields>(
+    initialData && initialData.enabled_finance_fields
+      ? initialData.enabled_finance_fields
+      : {
+          financingType: true,
+          paybackPeriod: true,
+          totalSystemCost: true,
+          lifetimeSavings: true,
+          netCost: true,
+          apr: false,
+          duration: false,
+          downPayment: false,
+          financedAmount: false,
+          monthlyPayments: false,
+          solarRate: false,
+          escalationRate: false,
+          year1MonthlyPayments: false,
+        },
+  )
 
   // Add loading state for form submission
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -163,52 +253,11 @@ export function DefaultForm() {
     }))
   }
 
-  const [energyData, setEnergyData] = useState("")
+  const [energyData, setEnergyData] = useState(initialData ? initialData.energy_data || "" : "")
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "Guest",
-      address: "123 Solar Street",
-      averageRateKWh: "",
-      fixedCosts: "",
-      escalation: "",
-      monthlyBill: "",
-      numberOfSolarPanels: "",
-      yearlyEnergyProduced: "",
-      yearlyEnergyUsage: "",
-      systemSize: "",
-      energyOffset: "",
-      solarPanelDesign: "",
-      batteryName: "",
-      inverterName: "",
-      operatingMode: "Backup",
-      capacity: "",
-      outputKW: "",
-      cost: "",
-      backupAllocation: "",
-      batteryImage: "",
-      paybackPeriod: "",
-      totalSystemCost: "",
-      lifetimeSavings: "",
-      netCost: "",
-      incentives: "",
-      solarSystemModel: "",
-      solarSystemQuantity: "",
-      solarSystemPrice: "",
-      storageSystemModel: "",
-      storageSystemQuantity: "",
-      storageSystemPrice: "",
-      financingType: "Cash",
-      apr: "",
-      duration: "",
-      downPayment: "",
-      financedAmount: "",
-      monthlyPayments: "",
-      solarRate: "",
-      escalationRate: "",
-      year1MonthlyPayments: "",
-    },
+    defaultValues: mappedInitialData || defaultFormData,
     mode: "onSubmit", // Only validate on submit
   })
 
@@ -217,59 +266,63 @@ export function DefaultForm() {
     try {
       setIsSubmitting(true)
 
-      // Prepare the data for submission
+      // Prepare the data for submission - map camelCase to snake_case for the API
       const submissionData = {
         name: values.name,
         address: values.address,
-        averageRateKWh: values.averageRateKWh,
-        fixedCosts: values.fixedCosts,
-        escalation: values.escalation,
-        monthlyBill: values.monthlyBill,
-        numberOfSolarPanels: values.numberOfSolarPanels,
-        yearlyEnergyProduced: values.yearlyEnergyProduced,
-        yearlyEnergyUsage: values.yearlyEnergyUsage,
-        systemSize: values.systemSize,
-        energyOffset: values.energyOffset,
-        solarPanelDesign: values.solarPanelDesign,
-        batteryName: values.batteryName,
-        inverterName: values.inverterName,
-        operatingMode: values.operatingMode,
-        capacity: values.capacity,
-        outputKW: values.outputKW,
-        cost: values.cost,
-        backupAllocation: values.backupAllocation,
-        batteryImage: values.batteryImage,
-        paybackPeriod: values.paybackPeriod,
-        totalSystemCost: values.totalSystemCost,
-        lifetimeSavings: values.lifetimeSavings,
-        netCost: values.netCost,
-        incentives: values.incentives,
-        solarSystemModel: values.solarSystemModel,
-        solarSystemQuantity: values.solarSystemQuantity,
-        solarSystemPrice: values.solarSystemPrice,
-        storageSystemModel: values.storageSystemModel,
-        storageSystemQuantity: values.storageSystemQuantity,
-        storageSystemPrice: values.storageSystemPrice,
-        financingType: values.financingType,
-        apr: values.apr,
-        duration: values.duration,
-        downPayment: values.downPayment,
-        financedAmount: values.financedAmount,
-        monthlyPayments: values.monthlyPayments,
-        solarRate: values.solarRate,
-        escalationRate: values.escalationRate,
-        year1MonthlyPayments: values.year1MonthlyPayments,
-        energyData: energyData,
-        sectionVisibility: sectionVisibility,
-        enabledFinanceFields: enabledFinanceFields,
+        average_rate_kwh: values.averageRateKWh || "0.15", // Ensure required field has a value
+        fixed_costs: values.fixedCosts || "0.00",
+        escalation: values.escalation || "0.00",
+        monthly_bill: values.monthlyBill || "0.00",
+        number_of_solar_panels: values.numberOfSolarPanels || "0",
+        yearly_energy_produced: values.yearlyEnergyProduced || "0",
+        yearly_energy_usage: values.yearlyEnergyUsage || "0",
+        system_size: values.systemSize || "0.00",
+        energy_offset: values.energyOffset || "0",
+        solar_panel_design: values.solarPanelDesign || "",
+        battery_name: values.batteryName || "",
+        inverter_name: values.inverterName || "",
+        operating_mode: values.operatingMode || "Backup",
+        capacity: values.capacity || "0.00",
+        output_kw: values.outputKW || "0.00",
+        cost: values.cost || "0.00",
+        backup_allocation: values.backupAllocation || "",
+        battery_image: values.batteryImage || "",
+        payback_period: values.paybackPeriod || "0.00",
+        total_system_cost: values.totalSystemCost || "0.00",
+        lifetime_savings: values.lifetimeSavings || "0.00",
+        net_cost: values.netCost || "0.00",
+        incentives: values.incentives || "0.00",
+        solar_system_model: values.solarSystemModel || "",
+        solar_system_quantity: values.solarSystemQuantity || "0",
+        solar_system_price: values.solarSystemPrice || "0.00",
+        storage_system_model: values.storageSystemModel || "",
+        storage_system_quantity: values.storageSystemQuantity || "0",
+        storage_system_price: values.storageSystemPrice || "0.00",
+        financing_type: values.financingType || "Cash",
+        apr: values.apr || "0.00",
+        duration: values.duration || "0",
+        down_payment: values.downPayment || "0.00",
+        financed_amount: values.financedAmount || "0.00",
+        monthly_payments: values.monthlyPayments || "0.00",
+        solar_rate: values.solarRate || "0.00",
+        escalation_rate: values.escalationRate || "0.00",
+        year1_monthly_payments: values.year1MonthlyPayments || "0.00",
+        energy_data: energyData,
+        section_visibility: sectionVisibility,
+        enabled_finance_fields: enabledFinanceFields,
       }
 
       // Log the data being submitted
-      console.log("Submitting form data:", submissionData)
+      console.log(`${isEditing ? "Updating" : "Submitting"} form data:`, submissionData)
 
-      // Make the actual API call to submit the proposal
-      const response = await fetch("/api/submit-proposal", {
-        method: "POST",
+      // Determine the API endpoint and method based on whether we're editing or creating
+      const url = isEditing ? `/api/proposals/${proposalId}` : "/api/submit-proposal"
+      const method = isEditing ? "PUT" : "POST"
+
+      // Make the API call
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -279,14 +332,16 @@ export function DefaultForm() {
       // Check if the response is successful
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to submit proposal")
+        console.error("API error response:", errorData)
+        throw new Error(errorData.message || `Failed to ${isEditing ? "update" : "submit"} proposal`)
       }
 
       // Parse the response to get the proposal ID
       const result = await response.json()
 
       // Verify that we have a proposal ID in the response
-      if (!result.data || !result.data.id) {
+      const proposalData = result.data || result.proposal
+      if (!proposalData || !proposalData.id) {
         throw new Error("No proposal ID returned from server")
       }
 
@@ -295,19 +350,26 @@ export function DefaultForm() {
 
       // Show success message
       toast({
-        title: "Proposal submitted successfully!",
-        description: `Proposal #${result.data.id} has been created.`,
+        title: isEditing ? "Proposal updated successfully!" : "Proposal submitted successfully!",
+        description: isEditing
+          ? `Proposal #${proposalData.id} has been updated.`
+          : `Proposal #${proposalData.id} has been created.`,
         variant: "default",
       })
 
-      // Redirect to the newly created proposal
-      window.location.href = `/proposal/${result.data.id}`
+      // If we have a custom success handler, call it
+      if (onSubmitSuccess) {
+        onSubmitSuccess(proposalData)
+      } else {
+        // Redirect to the newly created/updated proposal
+        window.location.href = `/proposal/${proposalData.id}`
+      }
     } catch (error) {
-      console.error("Error submitting form:", error)
+      console.error(`Error ${isEditing ? "updating" : "submitting"} form:`, error)
 
       // Show error message
       toast({
-        title: "Error submitting proposal",
+        title: `Error ${isEditing ? "updating" : "submitting"} proposal`,
         description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       })
@@ -363,7 +425,14 @@ export function DefaultForm() {
       ]
 
       if (decimalFields.includes(name)) {
-        const formattedValue = formatDecimalValue(value, 2)
+        // If the field is empty, set a default value based on the field
+        let formattedValue = value
+        if (!value) {
+          formattedValue = "0.00"
+        } else {
+          formattedValue = formatDecimalValue(value, 2)
+        }
+
         setFormData((prev) => ({
           ...prev,
           [name]: formattedValue,
@@ -508,7 +577,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               name="averageRateKWh"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Average Rate/kWh</FormLabel>
+                  <FormLabel className="flex items-center">
+                    Average Rate/kWh <span className="text-red-500 ml-1">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -518,6 +589,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                       value={formData.averageRateKWh}
                       onChange={handleChange}
                       onBlur={handleBlur}
+                      required
                     />
                   </FormControl>
                   <FormMessage />
@@ -869,7 +941,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             </div>
           </div>
 
-          {/* Solar Panel Design Image Dialog - Add this section */}
+          {/* Solar Panel Design Image Dialog */}
           <div className="space-y-2">
             <Label>Solar Panel Design Image</Label>
             <div className="space-y-4">
@@ -894,7 +966,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             </div>
           </div>
 
-          {/* Add the new dropdown field to the Financing Options section in the form */}
+          {/* Financing Options section */}
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Financing Options</h3>
@@ -1342,7 +1414,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             </div>
           </div>
 
-          {/* Add the section visibility controls before the Submit button */}
+          {/* Section visibility controls */}
           <div className="border-t pt-4">
             <Accordion type="single" collapsible defaultValue="section-visibility">
               <AccordionItem value="section-visibility">
@@ -1429,8 +1501,10 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting...
+                  {isEditing ? "Updating..." : "Submitting..."}
                 </>
+              ) : isEditing ? (
+                "Update Proposal"
               ) : (
                 "Submit Proposal"
               )}
