@@ -62,11 +62,11 @@ export function ReasonItem({ reason, index, previousCompleted = true, onStarComp
         clearTimeout(completionTimeoutRef.current)
       }
 
-      // Set new timeout
+      // Set new timeout - reduced to 1 second for faster fallback
       completionTimeoutRef.current = setTimeout(() => {
         console.log(`ReasonItem ${index}: Force completing animation after timeout`)
         handleStarComplete()
-      }, 5000) // Force complete after 5 seconds if animation doesn't trigger
+      }, 1000) // Force complete after 1 second if animation doesn't trigger
     }
 
     return () => {

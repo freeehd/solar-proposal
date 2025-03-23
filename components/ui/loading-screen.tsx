@@ -8,12 +8,17 @@ import { addProgressListener, preloadAllAssets, getOverallProgress, areAllAssets
 interface LoadingScreenProps {
   onLoadingComplete: () => void
   progress?: number // Add optional progress prop
+  minDisplayTime?: number // Minimum time to display the loading screen
 }
 
-// Add a minimum display time of 3 seconds (3000ms)
-const MINIMUM_DISPLAY_TIME = 3000
+// Default minimum display time of 3 seconds (3000ms)
+const DEFAULT_MINIMUM_DISPLAY_TIME = 3000
 
-export default function LoadingScreen({ onLoadingComplete, progress: externalProgress }: LoadingScreenProps) {
+export default function LoadingScreen({
+  onLoadingComplete,
+  progress: externalProgress,
+  minDisplayTime = DEFAULT_MINIMUM_DISPLAY_TIME,
+}: LoadingScreenProps) {
   const [progress, setProgress] = useState(0)
   const [displayProgress, setDisplayProgress] = useState(0)
   const [starModelProgress, setStarModelProgress] = useState(0)
@@ -21,11 +26,13 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
   const [loadingMessage, setLoadingMessage] = useState("Initializing...")
   const [isVisible, setIsVisible] = useState(true)
   const [showParticles, setShowParticles] = useState(false)
+  const [assetsLoaded, setAssetsLoaded] = useState(false)
   const progressRef = useRef(0)
   const isMountedRef = useRef(true)
   const assetsLoadedRef = useRef(false)
   const startTimeRef = useRef(Date.now())
   const removeListenerRef = useRef<(() => void) | undefined>(undefined)
+  const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Block scrolling when loading screen is visible
   useEffect(() => {
@@ -68,6 +75,30 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
 
     return () => clearTimeout(timer)
   }, [])
+
+  // Calculate remaining time to meet minimum display time
+  const calculateRemainingTime = (): number => {
+    const elapsedTime = Date.now() - startTimeRef.current
+    return Math.max(0, minDisplayTime - elapsedTime)
+  }
+
+  // Handle loading completion
+  const completeLoading = () => {
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current)
+      completionTimeoutRef.current = null
+    }
+
+    console.log("LoadingScreen: Starting fade-out after minimum display time")
+    setIsVisible(false)
+
+    // Notify parent component after fade-out animation
+    setTimeout(() => {
+      if (!isMountedRef.current) return
+      console.log("LoadingScreen: Notifying parent of completion")
+      onLoadingComplete()
+    }, 1300)
+  }
 
   // Handle loading and ensure minimum display time
   useEffect(() => {
@@ -112,6 +143,7 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
         // If both assets are loaded, ensure we show 100%
         if (assetProgress === 100 && areAllAssetsLoaded()) {
           assetsLoadedRef.current = true
+          setAssetsLoaded(true)
           progressRef.current = 100
           setProgress(100)
         }
@@ -120,45 +152,50 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
       // Start preloading assets - this is the ONLY place we trigger loading
       console.log("LoadingScreen: Starting asset preloading")
       preloadAllAssets()
-        .then(() => {
+        .then((assets) => {
           if (!isMountedRef.current) return
 
-          console.log("LoadingScreen: All assets loaded successfully")
+          console.log("LoadingScreen: All assets loaded successfully", {
+            hasStarModel: !!assets.starModel,
+            hasVideo: !!assets.video,
+          })
+
+          // Double-check that the assets are actually loaded and cached
+          if (!assets.starModel || !assets.video) {
+            console.warn("LoadingScreen: Assets loaded but some are missing, retrying...")
+            // Try one more time to ensure assets are loaded
+            return preloadAllAssets()
+          }
+
           assetsLoadedRef.current = true
+          setAssetsLoaded(true)
 
           // Set progress to 100% when complete
           progressRef.current = 100
           setProgress(100)
           setLoadingMessage("Ready!")
 
-          // Simple approach: Always wait at least MINIMUM_DISPLAY_TIME before hiding
-          setTimeout(() => {
-            if (!isMountedRef.current) return
-            console.log("LoadingScreen: Starting fade-out after minimum display time")
-            setIsVisible(false)
+          // Calculate remaining time to meet minimum display time
+          const remainingTime = calculateRemainingTime()
 
-            // Notify parent component after fade-out animation
-            setTimeout(() => {
-              if (!isMountedRef.current) return
-              console.log("LoadingScreen: Notifying parent of completion")
-              onLoadingComplete()
-            }, 1300)
-          }, MINIMUM_DISPLAY_TIME)
+          // Wait for the minimum display time before hiding
+          completionTimeoutRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return
+            completeLoading()
+          }, remainingTime)
+
+          return assets
         })
         .catch((error) => {
           console.error("LoadingScreen: Error preloading assets:", error)
 
           // Even on error, wait the minimum time
-          setTimeout(() => {
-            if (!isMountedRef.current) return
-            setIsVisible(false)
+          const remainingTime = calculateRemainingTime()
 
-            // Notify parent component after fade-out animation
-            setTimeout(() => {
-              if (!isMountedRef.current) return
-              onLoadingComplete()
-            }, 800)
-          }, MINIMUM_DISPLAY_TIME)
+          completionTimeoutRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return
+            completeLoading()
+          }, remainingTime)
         })
     } else {
       // If external progress is provided, use it
@@ -170,17 +207,14 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
     if (progressRef.current >= 100) {
       setLoadingMessage("Ready!")
 
-      // Always wait the minimum time
-      setTimeout(() => {
-        if (!isMountedRef.current) return
-        setIsVisible(false)
+      // Calculate remaining time to meet minimum display time
+      const remainingTime = calculateRemainingTime()
 
-        // Notify parent component after fade-out animation
-        setTimeout(() => {
-          if (!isMountedRef.current) return
-          onLoadingComplete()
-        }, 1300)
-      }, MINIMUM_DISPLAY_TIME)
+      // Wait for the minimum display time before hiding
+      completionTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return
+        completeLoading()
+      }, remainingTime)
     }
 
     // Force completion after timeout (15 seconds)
@@ -194,25 +228,27 @@ export default function LoadingScreen({ onLoadingComplete, progress: externalPro
         setLoadingMessage("Ready!")
 
         // Still ensure minimum display time
-        setTimeout(() => {
-          if (!isMountedRef.current) return
-          setIsVisible(false)
+        const remainingTime = calculateRemainingTime()
 
-          // Notify parent component after fade-out animation
-          setTimeout(() => {
+        completionTimeoutRef.current = setTimeout(
+          () => {
             if (!isMountedRef.current) return
-            onLoadingComplete()
-          }, 1300)
-        }, MINIMUM_DISPLAY_TIME / 2) // Use half the minimum time since we've already waited 15 seconds
+            completeLoading()
+          },
+          Math.min(remainingTime, minDisplayTime / 2),
+        ) // Use half the minimum time if we've already waited 15 seconds
       }
     }, 15000)
 
     return () => {
       isMountedRef.current = false
       if (removeListener) removeListener()
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+      }
       clearTimeout(forceCompleteTimeout)
     }
-  }, [onLoadingComplete, isVisible, externalProgress])
+  }, [onLoadingComplete, isVisible, externalProgress, minDisplayTime])
 
   return (
     <div

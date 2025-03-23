@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import ProposalDashboard from "@/components/proposal-dashboard";
 import { Button } from "@/components/ui/button";
-import Loading from "../components/ui/loading";
 import Navbar from "@/components/navbar";
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
@@ -28,9 +27,7 @@ export default async function Home() {
             <Button>Create New Proposal</Button>
           </Link>
         </header>
-        <Suspense fallback={<Loading />}>
           <ProposalDashboard />
-        </Suspense>
       </div>
     </>
   );

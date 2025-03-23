@@ -18,7 +18,7 @@ export const isAppleDevice =
     /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
     (!!navigator.userAgent.match(/AppleWebKit/) && !navigator.userAgent.match(/Chrome/)))
 
-// Global singleton asset cache
+// Global singleton asset cache with improved structure
 type AssetCache = {
   starModel: {
     model: THREE.Group | null
@@ -26,6 +26,8 @@ type AssetCache = {
     isLoading: boolean
     error: Error | null
     loadPromise: Promise<THREE.Group> | null
+    // Add material cache to reuse materials across instances
+    materials: Map<string, THREE.Material>
   }
   video: {
     element: HTMLVideoElement | null
@@ -36,6 +38,8 @@ type AssetCache = {
   }
   // Track if initial loading is complete
   initialLoadComplete: boolean
+  // Track if preloading has been initiated
+  preloadingInitiated: boolean
 }
 
 // Initialize global cache as a singleton
@@ -46,6 +50,7 @@ const assetCache: AssetCache = {
     isLoading: false,
     error: null,
     loadPromise: null,
+    materials: new Map(),
   },
   video: {
     element: null,
@@ -55,6 +60,7 @@ const assetCache: AssetCache = {
     loadPromise: null,
   },
   initialLoadComplete: false,
+  preloadingInitiated: false,
 }
 
 // Event system for loading progress
@@ -80,16 +86,73 @@ function createFallbackStarModel(): THREE.Group {
   console.log("Creating fallback star model")
   const group = new THREE.Group()
   const geometry = new THREE.IcosahedronGeometry(1, 1)
-  const material = new THREE.MeshStandardMaterial({
-    color: new THREE.Color("#daa520"),
-    emissive: new THREE.Color("#ffd000"),
-    emissiveIntensity: 0.2,
-    roughness: 0.3,
-    metalness: 0.7,
-  })
+
+  // Create and cache the material
+  let material = assetCache.starModel.materials.get("fallback")
+  if (!material) {
+    material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#daa520"),
+      emissive: new THREE.Color("#ffd000"),
+      emissiveIntensity: 0.2,
+      roughness: 0.3,
+      metalness: 0.7,
+    })
+    assetCache.starModel.materials.set("fallback", material)
+  }
+
   const mesh = new THREE.Mesh(geometry, material)
   group.add(mesh)
   return group
+}
+
+// Preprocess the star model to optimize it for reuse
+function preprocessStarModel(model: THREE.Group): THREE.Group {
+  console.log("Preprocessing star model for optimal performance")
+
+  // Clone the model to avoid modifying the original
+  const processedModel = model.clone()
+
+  // Optimize geometries and materials
+  processedModel.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh
+
+      // Store original material for reference
+      if (!mesh.userData.originalMaterial) {
+        mesh.userData.originalMaterial = mesh.material
+      }
+
+      // Create a unique key for this material
+      const materialKey = `mesh_${mesh.uuid}`
+
+      // Check if we already have a cached version of this material
+      if (!assetCache.starModel.materials.has(materialKey)) {
+        // Create an optimized version of the material
+        const material = new THREE.MeshStandardMaterial({
+          color: (mesh.material as THREE.MeshStandardMaterial).color || new THREE.Color("#daa520"),
+          emissive: (mesh.material as THREE.MeshStandardMaterial).emissive || new THREE.Color("#ffd000"),
+          emissiveIntensity: 0,
+          roughness: 0.03,
+          metalness: 0.8,
+          transparent: true,
+          toneMapped: false,
+        })
+
+        // Cache the material
+        assetCache.starModel.materials.set(materialKey, material)
+      }
+
+      // Use the cached material
+      mesh.material = assetCache.starModel.materials.get(materialKey) as THREE.Material
+
+      // Optimize geometry if needed
+      if (mesh.geometry && !mesh.geometry.attributes.normal) {
+        mesh.geometry.computeVertexNormals()
+      }
+    }
+  })
+
+  return processedModel
 }
 
 // Load star model with improved reliability - only loads once
@@ -97,6 +160,8 @@ export function preloadStarModel(): Promise<THREE.Group> {
   console.log("preloadStarModel called, current state:", {
     isLoaded: assetCache.starModel.isLoaded,
     isLoading: assetCache.starModel.isLoading,
+    hasModel: !!assetCache.starModel.model,
+    materialsCount: assetCache.starModel.materials.size,
   })
 
   // Return cached model if already loaded
@@ -120,13 +185,24 @@ export function preloadStarModel(): Promise<THREE.Group> {
   const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
     const loader = new GLTFLoader()
 
+    // Optimize the loader for better performance
+    loader.setCrossOrigin("anonymous")
+
     // Add a timeout to prevent indefinite loading
     const timeout = setTimeout(() => {
       console.warn("Star model loading timed out, using fallback")
       const fallbackModel = createFallbackStarModel()
+
+      // Ensure the model is properly cached
       assetCache.starModel.model = fallbackModel
       assetCache.starModel.isLoaded = true
       assetCache.starModel.isLoading = false
+
+      console.log("Star model fallback cached:", {
+        hasModel: !!assetCache.starModel.model,
+        materialsCount: assetCache.starModel.materials.size,
+      })
+
       notifyProgress("starModel", 100)
       resolve(fallbackModel)
     }, 15000) // 15 second timeout
@@ -137,11 +213,22 @@ export function preloadStarModel(): Promise<THREE.Group> {
       (gltf) => {
         clearTimeout(timeout)
         console.log("Star model loaded successfully")
-        assetCache.starModel.model = gltf.scene.clone()
+
+        // Preprocess the model for optimal performance
+        const optimizedModel = preprocessStarModel(gltf.scene)
+
+        // Ensure the model is properly cached
+        assetCache.starModel.model = optimizedModel
         assetCache.starModel.isLoaded = true
         assetCache.starModel.isLoading = false
+
+        console.log("Star model cached:", {
+          hasModel: !!assetCache.starModel.model,
+          materialsCount: assetCache.starModel.materials.size,
+        })
+
         notifyProgress("starModel", 100)
-        resolve(assetCache.starModel.model)
+        resolve(optimizedModel)
       },
       (xhr) => {
         if (xhr.lengthComputable) {
@@ -159,11 +246,22 @@ export function preloadStarModel(): Promise<THREE.Group> {
           (gltf) => {
             clearTimeout(timeout)
             console.log("Star model fallback loaded successfully")
-            assetCache.starModel.model = gltf.scene.clone()
+
+            // Preprocess the fallback model
+            const optimizedModel = preprocessStarModel(gltf.scene)
+
+            // Ensure the model is properly cached
+            assetCache.starModel.model = optimizedModel
             assetCache.starModel.isLoaded = true
             assetCache.starModel.isLoading = false
+
+            console.log("Star model fallback cached:", {
+              hasModel: !!assetCache.starModel.model,
+              materialsCount: assetCache.starModel.materials.size,
+            })
+
             notifyProgress("starModel", 100)
-            resolve(assetCache.starModel.model)
+            resolve(optimizedModel)
           },
           (xhr) => {
             if (xhr.lengthComputable) {
@@ -177,10 +275,18 @@ export function preloadStarModel(): Promise<THREE.Group> {
             console.error("Error loading star model from fallback:", fallbackError)
             // Create a fallback model
             const fallbackModel = createFallbackStarModel()
+
+            // Ensure the model is properly cached
             assetCache.starModel.model = fallbackModel
             assetCache.starModel.isLoaded = true
             assetCache.starModel.isLoading = false
             assetCache.starModel.error = fallbackError
+
+            console.log("Star model emergency fallback cached:", {
+              hasModel: !!assetCache.starModel.model,
+              materialsCount: assetCache.starModel.materials.size,
+            })
+
             notifyProgress("starModel", 100)
             resolve(fallbackModel)
           },
@@ -402,12 +508,19 @@ export async function preloadAllAssets(): Promise<{
 
   // If initial load is already complete, return cached assets
   if (assetCache.initialLoadComplete) {
-    console.log("Initial load already complete, returning cached assets")
+    console.log("Initial load already complete, returning cached assets:", {
+      hasStarModel: !!assetCache.starModel.model,
+      hasVideo: !!assetCache.video.element,
+      materialsCount: assetCache.starModel.materials.size,
+    })
     return {
       starModel: assetCache.starModel.model!,
       video: assetCache.video.element!,
     }
   }
+
+  // Mark preloading as initiated to prevent duplicate calls
+  assetCache.preloadingInitiated = true
 
   console.log("Starting parallel asset loading")
 
@@ -419,7 +532,11 @@ export async function preloadAllAssets(): Promise<{
     // Wait for both to complete
     const [starModel, video] = await Promise.all([starModelPromise, videoPromise])
 
-    console.log("All assets loaded successfully")
+    console.log("All assets loaded successfully:", {
+      hasStarModel: !!starModel,
+      hasVideo: !!video,
+      materialsCount: assetCache.starModel.materials.size,
+    })
 
     // Mark initial load as complete
     assetCache.initialLoadComplete = true
@@ -443,6 +560,12 @@ export async function preloadAllAssets(): Promise<{
     // Mark initial load as complete even on error
     assetCache.initialLoadComplete = true
 
+    console.log("Assets loaded with fallbacks:", {
+      hasStarModel: !!starModel,
+      hasVideo: !!video,
+      materialsCount: assetCache.starModel.materials.size,
+    })
+
     return { starModel, video }
   }
 }
@@ -454,6 +577,8 @@ export function getCachedAssets() {
     video: assetCache.video.element,
     isLoaded: assetCache.starModel.isLoaded && assetCache.video.isLoaded,
     initialLoadComplete: assetCache.initialLoadComplete,
+    // Add access to cached materials
+    materials: assetCache.starModel.materials,
   }
 }
 
@@ -497,11 +622,34 @@ export function getOverallProgress(): number {
   return Math.max(0, Math.min(100, calculatedProgress))
 }
 
-// Start preloading as early as possible - only on initial page load
-if (typeof window !== "undefined") {
-  console.log("Starting early asset preloading")
+// Get a cached material by key, or create a new one if it doesn't exist
+export function getStarMaterial(key = "default"): THREE.Material {
+  if (assetCache.starModel.materials.has(key)) {
+    return assetCache.starModel.materials.get(key)!
+  }
 
-  // Use requestIdleCallback or setTimeout to not block the main thread
+  // Create a new material
+  const material = new THREE.MeshStandardMaterial({
+    roughness: 0.03,
+    metalness: 0.8,
+    color: new THREE.Color("#daa520"),
+    emissive: new THREE.Color("#ffd000"),
+    emissiveIntensity: 0,
+    transparent: true,
+    toneMapped: false,
+  })
+
+  // Cache it for future use
+  assetCache.starModel.materials.set(key, material)
+
+  return material
+}
+
+// Force preloading to start immediately
+if (typeof window !== "undefined" && !assetCache.preloadingInitiated) {
+  console.log("Starting immediate asset preloading")
+
+  // Use requestIdleCallback for non-blocking loading
   const startPreloading = () => {
     preloadAllAssets().catch((error) => {
       console.warn("Error during initial asset preloading:", error)
@@ -509,9 +657,10 @@ if (typeof window !== "undefined") {
   }
 
   if ("requestIdleCallback" in window) {
-    ;(window as any).requestIdleCallback(startPreloading)
+    ;(window as any).requestIdleCallback(startPreloading, { timeout: 1000 })
   } else {
-    setTimeout(startPreloading, 1000)
+    // Fallback for browsers without requestIdleCallback
+    setTimeout(startPreloading, 100) // Start sooner than before
   }
 }
 

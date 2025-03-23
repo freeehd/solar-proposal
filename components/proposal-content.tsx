@@ -22,6 +22,7 @@ import { preloadAllAssets, addProgressListener, areAllAssetsLoaded } from "@/uti
 
 // Start preloading assets as early as possible
 if (typeof window !== "undefined") {
+  // Force preloading to start immediately
   preloadAllAssets().catch((error) => {
     console.warn("Error during initial asset preloading:", error)
   })
@@ -190,6 +191,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
             setIsLoading(false)
           }}
           progress={getOverallProgress()}
+          minDisplayTime={3000} // Ensure loading screen shows for at least 3 seconds
         />
       )}
 
@@ -223,10 +225,10 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
           </ul>
         </nav>
       )}
-{/* 
+
       <div className="fixed top-4 left-4 z-50">
         <ThemeToggle />
-      </div> */}
+      </div>
 
       {/* Render sections based on visibility settings */}
       {visibleSections.hero && (

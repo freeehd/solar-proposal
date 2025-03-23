@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Center, useDetectGPU, Environment } from "@react-three/drei"
 import * as THREE from "three"
-import { usePreloadedAssets } from "@/hooks/use-preloaded-assets"
+import { usePreloadedAssets, useStarMaterial } from "@/hooks/use-preloaded-assets"
 
 interface StarMeshProps {
   isHovered: boolean
@@ -73,19 +73,6 @@ const createFallbackStarModel = () => {
   return group
 }
 
-// Memoize the star material to avoid recreating it for each star
-const createStarMaterial = (quality: "high" | "low") => {
-  return new THREE.MeshStandardMaterial({
-    roughness: 0.03,
-    metalness: 0.8,
-    color: new THREE.Color("#daa520"),
-    emissive: new THREE.Color("#ffd000"),
-    emissiveIntensity: 0,
-    transparent: true,
-    toneMapped: false,
-  })
-}
-
 // Star mesh component with material application
 const StarMesh = React.memo(
   ({
@@ -106,12 +93,30 @@ const StarMesh = React.memo(
     // Get preloaded star model - NEVER triggers loading
     const { starModel, isLoaded } = usePreloadedAssets()
 
-    // Create the material with the specified properties - memoized to avoid recreation
+    // Get shared material from the hook
+    const sharedMaterial = useStarMaterial("star")
+
+    // Create the material with the specified properties - use shared material if available
     const starMaterial = useMemo(() => {
-      const material = createStarMaterial(quality)
+      if (sharedMaterial) {
+        materialRef.current = sharedMaterial as THREE.MeshStandardMaterial
+        return sharedMaterial
+      }
+
+      // Fallback to creating a new material
+      const material = new THREE.MeshStandardMaterial({
+        roughness: 0.03,
+        metalness: 0.8,
+        color: new THREE.Color("#daa520"),
+        emissive: new THREE.Color("#ffd000"),
+        emissiveIntensity: 0,
+        transparent: true,
+        toneMapped: false,
+      })
+
       materialRef.current = material
       return material
-    }, [quality])
+    }, [sharedMaterial, quality])
 
     // Clone and prepare the model - use the preloaded model or fallback
     const preparedModel = useMemo(() => {
