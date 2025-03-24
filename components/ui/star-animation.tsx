@@ -28,9 +28,8 @@ interface StarAnimationProps {
 const FINAL_SCALE = 0.8
 
 // Add the model URLs
-const STAR_MODEL_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
-const FALLBACK_STAR_MODEL_URL =
-  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-fallback-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
+const STAR_MODEL_URL = "/models/star.glb"
+const FALLBACK_STAR_MODEL_URL = "/models/star.gltf"
 
 // Global model cache to prevent reloading
 const modelCache = {
@@ -40,6 +39,7 @@ const modelCache = {
   loading: false,
   error: null as Error | null,
   loadPromise: null as Promise<THREE.Group> | null,
+  initialized: false,
 }
 
 // Platform detection
@@ -104,102 +104,6 @@ const createStarModel = () => {
   return group
 }
 
-// Preload the star model to ensure it's available immediately
-const preloadStarModel = (): Promise<THREE.Group> => {
-  // If we already have the model cached, return it immediately
-  if (modelCache.primary) {
-    return Promise.resolve(modelCache.primary.clone())
-  }
-
-  // If we're already loading, return the existing promise
-  if (modelCache.loading && modelCache.loadPromise) {
-    return modelCache.loadPromise.then((model) => model.clone())
-  }
-
-  // Start loading
-  modelCache.loading = true
-
-  const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
-    const loader = new GLTFLoader()
-    loader.setCrossOrigin("anonymous")
-
-    // Add specific headers for Safari/macOS if needed
-    if (isMacOS) {
-      console.log("Using macOS-specific loading configuration")
-    }
-
-    // Set a timeout to prevent indefinite loading
-    const timeout = setTimeout(() => {
-      console.warn("Star model loading timed out, using fallback")
-      const fallbackModel = createStarModel()
-      resolve(fallbackModel)
-    }, 8000) // 8 second timeout
-
-    // First try the primary URL
-    loader.load(
-      STAR_MODEL_URL,
-      (gltf) => {
-        clearTimeout(timeout)
-        console.log("Star model loaded successfully from primary URL")
-
-        const loadedModel = gltf.scene.clone()
-        processModel(loadedModel)
-
-        // Cache the model
-        modelCache.primary = loadedModel.clone()
-        modelCache.loading = false
-
-        resolve(loadedModel)
-      },
-      (progress) => {
-        // Loading progress
-        if (progress.lengthComputable) {
-          const percentComplete = Math.round((progress.loaded / progress.total) * 100)
-          console.log(`Loading star model: ${percentComplete}%`)
-        }
-      },
-      (error) => {
-        console.warn("Error loading primary star model, trying fallback:", error)
-
-        // Try the fallback URL
-        loader.load(
-          FALLBACK_STAR_MODEL_URL,
-          (gltf) => {
-            clearTimeout(timeout)
-            console.log("Star model loaded successfully from fallback URL")
-
-            const loadedModel = gltf.scene.clone()
-            processModel(loadedModel)
-
-            // Cache the fallback model
-            modelCache.fallback = loadedModel.clone()
-            modelCache.loading = false
-
-            resolve(loadedModel)
-          },
-          undefined,
-          (fallbackError) => {
-            clearTimeout(timeout)
-            console.error("Error loading fallback star model, using simple model:", fallbackError)
-
-            // Create and use a simple fallback model
-            const fallbackModel = createStarModel()
-            modelCache.loading = false
-            modelCache.error = fallbackError
-
-            resolve(fallbackModel)
-          },
-        )
-      },
-    )
-  })
-
-  // Store the promise in the cache
-  modelCache.loadPromise = loadPromise
-
-  return loadPromise
-}
-
 // Process the loaded model to optimize it
 const processModel = (model: THREE.Group) => {
   model.traverse((child) => {
@@ -230,26 +134,113 @@ const processModel = (model: THREE.Group) => {
   return model
 }
 
-// Start preloading the model immediately
-if (typeof window !== "undefined") {
-  // Use requestIdleCallback to load during idle time
-  if ("requestIdleCallback" in window) {
-    ;(window as any).requestIdleCallback(
-      () => {
-        preloadStarModel().catch((err) => {
-          console.error("Error preloading star model:", err)
-        })
-      },
-      { timeout: 2000 },
-    )
-  } else {
-    // Fallback for browsers without requestIdleCallback
-    setTimeout(() => {
-      preloadStarModel().catch((err) => {
-        console.error("Error preloading star model:", err)
-      })
-    }, 200)
+// Preload the star model to ensure it's available immediately
+const preloadStarModel = (): Promise<THREE.Group> => {
+  // If we already have the model cached, return it immediately
+  if (modelCache.primary) {
+    return Promise.resolve(modelCache.primary.clone())
   }
+
+  // If we're already loading, return the existing promise
+  if (modelCache.loading && modelCache.loadPromise) {
+    return modelCache.loadPromise.then((model) => model.clone())
+  }
+
+  // Start loading
+  modelCache.loading = true
+
+  const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
+    // Create a simple model immediately for initial rendering
+    const simpleModel = createStarModel()
+
+    // If we don't have a simple model cached, cache it now
+    if (!modelCache.simple) {
+      modelCache.simple = simpleModel.clone()
+    }
+
+    // Resolve immediately with the simple model to prevent delays
+    // This ensures we have something to show right away
+    resolve(simpleModel)
+
+    const loader = new GLTFLoader()
+    loader.setCrossOrigin("anonymous")
+
+    // Add specific headers for Safari/macOS if needed
+    if (isMacOS) {
+      console.log("Using macOS-specific loading configuration")
+    }
+
+    // First try the primary URL
+    loader.load(
+      STAR_MODEL_URL,
+      (gltf) => {
+        console.log("Star model loaded successfully from primary URL")
+
+        const loadedModel = gltf.scene.clone()
+        processModel(loadedModel)
+
+        // Cache the model
+        modelCache.primary = loadedModel.clone()
+        modelCache.loading = false
+        modelCache.initialized = true
+
+        // We don't resolve here since we already resolved with the simple model
+      },
+      (progress) => {
+        // Loading progress
+        if (progress.lengthComputable) {
+          const percentComplete = Math.round((progress.loaded / progress.total) * 100)
+          console.log(`Loading star model: ${percentComplete}%`)
+        }
+      },
+      (error) => {
+        console.warn("Error loading primary star model, trying fallback:", error)
+
+        // Try the fallback URL
+        loader.load(
+          FALLBACK_STAR_MODEL_URL,
+          (gltf) => {
+            console.log("Star model loaded successfully from fallback URL")
+
+            const loadedModel = gltf.scene.clone()
+            processModel(loadedModel)
+
+            // Cache the fallback model
+            modelCache.fallback = loadedModel.clone()
+            modelCache.loading = false
+            modelCache.initialized = true
+
+            // We don't resolve here since we already resolved with the simple model
+          },
+          undefined,
+          (fallbackError) => {
+            console.error("Error loading fallback star model, using simple model:", fallbackError)
+
+            // We're already using the simple model, so just update the cache state
+            modelCache.loading = false
+            modelCache.error = fallbackError
+            modelCache.initialized = true
+          },
+        )
+      },
+    )
+  })
+
+  // Store the promise in the cache
+  modelCache.loadPromise = loadPromise
+
+  return loadPromise
+}
+
+// Initialize model loading immediately
+if (typeof window !== "undefined" && !modelCache.initialized) {
+  // Create a simple model immediately to ensure it's available
+  createStarModel()
+
+  // Start loading the detailed model in the background
+  preloadStarModel().catch((err) => {
+    console.error("Error preloading star model:", err)
+  })
 }
 
 // Update the StarMesh component to use the preloaded model
@@ -268,69 +259,81 @@ const StarMesh = React.memo(
     const animationCompletedRef = useRef(false)
     const animationStartedRef = useRef(false)
     const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const [modelError, setModelError] = useState(false)
     const [model, setModel] = useState<THREE.Group | null>(null)
-    const loadAttemptRef = useRef(0)
+    const modelUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const inViewRef = useRef(inView)
 
-    // Load the model when the component mounts
+    // Update inViewRef when inView changes
     useEffect(() => {
-      if (!inView && !animationStartedRef.current) return
+      inViewRef.current = inView
+    }, [inView])
 
-      // Once we start loading, we don't stop even if inView changes
-      animationStartedRef.current = true
+    // Use the simple model immediately to ensure something is rendered
+    const fallbackStarModel = useMemo(() => {
+      return modelCache.simple ? modelCache.simple.clone() : createStarModel()
+    }, [])
 
-      // Try to get the model from cache first
-      if (modelCache.primary) {
-        console.log("Using cached star model")
-        setModel(modelCache.primary.clone())
-        return
+    // Load the model when the component mounts - use the simple model first, then update
+    useEffect(() => {
+      // Always start with the simple model for immediate rendering
+      if (!model) {
+        setModel(fallbackStarModel)
       }
 
-      // Load the model
-      const loadModel = async () => {
+      // Try to get the detailed model from cache
+      const loadDetailedModel = async () => {
         try {
-          const loadedModel = await preloadStarModel()
-          if (loadedModel) {
-            setModel(loadedModel.clone())
+          // Check if we already have the primary model cached
+          if (modelCache.primary) {
+            // Use a short timeout to allow the simple model to render first
+            modelUpdateTimeoutRef.current = setTimeout(() => {
+              setModel(modelCache.primary!.clone())
+            }, 100)
+          } else {
+            // Load the model - this will return the simple model immediately
+            // but will load the detailed model in the background
+            const initialModel = await preloadStarModel()
 
-            // Store material reference for hover effects
-            loadedModel.traverse((child) => {
-              if ((child as THREE.Mesh).isMesh) {
-                const mesh = child as THREE.Mesh
-                if (mesh.material && !materialRef.current) {
-                  materialRef.current = mesh.material as THREE.MeshStandardMaterial
-                }
+            // If we don't have a model yet, use the initial model
+            if (!model) {
+              setModel(initialModel)
+            }
+
+            // Set up a check to update to the detailed model when it's available
+            const checkForDetailedModel = () => {
+              if (modelCache.primary) {
+                setModel(modelCache.primary.clone())
+              } else if (modelCache.fallback) {
+                setModel(modelCache.fallback.clone())
+              } else if (!modelCache.loading && modelCache.initialized) {
+                // If loading is complete but we don't have a detailed model, stick with the simple one
+                return
+              } else {
+                // Check again in a moment
+                modelUpdateTimeoutRef.current = setTimeout(checkForDetailedModel, 500)
               }
-            })
+            }
+
+            // Start checking for the detailed model
+            modelUpdateTimeoutRef.current = setTimeout(checkForDetailedModel, 500)
           }
         } catch (error) {
           console.error("Error loading star model:", error)
-          setModelError(true)
-
-          // Create a fallback model
-          const fallbackModel = createStarModel()
-          setModel(fallbackModel)
-
-          // Try again if we haven't exceeded max attempts
-          if (loadAttemptRef.current < 2) {
-            loadAttemptRef.current++
-            console.log(`Retrying model load (attempt ${loadAttemptRef.current})`)
-            setTimeout(loadModel, 1000)
-          }
+          // We're already using the fallback model, so no need to do anything
         }
       }
 
-      loadModel()
+      loadDetailedModel()
 
-      // Set up completion timeout
-      if (!animationCompletedRef.current && !completionTimeoutRef.current) {
+      // Set up completion timeout only if in view
+      if (inView && !animationCompletedRef.current && !completionTimeoutRef.current) {
         completionTimeoutRef.current = setTimeout(() => {
           if (!animationCompletedRef.current) {
             console.log("StarMesh: Animation completion timeout triggered")
             animationCompletedRef.current = true
             onAnimationComplete?.()
           }
-        }, 1000) // Reduced timeout for faster completion
+        }, 800) // Reduced timeout for faster completion
       }
 
       return () => {
@@ -338,13 +341,12 @@ const StarMesh = React.memo(
           clearTimeout(completionTimeoutRef.current)
           completionTimeoutRef.current = null
         }
+        if (modelUpdateTimeoutRef.current) {
+          clearTimeout(modelUpdateTimeoutRef.current)
+          modelUpdateTimeoutRef.current = null
+        }
       }
-    }, [inView, onAnimationComplete])
-
-    // Create a fallback star model if needed
-    const fallbackStarModel = useMemo(() => {
-      return createStarModel()
-    }, [])
+    }, [fallbackStarModel, model, onAnimationComplete, inView])
 
     // Create the material with the specified properties
     const starMaterial = useMemo(() => {
@@ -387,11 +389,20 @@ const StarMesh = React.memo(
     useFrame((state, delta) => {
       if (!groupRef.current) return
 
-      // If animation hasn't started and we're not in view, don't animate
-      if (!animationStartedRef.current && !inView) return
-
       const group = groupRef.current
       const anim = animationState.current
+
+      // If not in view, hide the star completely
+      if (!inViewRef.current) {
+        group.scale.setScalar(0)
+        return
+      }
+
+      // Start animation only when in view
+      if (!animationStartedRef.current && inViewRef.current) {
+        animationStartedRef.current = true
+        anim.startTime = state.clock.elapsedTime + delay
+      }
 
       // Fast path for reduced motion
       if (prefersReducedMotion) {
@@ -410,15 +421,17 @@ const StarMesh = React.memo(
       // Initialize animation timing
       if (anim.startTime === null) {
         anim.startTime = state.clock.elapsedTime + delay
-        group.scale.set(0, 0, 0)
+        // Start at zero scale
+        group.scale.setScalar(0)
         return
       }
 
       const timeSinceStart = state.clock.elapsedTime - anim.startTime
-      const entryDuration = 0.6 // Reduced for faster animation
+      const entryDuration = 0.6 // Animation duration
 
       if (timeSinceStart < 0) {
-        group.scale.set(0, 0, 0)
+        // Keep hidden during delay
+        group.scale.setScalar(0)
         group.position.y = 0
         return
       }
@@ -429,25 +442,20 @@ const StarMesh = React.memo(
         const easeOutCubic = 1 - Math.pow(1 - progress, 3)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5)
 
-        let scaleProgress = 0
-        if (progress < 0.95) {
-          scaleProgress = easeOutCubic * FINAL_SCALE
-        } else {
-          const finalProgress = (progress - 0.95) / 0.05
-          scaleProgress = THREE.MathUtils.lerp(easeOutCubic * FINAL_SCALE, FINAL_SCALE, finalProgress)
-        }
+        // Scale from 0 to final scale
+        const scaleProgress = easeOutCubic * FINAL_SCALE
         group.scale.setScalar(scaleProgress)
 
         // Modified rotation animation to be more subtle
-        const spinRotations = 2
+        const spinRotations = 1.5
         const spinEasing = 1 - Math.pow(1 - progress, 4)
         group.rotation.y = (1 - spinEasing) * Math.PI * 2 * spinRotations
-        group.rotation.x = (1 - easeOutQuint) * Math.PI * 0.35
+        group.rotation.x = (1 - easeOutQuint) * Math.PI * 0.25
 
         // Fixed position - no movement
         group.position.set(0, 0, 0)
 
-        if (progress > 0.95 && !hasCompletedEntrance && !animationCompletedRef.current) {
+        if (progress > 0.8 && !hasCompletedEntrance && !animationCompletedRef.current) {
           group.scale.setScalar(FINAL_SCALE)
           animationCompletedRef.current = true
 
@@ -530,12 +538,15 @@ export const StarAnimation = React.memo(
     const hoverStateRef = useRef(false)
     const [hasCompletedEntrance, setHasCompletedEntrance] = useState(false)
     const [hasErrored, setHasErrored] = useState(false)
-    const [isRendered, setIsRendered] = useState(false)
-    const [hasStartedAnimation, setHasStartedAnimation] = useState(false)
-    const [is3DReady, setIs3DReady] = useState(false)
+    const [is3DReady, setIs3DReady] = useState(true) // Start as true for immediate rendering
     const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const hasCalledCompletionRef = useRef(false)
-    const initialRenderTimeRef = useRef<number | null>(null)
+    const inViewRef = useRef(inView)
+
+    // Update inViewRef when inView changes
+    useEffect(() => {
+      inViewRef.current = inView
+    }, [inView])
 
     // Calculate DPR once during initialization
     const dpr = useMemo(() => {
@@ -564,39 +575,9 @@ export const StarAnimation = React.memo(
       return gpu && gpu.tier >= 2 ? "high" : "low"
     }, [gpu])
 
-    // Ensure we render when in view or if animation has started
+    // Force completion after a timeout, but only if in view
     useEffect(() => {
-      if ((inView && !isRendered) || hasStartedAnimation) {
-        console.log("StarAnimation: Component in view or animation started, setting rendered state")
-        setIsRendered(true)
-
-        // Record initial render time
-        if (initialRenderTimeRef.current === null) {
-          initialRenderTimeRef.current = Date.now()
-        }
-
-        // Once we start rendering, we don't stop
-        if (inView && !hasStartedAnimation) {
-          setHasStartedAnimation(true)
-        }
-      }
-    }, [inView, isRendered, hasStartedAnimation])
-
-    // Handle 3D readiness
-    useEffect(() => {
-      if (isRendered) {
-        // Set 3D ready after a short delay to ensure smooth transition
-        const readyTimer = setTimeout(() => {
-          setIs3DReady(true)
-        }, 50) // Shorter delay for faster initialization
-
-        return () => clearTimeout(readyTimer)
-      }
-    }, [isRendered])
-
-    // Force completion after a timeout
-    useEffect(() => {
-      if ((inView || hasStartedAnimation) && !hasCompletedEntrance && !hasCalledCompletionRef.current) {
+      if (inView && !hasCompletedEntrance && !hasCalledCompletionRef.current) {
         console.log("StarAnimation: Setting up completion timeout")
 
         // Clear any existing timeout
@@ -611,7 +592,7 @@ export const StarAnimation = React.memo(
             hasCalledCompletionRef.current = true
             onAnimationComplete?.()
           }
-        }, 1000) // Reduced timeout for faster completion
+        }, 800) // Reduced timeout for faster completion
       }
 
       return () => {
@@ -620,7 +601,7 @@ export const StarAnimation = React.memo(
           completionTimeoutRef.current = null
         }
       }
-    }, [inView, hasStartedAnimation, hasCompletedEntrance, onAnimationComplete])
+    }, [inView, hasCompletedEntrance, onAnimationComplete])
 
     // Memoize event handlers to prevent recreating on each render
     const handleMouseEnter = useCallback(() => {
@@ -667,7 +648,7 @@ export const StarAnimation = React.memo(
         camera: { position: [0, 0, 2] as [number, number, number], fov: 35 },
         className: "w-full h-full",
         style: { background: "transparent" },
-        frameloop: inView || hasStartedAnimation ? "always" : "demand", // Only run animation loop when in view or started
+        frameloop: "always", // Always run animation loop for immediate rendering
         gl: {
           antialias: quality === "high", // Only use antialias for high quality
           alpha: true,
@@ -685,7 +666,7 @@ export const StarAnimation = React.memo(
         },
         onError: handleError,
       }),
-      [dpr, inView, hasStartedAnimation, quality, handleError],
+      [dpr, quality, handleError],
     )
 
     // Fallback for errors
@@ -697,22 +678,11 @@ export const StarAnimation = React.memo(
       )
     }
 
-    // Don't render if not in view, hasn't started animation, and hasn't completed entrance
-    if (!inView && !hasStartedAnimation && !hasCompletedEntrance && !isRendered) {
-      return null
-    }
-
     return (
       <motion.div
         ref={containerRef}
-        initial={{ opacity: 0 }}
-        animate={{
-          opacity: inView || hasStartedAnimation || hasCompletedEntrance ? 1 : 0,
-        }}
-        transition={{
-          duration: 0.2, // Faster fade-in
-          delay: 0, // No delay since we're handling timing in the parent
-        }}
+        initial={{ opacity: 1 }} // Start fully visible
+        animate={{ opacity: 1 }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className="w-full h-full relative cursor-pointer"
@@ -722,12 +692,12 @@ export const StarAnimation = React.memo(
           backfaceVisibility: "hidden",
         }}
       >
-        {/* Render 3D star when ready */}
+        {/* Render 3D star immediately but only animate when in view */}
         <div
-          className="absolute inset-0 z-10 transition-opacity duration-500"
+          className="absolute inset-0 z-10"
           style={{
-            opacity: is3DReady ? 1 : 0,
-            pointerEvents: is3DReady ? "auto" : "none",
+            opacity: 1,
+            pointerEvents: "auto",
           }}
         >
           <Canvas {...canvasProps}>
@@ -739,29 +709,25 @@ export const StarAnimation = React.memo(
                 isHovered={hoverStateRef.current}
                 hasCompletedEntrance={hasCompletedEntrance}
                 onAnimationComplete={handleComplete}
-                delay={0} // No delay since we're handling timing in the parent
+                delay={delay}
                 prefersReducedMotion={prefersReducedMotion}
                 quality={quality}
-                inView={inView || hasStartedAnimation}
+                inView={inView}
               />
             </Center>
 
-            {/* Only render lights and environment when in view or animation has started */}
-            {(inView || hasStartedAnimation) && (
-              <>
-                <ambientLight intensity={0.6} />
-                <pointLight position={[5, 5, 5]} intensity={0.7} />
-                <pointLight position={[-5, -5, 5]} intensity={0.3} color="#ffd700" />
-                <Environment preset="apartment" background={false} />
-              </>
-            )}
+            {/* Always render lights and environment for immediate appearance */}
+            <ambientLight intensity={0.6} />
+            <pointLight position={[5, 5, 5]} intensity={0.7} />
+            <pointLight position={[-5, -5, 5]} intensity={0.3} color="#ffd700" />
+            <Environment preset="apartment" background={false} />
           </Canvas>
         </div>
 
         <div
           className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300 z-30"
           style={{
-            opacity: hoverStateRef.current && (inView || hasStartedAnimation || hasCompletedEntrance) ? 0.4 : 0,
+            opacity: hoverStateRef.current && inView ? 0.4 : 0,
             background: "radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)",
           }}
         />

@@ -1,11 +1,17 @@
 "use client"
 
-import { useRef, useState, useEffect } from "react"
+import type React from "react"
+
+import { useRef, useState, useEffect, MutableRefObject } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import Image from "next/image"
 import { usePreloadedAssets } from "@/hooks/use-preloaded-assets"
+import { isAppleDevice } from "@/utils/asset-preloader"
+
+// Track component instances to prevent duplicate initialization
+const initializedInstances = new Set<string>()
 
 interface HeroSectionProps {
   name: string
@@ -14,31 +20,54 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({ name, address, onReady }: HeroSectionProps) {
+  // Generate a unique ID for this component instance
+  const instanceIdRef = useRef<string>(`hero-section-${Math.random().toString(36).substr(2, 9)}`)
+  const hasInitializedRef = useRef(false)
+  const readyNotifiedRef = useRef(false)
+
   // Core state
   const [loadingState, setLoadingState] = useState<"initial" | "loading" | "ready" | "error">("initial")
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [fallbackImageVisible, setFallbackImageVisible] = useState(false)
+  const [videoAttached, setVideoAttached] = useState(false)
 
   // Refs
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null)
   const isVisibleRef = useRef(true)
 
-  // Get preloaded video
+  // Get preloaded video - this is the key part that needs to be fixed
   const { video: preloadedVideo, isLoaded: assetsLoaded } = usePreloadedAssets()
+
+  // Log preloaded assets state for debugging
+  useEffect(() => {
+    console.log("HeroSection: Preloaded assets state:", {
+      hasPreloadedVideo: !!preloadedVideo,
+      assetsLoaded,
+      videoAttached,
+      loadingState,
+    })
+  }, [preloadedVideo, assetsLoaded, videoAttached, loadingState])
 
   // Media queries for responsive design
   const isMobileView = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
-  // Initialize component
+  // Initialize component - only run once per instance
   useEffect(() => {
-    console.log("HeroSection mounted")
+    const instanceId = instanceIdRef.current
 
-    // Set loading state
-    if (!initialLoadComplete) {
-      setLoadingState("loading")
+    // Check if this specific instance has been initialized
+    if (!initializedInstances.has(instanceId) && !hasInitializedRef.current) {
+      console.log(`HeroSection mounted: ${instanceId}`)
+      initializedInstances.add(instanceId)
+      hasInitializedRef.current = true
+
+      // Set loading state
+      if (!initialLoadComplete) {
+        setLoadingState("loading")
+      }
     }
 
     return () => {
@@ -50,20 +79,77 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
     }
   }, [initialLoadComplete])
 
-  // Use preloaded video
+  // Use preloaded video - improved to prevent duplicate loading
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || !preloadedVideo || loadingState !== "loading") return
+    // Skip if we've already attached the video or if preloaded video isn't ready
+    // Also skip if this instance hasn't been properly initialized
+    if (videoAttached || !preloadedVideo || loadingState !== "loading" || !hasInitializedRef.current) {
+      return
+    }
 
-    console.log("Using preloaded video")
+    console.log("HeroSection: Using preloaded video", {
+      preloadedVideoSrc: preloadedVideo.src,
+      preloadedVideoDataset: preloadedVideo.dataset,
+      isAppleDevice,
+    })
 
     try {
-      // Clone the preloaded video's properties to our video element
-      if (preloadedVideo.src) {
-        video.src = preloadedVideo.src
+      // Check if this is our preloaded video with the proper tag
+      if (preloadedVideo.dataset.preloaded === "true") {
+        // For Apple devices, we need special handling
+        if (isAppleDevice) {
+          console.log("HeroSection: Apple device detected, using special video handling")
+
+          // On Apple devices, we'll clone the preloaded video to avoid removing it from cache
+          const videoContainer = videoRef.current?.parentNode
+          if (videoContainer && videoRef.current) {
+            console.log("HeroSection: Cloning preloaded video for Apple device")
+
+            // IMPORTANT: Clone the preloaded video instead of moving it
+            const videoClone = preloadedVideo.cloneNode(true) as HTMLVideoElement
+
+            // Ensure the clone has all the necessary attributes
+            videoClone.muted = true
+            videoClone.playsInline = true
+            videoClone.loop = true
+            videoClone.crossOrigin = "anonymous"
+
+            // Replace the placeholder with our clone
+            if (videoRef.current) {
+              videoContainer.replaceChild(videoClone, videoRef.current)
+            }
+            (videoRef as MutableRefObject<HTMLVideoElement | null>).current = videoClone
+          } else {
+            console.log("HeroSection: No video container found, using fallback image")
+            setFallbackImageVisible(true)
+          }
+        } else {
+          // For non-Apple devices, we can safely set the src from the preloaded video
+          if (videoRef.current && preloadedVideo.src) {
+            console.log("HeroSection: Setting video src from preloaded video")
+
+            // Important: Only set src if it's not already set
+            if (!videoRef.current.src) {
+              // Use the same src as the preloaded video
+              videoRef.current.src = preloadedVideo.src
+
+              // Copy other important attributes
+              videoRef.current.muted = true
+              videoRef.current.playsInline = true
+              videoRef.current.loop = true
+              videoRef.current.crossOrigin = "anonymous"
+            }
+          } else {
+            console.log("HeroSection: No video ref or src, using fallback image")
+            setFallbackImageVisible(true)
+          }
+        }
+
+        // Mark as attached to prevent duplicate attachment
+        setVideoAttached(true)
       } else {
-        // If no src, use fallback image
-        console.log("No video source, using fallback image")
+        // If not properly tagged, use fallback
+        console.log("HeroSection: Preloaded video not properly tagged, using fallback image")
         setFallbackImageVisible(true)
       }
 
@@ -71,26 +157,35 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
       setLoadingState("ready")
       setInitialLoadComplete(true)
 
-      // Notify parent component
-      if (onReady) onReady()
+      // Notify parent component only once
+      if (onReady && !readyNotifiedRef.current) {
+        readyNotifiedRef.current = true
+        onReady()
+      }
 
       // Start playing if visible
-      if (isVisibleRef.current && video.src) {
-        video.play().catch((err) => {
-          console.warn("Could not autoplay video:", err)
+      if (isVisibleRef.current && videoRef.current && videoRef.current.src) {
+        console.log("HeroSection: Attempting to play video")
+        videoRef.current.play().catch((err) => {
+          console.warn("HeroSection: Could not autoplay video:", err)
           // Show fallback image if video can't play
           setFallbackImageVisible(true)
         })
       }
     } catch (error) {
-      console.error("Error setting up video:", error)
+      console.error("HeroSection: Error setting up video:", error)
       // Show fallback image on error
       setFallbackImageVisible(true)
       setLoadingState("ready")
       setInitialLoadComplete(true)
-      if (onReady) onReady()
+
+      // Notify parent component only once, even on error
+      if (onReady && !readyNotifiedRef.current) {
+        readyNotifiedRef.current = true
+        onReady()
+      }
     }
-  }, [preloadedVideo, loadingState, onReady])
+  }, [preloadedVideo, loadingState, onReady, videoAttached])
 
   // Handle video errors
   useEffect(() => {
@@ -98,7 +193,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
     if (!video) return
 
     const handleError = () => {
-      console.error("Video error in hero section:", video.error)
+      console.error("HeroSection: Video error:", video.error)
       setFallbackImageVisible(true)
     }
 
@@ -112,7 +207,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
     const container = containerRef.current
     if (!video || !container) return
 
-    console.log("Setting up visibility observer")
+    console.log("HeroSection: Setting up visibility observer")
 
     // Handle scroll events efficiently with IntersectionObserver
     const handleVisibilityChange = (entries: IntersectionObserverEntry[]) => {
@@ -123,16 +218,16 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
       if (entry.isIntersecting && !wasVisible) {
         // Element is visible, play video if it's loaded and in ready state
         if (loadingState === "ready" && video.paused && video.src && !fallbackImageVisible) {
-          console.log("Playing video on visibility change")
+          console.log("HeroSection: Playing video on visibility change")
           video.play().catch((err) => {
-            console.warn("Could not play video on visibility change:", err)
+            console.warn("HeroSection: Could not play video on visibility change:", err)
             setFallbackImageVisible(true)
           })
         }
       } else if (!entry.isIntersecting && wasVisible) {
         // Element is not visible, pause video to save resources
         if (!video.paused) {
-          console.log("Pausing video on visibility change")
+          console.log("HeroSection: Pausing video on visibility change")
           video.pause()
         }
       }
@@ -191,20 +286,30 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
             transition: "opacity 1000ms cubic-bezier(0.4, 0.0, 0.2, 1)",
           }}
         >
-          <video
-            ref={videoRef}
-            className="absolute h-full w-full object-cover will-change-transform"
-            style={{ transform: "translateZ(0)" }}
-            muted
-            loop
-            playsInline
-            preload="auto"
-            crossOrigin="anonymous"
-            disablePictureInPicture
-            poster="/night3.png"
-          >
-            Your browser does not support the video tag.
-          </video>
+          {/* Only create video element if not using Apple device approach */}
+          {!isAppleDevice && (
+            <video
+              ref={videoRef}
+              className="absolute h-full w-full object-cover will-change-transform"
+              style={{ transform: "translateZ(0)" }}
+              muted
+              loop
+              playsInline
+              preload="auto"
+              crossOrigin="anonymous"
+              disablePictureInPicture
+              poster="/night3.png"
+              // IMPORTANT: Remove src attribute to prevent automatic loading
+              // Let the useEffect handle setting the src
+            >
+              Your browser does not support the video tag.
+            </video>
+          )}
+
+          {/* For Apple devices, we'll insert the preloaded video via the useEffect */}
+          {isAppleDevice && (
+            <div ref={videoRef as React.RefObject<HTMLDivElement>} className="absolute h-full w-full"></div>
+          )}
         </div>
 
         {/* Gradient overlay for better text contrast */}

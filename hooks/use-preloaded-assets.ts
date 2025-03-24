@@ -1,103 +1,55 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import type * as THREE from "three"
-import { getCachedAssets, preloadAllAssets, getStarMaterial } from "@/utils/asset-preloader"
+import { getCachedAssets, assetLoader } from "@/utils/asset-preloader"
 
 interface PreloadedAssets {
-  starModel: THREE.Group | null
   video: HTMLVideoElement | null
   isLoading: boolean
   isLoaded: boolean
-  // Add materials to the interface
-  materials: Map<string, THREE.Material> | null
+  videoObjectUrl: string | null
 }
 
-// Global flag to ensure we only load assets once across all hook instances
-let globalLoadingInitiated = false
-
-// Improve the usePreloadedAssets hook to ensure the star model is properly cached and shared
-// Add a debug log to track when assets are being accessed
 export function usePreloadedAssets(): PreloadedAssets {
   const [assets, setAssets] = useState<PreloadedAssets>(() => {
     // Initialize with whatever is in the cache
     const cached = getCachedAssets()
     console.log("usePreloadedAssets initial state:", {
-      hasStarModel: !!cached.starModel,
       hasVideo: !!cached.video,
       isLoaded: cached.isLoaded,
-      materialsCount: cached.materials ? cached.materials.size : 0,
+      hasObjectUrl: !!cached.videoObjectUrl,
     })
     return {
-      starModel: cached.starModel,
       video: cached.video,
       isLoading: !cached.isLoaded,
       isLoaded: cached.isLoaded,
-      materials: cached.materials,
+      videoObjectUrl: cached.videoObjectUrl,
     }
   })
 
   const isMountedRef = useRef(true)
+  const loadInitiatedRef = useRef(false)
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // This effect runs only once per app lifecycle
+  // This effect runs only once per component lifecycle
   useEffect(() => {
     isMountedRef.current = true
 
     // If assets are already loaded, no need to do anything
-    if (assets.isLoaded) {
+    if (assets.isLoaded && assets.video) {
       console.log("usePreloadedAssets: Assets already loaded, skipping load")
       return
     }
 
-    // Only initiate loading if it hasn't been started yet
-    if (!globalLoadingInitiated) {
-      console.log("usePreloadedAssets: Initiating global asset loading")
-      globalLoadingInitiated = true
+    // Use our ref to track if we've initiated loading from this hook instance
+    if (!loadInitiatedRef.current) {
+      console.log("usePreloadedAssets: Initiating asset loading")
+      loadInitiatedRef.current = true
 
-      // Start loading assets with a slight delay to prioritize UI rendering
-      loadTimeoutRef.current = setTimeout(() => {
-        preloadAllAssets()
-          .then(() => {
-            if (!isMountedRef.current) return
+      // Use the singleton service to initiate loading
+      assetLoader.initiatePreloading()
 
-            console.log("usePreloadedAssets: Assets loaded successfully")
-            const cached = getCachedAssets()
-            console.log("usePreloadedAssets after load:", {
-              hasStarModel: !!cached.starModel,
-              hasVideo: !!cached.video,
-              isLoaded: cached.isLoaded,
-              materialsCount: cached.materials ? cached.materials.size : 0,
-            })
-            setAssets({
-              starModel: cached.starModel,
-              video: cached.video,
-              isLoading: false,
-              isLoaded: true,
-              materials: cached.materials,
-            })
-          })
-          .catch((error) => {
-            console.error("usePreloadedAssets: Error loading assets:", error)
-
-            if (!isMountedRef.current) return
-
-            // Even on error, update state with whatever we have
-            const cached = getCachedAssets()
-            setAssets({
-              starModel: cached.starModel,
-              video: cached.video,
-              isLoading: false,
-              isLoaded: cached.isLoaded,
-              materials: cached.materials,
-            })
-          })
-      }, 500) // Small delay to prioritize UI rendering
-    } else {
-      console.log("usePreloadedAssets: Global loading already initiated, waiting for completion")
-
-      // If loading was already initiated elsewhere, just check for updates
+      // Set up a polling mechanism to check for asset completion
       checkIntervalRef.current = setInterval(() => {
         if (!isMountedRef.current) {
           if (checkIntervalRef.current) {
@@ -108,28 +60,37 @@ export function usePreloadedAssets(): PreloadedAssets {
         }
 
         const cached = getCachedAssets()
-        if (cached.isLoaded) {
-          console.log("usePreloadedAssets: Assets now available in cache")
-          console.log("usePreloadedAssets from interval:", {
-            hasStarModel: !!cached.starModel,
+
+        // Only update if there's a change in loaded state or new assets available
+        if (
+          cached.isLoaded !== assets.isLoaded ||
+          (!assets.video && cached.video) ||
+          (!assets.videoObjectUrl && cached.videoObjectUrl)
+        ) {
+          console.log("usePreloadedAssets: Assets updated from interval check", {
             hasVideo: !!cached.video,
             isLoaded: cached.isLoaded,
-            materialsCount: cached.materials ? cached.materials.size : 0,
-          })
-          setAssets({
-            starModel: cached.starModel,
-            video: cached.video,
-            isLoading: false,
-            isLoaded: true,
-            materials: cached.materials,
+            hasObjectUrl: !!cached.videoObjectUrl,
           })
 
-          if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current)
-            checkIntervalRef.current = null
+          if (isMountedRef.current) {
+            setAssets({
+              video: cached.video,
+              isLoading: !cached.isLoaded,
+              isLoaded: cached.isLoaded,
+              videoObjectUrl: cached.videoObjectUrl,
+            })
+          }
+
+          // If everything is loaded, we can stop checking
+          if (cached.isLoaded && cached.video) {
+            if (checkIntervalRef.current) {
+              clearInterval(checkIntervalRef.current)
+              checkIntervalRef.current = null
+            }
           }
         }
-      }, 500)
+      }, 200) // Check every 200ms for faster updates
     }
 
     return () => {
@@ -138,26 +99,9 @@ export function usePreloadedAssets(): PreloadedAssets {
         clearInterval(checkIntervalRef.current)
         checkIntervalRef.current = null
       }
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current)
-        loadTimeoutRef.current = null
-      }
     }
-  }, [assets.isLoaded])
+  }, [assets.isLoaded, assets.video, assets.videoObjectUrl])
 
   return assets
-}
-
-// Add a new hook to get a specific material
-export function useStarMaterial(key = "default"): THREE.Material | null {
-  const { materials, isLoaded } = usePreloadedAssets()
-
-  // If materials aren't loaded yet, return null
-  if (!isLoaded || !materials) {
-    return null
-  }
-
-  // Get the material from the cache or create a new one
-  return getStarMaterial(key)
 }
 

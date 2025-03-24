@@ -1,13 +1,28 @@
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
-import * as THREE from "three"
-
 // Asset URLs
-const STAR_MODEL_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
-const FALLBACK_STAR_MODEL_URL =
-  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/star-fallback-dae9XbJkwuOqfRFv7IAnRgsz8MIXNF.glb"
-const VIDEO_URL = "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-1qC3I0KH9sIPRy0jKZzLCzPt09d1Xx.webm"
-const FALLBACK_VIDEO_URL =
-  "https://ufpsglq2mvejclds.public.blob.vercel-storage.com/video3-rAkQAMhZySExrESChs56oUvTsY14kl.mp4"
+
+  const VIDEO_URL = "/video3.webm"
+  const FALLBACK_VIDEO_URL =
+    "/video3.mp4"
+// Debug tracking
+let videoLoadCount = 0
+// Track active video requests to prevent duplicates
+const activeVideoRequests = new Set<string>()
+// Track method calls that are in progress
+const preloadMethodCalls = new Set<string>()
+
+function logVideoLoadAttempt(source: string) {
+  videoLoadCount++
+  console.log(`VIDEO LOAD ATTEMPT #${videoLoadCount} from ${source}`, {
+    timestamp: new Date().toISOString(),
+    isAppleDevice,
+    cacheState: {
+      isLoaded: assetCache.video.isLoaded,
+      isLoading: assetCache.video.isLoading,
+      hasElement: !!assetCache.video.element,
+      hasPromise: !!assetCache.video.loadPromise,
+    },
+  })
+}
 
 // Device detection helpers
 export const isAppleDevice =
@@ -20,15 +35,6 @@ export const isAppleDevice =
 
 // Global singleton asset cache with improved structure
 type AssetCache = {
-  starModel: {
-    model: THREE.Group | null
-    isLoaded: boolean
-    isLoading: boolean
-    error: Error | null
-    loadPromise: Promise<THREE.Group> | null
-    materials: Map<string, THREE.Material>
-    lastLoadAttempt: number
-  }
   video: {
     element: HTMLVideoElement | null
     isLoaded: boolean
@@ -36,6 +42,7 @@ type AssetCache = {
     error: Error | null
     loadPromise: Promise<HTMLVideoElement> | null
     lastLoadAttempt: number
+    objectUrl: string | null
   }
   initialLoadComplete: boolean
   preloadingInitiated: boolean
@@ -43,15 +50,6 @@ type AssetCache = {
 
 // Initialize global cache as a singleton
 const assetCache: AssetCache = {
-  starModel: {
-    model: null,
-    isLoaded: false,
-    isLoading: false,
-    error: null,
-    loadPromise: null,
-    materials: new Map(),
-    lastLoadAttempt: 0,
-  },
   video: {
     element: null,
     isLoaded: false,
@@ -59,13 +57,14 @@ const assetCache: AssetCache = {
     error: null,
     loadPromise: null,
     lastLoadAttempt: 0,
+    objectUrl: null,
   },
   initialLoadComplete: false,
   preloadingInitiated: false,
 }
 
 // Event system for loading progress
-type ProgressListener = (type: "starModel" | "video", progress: number) => void
+type ProgressListener = (type: "video", progress: number) => void
 const progressListeners: ProgressListener[] = []
 
 export function addProgressListener(listener: ProgressListener): () => void {
@@ -78,339 +77,235 @@ export function addProgressListener(listener: ProgressListener): () => void {
   }
 }
 
-function notifyProgress(type: "starModel" | "video", progress: number) {
+function notifyProgress(type: "video", progress: number) {
   progressListeners.forEach((listener) => listener(type, progress))
 }
 
-// Create a fallback star model
-function createFallbackStarModel(): THREE.Group {
-  console.log("Creating fallback star model")
-  const group = new THREE.Group()
-  const geometry = new THREE.IcosahedronGeometry(1, 1)
+// Centralized Asset Loader Service using Singleton pattern
+class AssetLoaderService {
+  private static instance: AssetLoaderService
+  private loadingPromises: Map<string, Promise<any>> = new Map()
+  private loadingInitiated = false
 
-  // Create and cache the material
-  let material = assetCache.starModel.materials.get("fallback")
-  if (!material) {
-    material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color("#daa520"),
-      emissive: new THREE.Color("#ffd000"),
-      emissiveIntensity: 0.2,
-      roughness: 0.3,
-      metalness: 0.7,
-    })
-    assetCache.starModel.materials.set("fallback", material)
-  }
+  // Private constructor to prevent direct instantiation
+  private constructor() {}
 
-  const mesh = new THREE.Mesh(geometry, material)
-  group.add(mesh)
-  return group
-}
-
-// Preprocess the star model to optimize it for reuse
-function preprocessStarModel(model: THREE.Group): THREE.Group {
-  console.log("Preprocessing star model for optimal performance")
-
-  // Clone the model to avoid modifying the original
-  const processedModel = model.clone()
-
-  // Optimize geometries and materials
-  processedModel.traverse((child) => {
-    if ((child as THREE.Mesh).isMesh) {
-      const mesh = child as THREE.Mesh
-
-      // Store original material for reference
-      if (!mesh.userData.originalMaterial) {
-        mesh.userData.originalMaterial = mesh.material
-      }
-
-      // Create a unique key for this material
-      const materialKey = `mesh_${mesh.uuid}`
-
-      // Check if we already have a cached version of this material
-      if (!assetCache.starModel.materials.has(materialKey)) {
-        // Create an optimized version of the material
-        const material = new THREE.MeshStandardMaterial({
-          color: (mesh.material as THREE.MeshStandardMaterial).color || new THREE.Color("#daa520"),
-          emissive: (mesh.material as THREE.MeshStandardMaterial).emissive || new THREE.Color("#ffd000"),
-          emissiveIntensity: 0,
-          roughness: 0.03,
-          metalness: 0.8,
-          transparent: true,
-          toneMapped: false,
-        })
-
-        // Cache the material
-        assetCache.starModel.materials.set(materialKey, material)
-      }
-
-      // Use the cached material
-      mesh.material = assetCache.starModel.materials.get(materialKey) as THREE.Material
-
-      // Optimize geometry if needed
-      if (mesh.geometry && !mesh.geometry.attributes.normal) {
-        mesh.geometry.computeVertexNormals()
-      }
+  public static getInstance(): AssetLoaderService {
+    if (!AssetLoaderService.instance) {
+      AssetLoaderService.instance = new AssetLoaderService()
     }
-  })
-
-  return processedModel
-}
-
-// Load star model with improved reliability - only loads once
-export function preloadStarModel(): Promise<THREE.Group> {
-  // Check if we've attempted to load recently (within 5 seconds)
-  const now = Date.now()
-  const recentlyAttempted = now - assetCache.starModel.lastLoadAttempt < 5000
-
-  console.log("preloadStarModel called, current state:", {
-    isLoaded: assetCache.starModel.isLoaded,
-    isLoading: assetCache.starModel.isLoading,
-    hasModel: !!assetCache.starModel.model,
-    materialsCount: assetCache.starModel.materials.size,
-    recentlyAttempted,
-  })
-
-  // Return cached model if already loaded
-  if (assetCache.starModel.isLoaded && assetCache.starModel.model) {
-    console.log("Star model already loaded, returning cached model")
-    return Promise.resolve(assetCache.starModel.model)
+    return AssetLoaderService.instance
   }
 
-  // Return existing promise if loading is in progress and not stale
-  if (assetCache.starModel.isLoading && assetCache.starModel.loadPromise && !recentlyAttempted) {
-    console.log("Star model loading in progress, returning existing promise")
-    return assetCache.starModel.loadPromise
+  // Check if video is already in cache (memory or session storage)
+  private getVideoFromCache(): HTMLVideoElement | null {
+    // Check memory cache first
+    if (assetCache.video.isLoaded && assetCache.video.element) {
+      console.log("Video found in memory cache")
+      return assetCache.video.element
+    }
+
+    // Check session storage for video load status
+    try {
+      const videoStatus = sessionStorage.getItem("videoLoadStatus")
+      if (videoStatus === "loaded") {
+        console.log("Video previously loaded according to session storage")
+        // We still need to create a new video element, but we know it should be in browser cache
+        const video = this.createOptimizedVideoElement()
+        video.src = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
+        assetCache.video.element = video
+        assetCache.video.isLoaded = true
+        return video
+      }
+    } catch (e) {
+      // Session storage might be unavailable in some contexts
+      console.warn("Could not access session storage", e)
+    }
+
+    return null
   }
 
-  // Update last attempt timestamp
-  assetCache.starModel.lastLoadAttempt = now
-
-  // Start loading
-  console.log("Starting star model loading")
-  assetCache.starModel.isLoading = true
-  notifyProgress("starModel", 0)
-
-  // Create and store the promise
-  const loadPromise = new Promise<THREE.Group>((resolve, reject) => {
-    const loader = new GLTFLoader()
-
-    // Optimize the loader for better performance
-    loader.setCrossOrigin("anonymous")
-
-    // Add a timeout to prevent indefinite loading
-    const timeout = setTimeout(() => {
-      console.warn("Star model loading timed out, using fallback")
-      const fallbackModel = createFallbackStarModel()
-
-      // Ensure the model is properly cached
-      assetCache.starModel.model = fallbackModel
-      assetCache.starModel.isLoaded = true
-      assetCache.starModel.isLoading = false
-
-      console.log("Star model fallback cached:", {
-        hasModel: !!assetCache.starModel.model,
-        materialsCount: assetCache.starModel.materials.size,
-      })
-
-      notifyProgress("starModel", 100)
-      resolve(fallbackModel)
-    }, 10000) // Reduced timeout to 10 seconds
-
-    // Try primary URL
-    loader.load(
-      STAR_MODEL_URL,
-      (gltf) => {
-        clearTimeout(timeout)
-        console.log("Star model loaded successfully")
-
-        // Preprocess the model for optimal performance
-        const optimizedModel = preprocessStarModel(gltf.scene)
-
-        // Ensure the model is properly cached
-        assetCache.starModel.model = optimizedModel
-        assetCache.starModel.isLoaded = true
-        assetCache.starModel.isLoading = false
-
-        console.log("Star model cached:", {
-          hasModel: !!assetCache.starModel.model,
-          materialsCount: assetCache.starModel.materials.size,
-        })
-
-        notifyProgress("starModel", 100)
-        resolve(optimizedModel)
-      },
-      (xhr) => {
-        if (xhr.lengthComputable) {
-          const progress = Math.round((xhr.loaded / xhr.total) * 100)
-          console.log(`Star model loading progress: ${progress}%`)
-          notifyProgress("starModel", progress)
-        }
-      },
-      (error) => {
-        console.warn("Error loading star model, trying fallback:", error)
-
-        // Try fallback URL
-        loader.load(
-          FALLBACK_STAR_MODEL_URL,
-          (gltf) => {
-            clearTimeout(timeout)
-            console.log("Star model fallback loaded successfully")
-
-            // Preprocess the fallback model
-            const optimizedModel = preprocessStarModel(gltf.scene)
-
-            // Ensure the model is properly cached
-            assetCache.starModel.model = optimizedModel
-            assetCache.starModel.isLoaded = true
-            assetCache.starModel.isLoading = false
-
-            console.log("Star model fallback cached:", {
-              hasModel: !!assetCache.starModel.model,
-              materialsCount: assetCache.starModel.materials.size,
-            })
-
-            notifyProgress("starModel", 100)
-            resolve(optimizedModel)
-          },
-          (xhr) => {
-            if (xhr.lengthComputable) {
-              const progress = Math.round((xhr.loaded / xhr.total) * 100)
-              console.log(`Star model fallback loading progress: ${progress}%`)
-              notifyProgress("starModel", progress)
-            }
-          },
-          (fallbackError) => {
-            clearTimeout(timeout)
-            console.error("Error loading star model from fallback:", fallbackError)
-            // Create a fallback model
-            const fallbackModel = createFallbackStarModel()
-
-            // Ensure the model is properly cached
-            assetCache.starModel.model = fallbackModel
-            assetCache.starModel.isLoaded = true
-            assetCache.starModel.isLoading = false
-            assetCache.starModel.error = fallbackError
-
-            console.log("Star model emergency fallback cached:", {
-              hasModel: !!assetCache.starModel.model,
-              materialsCount: assetCache.starModel.materials.size,
-            })
-
-            notifyProgress("starModel", 100)
-            resolve(fallbackModel)
-          },
-        )
-      },
-    )
-  })
-
-  // Store the promise
-  assetCache.starModel.loadPromise = loadPromise
-
-  return loadPromise
-}
-
-// Preload video with improved reliability - only loads once
-export function preloadVideo(): Promise<HTMLVideoElement> {
-  // Check if we've attempted to load recently (within 5 seconds)
-  const now = Date.now()
-  const recentlyAttempted = now - assetCache.video.lastLoadAttempt < 5000
-
-  console.log("preloadVideo called, current state:", {
-    isLoaded: assetCache.video.isLoaded,
-    isLoading: assetCache.video.isLoading,
-    recentlyAttempted,
-  })
-
-  // Return cached video if already loaded
-  if (assetCache.video.isLoaded && assetCache.video.element) {
-    console.log("Video already loaded, returning cached video")
-    return Promise.resolve(assetCache.video.element)
+  // Mark video as loaded in session storage
+  private markVideoAsLoaded(): void {
+    try {
+      sessionStorage.setItem("videoLoadStatus", "loaded")
+    } catch (e) {
+      console.warn("Could not update session storage", e)
+    }
   }
 
-  // Return existing promise if loading is in progress and not stale
-  if (assetCache.video.isLoading && assetCache.video.loadPromise && !recentlyAttempted) {
-    console.log("Video loading in progress, returning existing promise")
-    return assetCache.video.loadPromise
-  }
-
-  // Update last attempt timestamp
-  assetCache.video.lastLoadAttempt = now
-
-  // Start loading
-  console.log("Starting video loading")
-  assetCache.video.isLoading = true
-  notifyProgress("video", 0)
-
-  // Create and store the promise
-  const loadPromise = new Promise<HTMLVideoElement>((resolve) => {
-    // Always use MP4 for Apple devices
-    const videoUrl = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
-    console.log(`Using video URL: ${videoUrl} (isAppleDevice: ${isAppleDevice})`)
-
-    // Create video element
+  // Create an optimized video element with platform-specific settings
+  private createOptimizedVideoElement(): HTMLVideoElement {
     const video = document.createElement("video")
     video.muted = true
     video.playsInline = true
     video.loop = true
     video.preload = "auto"
+    // Set anonymous crossOrigin to allow CORS requests without credentials
     video.crossOrigin = "anonymous"
 
-    // Set specific attributes for iOS/Safari
+    // Platform-specific optimizations
     if (isAppleDevice) {
       video.setAttribute("playsinline", "")
       video.setAttribute("webkit-playsinline", "")
       video.setAttribute("x-webkit-airplay", "allow")
-      video.setAttribute("autoplay", "")
+      // Don't set autoplay attribute here - it can trigger loading
     }
 
-    // Track loading progress
-    let progressInterval: number | null = null
+    // Add data attribute to identify our preloaded videos
+    video.dataset.preloaded = "true"
 
-    const updateProgress = () => {
-      if (video.buffered.length > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1)
-        const duration = video.duration || 1
-        const progress = Math.min(100, Math.round((bufferedEnd / duration) * 100))
-        console.log(`Video loading progress: ${progress}%`)
-        notifyProgress("video", progress)
+    return video
+  }
 
-        // Consider loaded when we have enough buffered
-        if (progress >= 30 && !assetCache.video.isLoaded) {
-          if (progressInterval) {
-            clearInterval(progressInterval)
-            progressInterval = null
+  public preloadVideo(): Promise<HTMLVideoElement> {
+    const cacheKey = "mainVideo"
+    const videoUrl = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
+
+    // CRITICAL FIX: Check if this method call is already in progress
+    if (preloadMethodCalls.has(cacheKey)) {
+      console.log("preloadVideo method call already in progress, reusing result")
+      // If we have a promise, return it
+      if (this.loadingPromises.has(cacheKey)) {
+        return this.loadingPromises.get(cacheKey)!
+      }
+
+      // If we have a cached video, return it
+      const cachedVideo = this.getVideoFromCache()
+      if (cachedVideo) {
+        console.log("Using cached video from duplicate method call")
+        return Promise.resolve(cachedVideo)
+      }
+
+      // If we're here, something went wrong with tracking. Create a new promise as fallback
+      console.warn("Method call tracking inconsistency detected, creating new promise")
+    }
+
+    // Mark this method call as in progress
+    preloadMethodCalls.add(cacheKey)
+
+    logVideoLoadAttempt("preloadVideo method")
+
+    // Check if we already have a cached video
+    const cachedVideo = this.getVideoFromCache()
+    if (cachedVideo) {
+      console.log("Video found in memory cache")
+      // Clean up method call tracking
+      setTimeout(() => preloadMethodCalls.delete(cacheKey), 100)
+      return Promise.resolve(cachedVideo)
+    }
+
+    // Check global request tracker
+    if (activeVideoRequests.has(videoUrl)) {
+      console.log(`Video ${videoUrl} already being fetched globally, waiting...`)
+
+      // Create a promise that resolves when the existing request completes
+      const waitPromise = new Promise<HTMLVideoElement>((resolve) => {
+        const checkInterval = setInterval(() => {
+          const cached = this.getVideoFromCache()
+          if (cached) {
+            clearInterval(checkInterval)
+            resolve(cached)
           }
+        }, 100)
 
-          console.log("Video has enough data, considering loaded")
-          assetCache.video.element = video
-          assetCache.video.isLoaded = true
-          assetCache.video.isLoading = false
-          notifyProgress("video", 100)
-          resolve(video)
-        }
-      }
+        // Safety timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval)
+          const cached = this.getVideoFromCache() || this.createOptimizedVideoElement()
+          resolve(cached)
+        }, 10000)
+      })
+
+      // Store this promise
+      this.loadingPromises.set(cacheKey, waitPromise)
+
+      // Clean up method call tracking when promise resolves
+      waitPromise.finally(() => {
+        setTimeout(() => {
+          preloadMethodCalls.delete(cacheKey)
+          this.loadingPromises.delete(cacheKey)
+        }, 100)
+      })
+
+      return waitPromise
     }
 
-    // Set up event listeners
-    video.addEventListener("canplaythrough", () => {
-      console.log("Video can play through")
-      if (progressInterval) {
-        clearInterval(progressInterval)
-        progressInterval = null
-      }
+    // Add to global tracker
+    activeVideoRequests.add(videoUrl)
 
-      assetCache.video.element = video
-      assetCache.video.isLoaded = true
-      assetCache.video.isLoading = false
-      notifyProgress("video", 100)
-      resolve(video)
+    // Return existing promise if already loading
+    if (this.loadingPromises.has(cacheKey)) {
+      console.log("Video loading already in progress, reusing promise")
+      return this.loadingPromises.get(cacheKey)!
+    }
+
+    // Create new loading promise
+    console.log("Starting new video loading process")
+    const loadPromise = this.createVideoLoadPromise()
+    this.loadingPromises.set(cacheKey, loadPromise)
+
+    // Clear promise from map when settled to prevent memory leaks
+    loadPromise.finally(() => {
+      activeVideoRequests.delete(videoUrl) // Remove from global tracker
+      setTimeout(() => {
+        preloadMethodCalls.delete(cacheKey) // Remove from method call tracker
+        this.loadingPromises.delete(cacheKey)
+      }, 100)
     })
 
-    video.addEventListener("loadeddata", () => {
-      console.log("Video data loaded")
-      // For iOS, we consider the video loaded when data is loaded
-      if (isAppleDevice && !assetCache.video.isLoaded) {
+    return loadPromise
+  }
+
+  private createVideoLoadPromise(): Promise<HTMLVideoElement> {
+    // Update last attempt timestamp
+    assetCache.video.lastLoadAttempt = Date.now()
+
+    // Start loading
+    console.log("Creating new video load promise")
+    assetCache.video.isLoading = true
+    notifyProgress("video", 0)
+
+    return new Promise<HTMLVideoElement>((resolve) => {
+      // Always use MP4 for Apple devices
+      const videoUrl = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
+      console.log(`Using video URL: ${videoUrl} (isAppleDevice: ${isAppleDevice})`)
+
+      // Create video element
+      const video = this.createOptimizedVideoElement()
+
+      // Track loading progress
+      let progressInterval: number | null = null
+
+      const updateProgress = () => {
+        if (video.buffered.length > 0) {
+          const bufferedEnd = video.buffered.end(video.buffered.length - 1)
+          const duration = video.duration || 1
+          const progress = Math.min(100, Math.round((bufferedEnd / duration) * 100))
+          console.log(`Video loading progress: ${progress}%`)
+          notifyProgress("video", progress)
+
+          // Consider loaded when we have enough buffered
+          if (progress >= 30 && !assetCache.video.isLoaded) {
+            if (progressInterval) {
+              clearInterval(progressInterval)
+              progressInterval = null
+            }
+
+            console.log("Video has enough data, considering loaded")
+            assetCache.video.element = video
+            assetCache.video.isLoaded = true
+            assetCache.video.isLoading = false
+            this.markVideoAsLoaded()
+            notifyProgress("video", 100)
+            resolve(video)
+          }
+        }
+      }
+
+      // Set up event listeners
+      video.addEventListener("canplaythrough", () => {
+        console.log("Video can play through")
         if (progressInterval) {
           clearInterval(progressInterval)
           progressInterval = null
@@ -419,268 +314,311 @@ export function preloadVideo(): Promise<HTMLVideoElement> {
         assetCache.video.element = video
         assetCache.video.isLoaded = true
         assetCache.video.isLoading = false
+        this.markVideoAsLoaded()
         notifyProgress("video", 100)
         resolve(video)
-      }
-    })
+      })
 
-    const handleVideoError = () => {
-      console.error("Video error:", video.error)
+      video.addEventListener("loadeddata", () => {
+        console.log("Video data loaded")
+        // For iOS, we consider the video loaded when data is loaded
+        if (isAppleDevice && !assetCache.video.isLoaded) {
+          if (progressInterval) {
+            clearInterval(progressInterval)
+            progressInterval = null
+          }
 
-      if (progressInterval) {
-        clearInterval(progressInterval)
-        progressInterval = null
-      }
+          assetCache.video.element = video
+          assetCache.video.isLoaded = true
+          assetCache.video.isLoading = false
+          this.markVideoAsLoaded()
+          notifyProgress("video", 100)
+          resolve(video)
+        }
+      })
 
-      // Create a placeholder video element
-      const placeholderVideo = document.createElement("video")
-      placeholderVideo.muted = true
-      placeholderVideo.playsInline = true
-      placeholderVideo.loop = true
-      placeholderVideo.crossOrigin = "anonymous"
-      placeholderVideo.poster = "/night3.png"
+      const handleVideoError = () => {
+        console.error("Video error:", video.error)
 
-      assetCache.video.element = placeholderVideo
-      assetCache.video.isLoaded = true
-      assetCache.video.isLoading = false
-      notifyProgress("video", 100)
-      resolve(placeholderVideo)
-    }
-
-    video.addEventListener("error", handleVideoError)
-
-    // Start progress tracking
-    progressInterval = window.setInterval(updateProgress, 200)
-
-    // Set timeout to prevent indefinite loading
-    const timeout = setTimeout(() => {
-      if (!assetCache.video.isLoaded) {
         if (progressInterval) {
           clearInterval(progressInterval)
           progressInterval = null
         }
 
-        // If we have some data, consider it loaded anyway
-        if (video.readyState >= 2) {
-          console.log("Video timeout but has some data, considering loaded")
-          assetCache.video.element = video
-          assetCache.video.isLoaded = true
-          assetCache.video.isLoading = false
-          notifyProgress("video", 100)
-          resolve(video)
-        } else {
-          console.warn("Video loading timed out, using placeholder")
-          // Create a placeholder video element
-          const placeholderVideo = document.createElement("video")
-          placeholderVideo.muted = true
-          placeholderVideo.playsInline = true
-          placeholderVideo.loop = true
-          placeholderVideo.crossOrigin = "anonymous"
-          placeholderVideo.poster = "/night3.png"
+        // Create a placeholder video element
+        const placeholderVideo = this.createOptimizedVideoElement()
+        placeholderVideo.poster = "/night3.png"
 
-          assetCache.video.element = placeholderVideo
-          assetCache.video.isLoaded = true
-          assetCache.video.isLoading = false
-          notifyProgress("video", 100)
-          resolve(placeholderVideo)
+        assetCache.video.element = placeholderVideo
+        assetCache.video.isLoaded = true
+        assetCache.video.isLoading = false
+        notifyProgress("video", 100)
+        resolve(placeholderVideo)
+      }
+
+      video.addEventListener("error", handleVideoError)
+
+      // Start progress tracking
+      progressInterval = window.setInterval(updateProgress, 200)
+
+      // Set timeout to prevent indefinite loading
+      const timeout = setTimeout(() => {
+        if (!assetCache.video.isLoaded) {
+          if (progressInterval) {
+            clearInterval(progressInterval)
+            progressInterval = null
+          }
+
+          // If we have some data, consider it loaded anyway
+          if (video.readyState >= 2) {
+            console.log("Video timeout but has some data, considering loaded")
+            assetCache.video.element = video
+            assetCache.video.isLoaded = true
+            assetCache.video.isLoading = false
+            this.markVideoAsLoaded()
+            notifyProgress("video", 100)
+            resolve(video)
+          } else {
+            console.warn("Video loading timed out, using placeholder")
+            // Create a placeholder video element
+            const placeholderVideo = this.createOptimizedVideoElement()
+            placeholderVideo.poster = "/night3.png"
+
+            assetCache.video.element = placeholderVideo
+            assetCache.video.isLoaded = true
+            assetCache.video.isLoading = false
+            notifyProgress("video", 100)
+            resolve(placeholderVideo)
+          }
+        }
+      }, 10000) // 10 second timeout
+
+      // Try to fetch the video as a blob first for better caching
+      fetch(videoUrl, {
+        method: 'GET',
+        mode: 'cors',
+        // Don't send credentials to avoid CORS preflight requests
+        credentials: 'omit',
+        // Don't add custom headers that would trigger preflight requests
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch video: ${videoUrl}`)
+          }
+          return response.blob()
+        })
+        .then(blob => {
+          // Create an object URL from the blob
+          const objectUrl = URL.createObjectURL(blob)
+          
+          // Store the object URL in the cache
+          assetCache.video.objectUrl = objectUrl
+          
+          // Set the video source to the object URL
+          video.src = objectUrl
+          video.load()
+        })
+        .catch(error => {
+          console.error("Error fetching video as blob:", error)
+          
+          // CORS fallback: Try direct loading without fetch
+          console.log("Trying direct video loading as fallback due to CORS issue")
+          video.src = videoUrl
+          video.load()
+        })
+
+      // Clean up on promise settlement
+      const cleanup = () => {
+        clearTimeout(timeout)
+        if (progressInterval) {
+          clearInterval(progressInterval)
+          progressInterval = null
         }
       }
-    }, 10000) // Reduced timeout to 10 seconds
 
-    // Set source and start loading
-    video.src = videoUrl
-    video.load()
+      // Ensure cleanup happens
+      Promise.prototype.finally.call(
+        new Promise((res) => {
+          video.addEventListener("canplaythrough", res, { once: true })
+          video.addEventListener("error", res, { once: true })
+        }),
+        cleanup,
+      )
+    })
+  }
 
-    // Clean up on promise settlement
-    const cleanup = () => {
-      clearTimeout(timeout)
-      if (progressInterval) {
-        clearInterval(progressInterval)
-        progressInterval = null
+  public async preloadAllAssets(): Promise<{
+    video: HTMLVideoElement
+  }> {
+    console.log("preloadAllAssets called, initialLoadComplete:", assetCache.initialLoadComplete)
+
+    // If initial load is already complete, return cached assets
+    if (assetCache.initialLoadComplete) {
+      console.log("Initial load already complete, returning cached assets:", {
+        hasVideo: !!assetCache.video.element,
+      })
+      return {
+        video: assetCache.video.element!,
       }
     }
 
-    // Ensure cleanup happens
-    Promise.prototype.finally.call(
-      new Promise((res) => {
-        video.addEventListener("canplaythrough", res, { once: true })
-        video.addEventListener("error", res, { once: true })
-      }),
-      cleanup,
-    )
-  })
+    // Mark preloading as initiated to prevent duplicate calls
+    assetCache.preloadingInitiated = true
 
-  // Store the promise
-  assetCache.video.loadPromise = loadPromise
+    console.log("Starting video loading")
 
-  return loadPromise
-}
+    try {
+      // Load video
+      const video = await this.preloadVideo()
 
-// Preload all assets with improved reliability - only loads once
-export async function preloadAllAssets(): Promise<{
-  starModel: THREE.Group
-  video: HTMLVideoElement
-}> {
-  console.log("preloadAllAssets called, initialLoadComplete:", assetCache.initialLoadComplete)
+      console.log("Video loaded successfully:", {
+        hasVideo: !!video,
+      })
 
-  // If initial load is already complete, return cached assets
-  if (assetCache.initialLoadComplete) {
-    console.log("Initial load already complete, returning cached assets:", {
-      hasStarModel: !!assetCache.starModel.model,
-      hasVideo: !!assetCache.video.element,
-      materialsCount: assetCache.starModel.materials.size,
-    })
-    return {
-      starModel: assetCache.starModel.model!,
-      video: assetCache.video.element!,
+      // Mark initial load as complete
+      assetCache.initialLoadComplete = true
+
+      return { video }
+    } catch (error) {
+      console.error("Error in preloadAllAssets:", error)
+
+      // Even on error, return whatever we have
+      const placeholderVideo = this.createOptimizedVideoElement()
+      placeholderVideo.poster = "/night3.png"
+
+      const video = assetCache.video.element || placeholderVideo
+
+      // Mark initial load as complete even on error
+      assetCache.initialLoadComplete = true
+
+      console.log("Video loaded with fallback:", {
+        hasVideo: !!video,
+      })
+
+      return { video }
     }
   }
 
-  // Mark preloading as initiated to prevent duplicate calls
-  assetCache.preloadingInitiated = true
+  public initiatePreloading(): void {
+    if (this.loadingInitiated) {
+      console.log("Preloading already initiated, skipping")
+      return
+    }
 
-  console.log("Starting parallel asset loading")
+    this.loadingInitiated = true
+    console.log("Initiating video preloading with proper scheduling")
 
-  // Start both loads in parallel
-  const starModelPromise = preloadStarModel()
-  const videoPromise = preloadVideo()
-
-  try {
-    // Wait for both to complete
-    const [starModel, video] = await Promise.all([starModelPromise, videoPromise])
-
-    console.log("All assets loaded successfully:", {
-      hasStarModel: !!starModel,
-      hasVideo: !!video,
-      materialsCount: assetCache.starModel.materials.size,
-    })
-
-    // Mark initial load as complete
-    assetCache.initialLoadComplete = true
-
-    return { starModel, video }
-  } catch (error) {
-    console.error("Error in preloadAllAssets:", error)
-
-    // Even on error, return whatever we have
-    const starModel = assetCache.starModel.model || createFallbackStarModel()
-
-    const placeholderVideo = document.createElement("video")
-    placeholderVideo.muted = true
-    placeholderVideo.playsInline = true
-    placeholderVideo.loop = true
-    placeholderVideo.crossOrigin = "anonymous"
-    placeholderVideo.poster = "/night3.png"
-
-    const video = assetCache.video.element || placeholderVideo
-
-    // Mark initial load as complete even on error
-    assetCache.initialLoadComplete = true
-
-    console.log("Assets loaded with fallbacks:", {
-      hasStarModel: !!starModel,
-      hasVideo: !!video,
-      materialsCount: assetCache.starModel.materials.size,
-    })
-
-    return { starModel, video }
+    // Use a small delay to prioritize UI rendering
+    setTimeout(() => {
+      this.preloadAllAssets().catch((error) => {
+        console.warn("Error during scheduled video preloading:", error)
+      })
+    }, 500)
   }
+
+  // Create a video element from the cached video
+  public createVideoElementFromCache(): HTMLVideoElement | null {
+    if (!assetCache.video.isLoaded || !assetCache.video.element) {
+      console.warn("No cached video available to create element from")
+      return null
+    }
+
+    // Create a new video element
+    const video = this.createOptimizedVideoElement()
+
+    // If we have an object URL, use that
+    if (assetCache.video.objectUrl) {
+      video.src = assetCache.video.objectUrl
+    }
+    // Otherwise use the src from the cached element
+    else if (assetCache.video.element.src) {
+      video.src = assetCache.video.element.src
+    }
+    // Fallback to the original URL
+    else {
+      video.src = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
+    }
+
+    return video
+  }
+}
+
+// Export a singleton instance
+export const assetLoader = AssetLoaderService.getInstance()
+
+// Export wrapper functions that use the singleton service
+export function preloadVideo(): Promise<HTMLVideoElement> {
+  logVideoLoadAttempt("preloadVideo function")
+  return assetLoader.preloadVideo()
+}
+
+export async function preloadAllAssets(): Promise<{
+  video: HTMLVideoElement
+}> {
+  return assetLoader.preloadAllAssets()
 }
 
 // Get cached assets - never triggers loading
 export function getCachedAssets() {
-  return {
-    starModel: assetCache.starModel.model,
-    video: assetCache.video.element,
-    isLoaded: assetCache.starModel.isLoaded && assetCache.video.isLoaded,
+  // Add detailed logging to help with debugging
+  console.log("getCachedAssets called, returning:", {
+    hasVideo: !!assetCache.video.element,
+    isLoaded: assetCache.video.isLoaded,
     initialLoadComplete: assetCache.initialLoadComplete,
-    // Add access to cached materials
-    materials: assetCache.starModel.materials,
+    hasObjectUrl: !!assetCache.video.objectUrl,
+  })
+
+  return {
+    video: assetCache.video.element,
+    isLoaded: assetCache.video.isLoaded,
+    initialLoadComplete: assetCache.initialLoadComplete,
+    videoObjectUrl: assetCache.video.objectUrl,
   }
+}
+
+// Create a video element from the cached video
+export function createVideoElementFromCache(): HTMLVideoElement | null {
+  return assetLoader.createVideoElementFromCache()
 }
 
 // Check if all assets are loaded
 export function areAllAssetsLoaded(): boolean {
-  return (
-    assetCache.starModel.isLoaded &&
-    assetCache.starModel.model !== null &&
-    assetCache.video.isLoaded &&
-    assetCache.video.element !== null
-  )
+  // Check if video is loaded
+  const videoLoaded = assetCache.video.isLoaded && assetCache.video.element !== null
+
+  // If we've been trying to load for more than 8 seconds, consider it loaded anyway
+  const loadingTooLong = Date.now() - assetCache.video.lastLoadAttempt > 8000
+
+  return videoLoaded || loadingTooLong
 }
 
 // Get overall loading progress (0-100)
 export function getOverallProgress(): number {
-  // If both assets are fully loaded, return 100% immediately
-  if (assetCache.starModel.isLoaded && assetCache.video.isLoaded) {
+  // If video is fully loaded, return 100% immediately
+  if (areAllAssetsLoaded()) {
     return 100
   }
 
   // Get progress values from listeners
-  let starModelProgress = 0
   let videoProgress = 0
 
   // Call each listener with a temporary function to capture current progress
   progressListeners.forEach((listener) => {
-    const tempListener = (type: "starModel" | "video", progress: number) => {
-      if (type === "starModel") starModelProgress = Math.max(starModelProgress, progress)
+    const tempListener = (type: "video", progress: number) => {
       if (type === "video") videoProgress = Math.max(videoProgress, progress)
     }
 
     // Call with current values
-    tempListener("starModel", assetCache.starModel.isLoaded ? 100 : 0)
     tempListener("video", assetCache.video.isLoaded ? 100 : 0)
   })
 
-  // Weight video loading more heavily (60/40 split)
-  const calculatedProgress = Math.round(videoProgress * 0.6 + starModelProgress * 0.4)
+  // If we've been loading for more than 8 seconds, ensure progress is at least 90%
+  const loadingTooLong = Date.now() - assetCache.video.lastLoadAttempt > 8000
+
+  if (loadingTooLong && videoProgress < 90) {
+    return 90
+  }
 
   // Ensure we return a value between 0-100
-  return Math.max(0, Math.min(100, calculatedProgress))
+  return Math.max(0, Math.min(100, videoProgress))
 }
-
-// Get a cached material by key, or create a new one if it doesn't exist
-export function getStarMaterial(key = "default"): THREE.Material {
-  if (assetCache.starModel.materials.has(key)) {
-    return assetCache.starModel.materials.get(key)!
-  }
-
-  // Create a new material
-  const material = new THREE.MeshStandardMaterial({
-    roughness: 0.03,
-    metalness: 0.8,
-    color: new THREE.Color("#daa520"),
-    emissive: new THREE.Color("#ffd000"),
-    emissiveIntensity: 0,
-    transparent: true,
-    toneMapped: false,
-  })
-
-  // Cache it for future use
-  assetCache.starModel.materials.set(key, material)
-
-  return material
-}
-
-// Force preloading to start immediately but with lower priority
-if (typeof window !== "undefined" && !assetCache.preloadingInitiated) {
-  console.log("Scheduling background asset preloading")
-
-  // Use requestIdleCallback for non-blocking loading
-  const startPreloading = () => {
-    preloadAllAssets().catch((error) => {
-      console.warn("Error during background asset preloading:", error)
-    })
-  }
-
-  // Delay preloading to prioritize visible content first
-  setTimeout(() => {
-    if ("requestIdleCallback" in window) {
-      ;(window as any).requestIdleCallback(startPreloading, { timeout: 2000 })
-    } else {
-      // Fallback for browsers without requestIdleCallback
-      setTimeout(startPreloading, 1000) // Delay preloading to prioritize visible content
-    }
-  }, 1000)
-}
-

@@ -3,7 +3,13 @@
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Sun } from "lucide-react"
-import { addProgressListener, preloadAllAssets, getOverallProgress, areAllAssetsLoaded } from "@/utils/asset-preloader"
+import {
+  addProgressListener,
+  preloadAllAssets,
+  getOverallProgress,
+  areAllAssetsLoaded,
+  assetLoader,
+} from "@/utils/asset-preloader"
 
 interface LoadingScreenProps {
   onLoadingComplete: () => void
@@ -11,7 +17,7 @@ interface LoadingScreenProps {
   minDisplayTime?: number // Minimum time to display the loading screen
 }
 
-// Default minimum display time of 2 seconds (2000ms) - reduced from 3000ms
+// Default minimum display time of 2 seconds (2000ms)
 const DEFAULT_MINIMUM_DISPLAY_TIME = 2000
 
 export default function LoadingScreen({
@@ -21,7 +27,6 @@ export default function LoadingScreen({
 }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0)
   const [displayProgress, setDisplayProgress] = useState(0)
-  const [starModelProgress, setStarModelProgress] = useState(0)
   const [videoProgress, setVideoProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState("Initializing...")
   const [isVisible, setIsVisible] = useState(true)
@@ -33,6 +38,7 @@ export default function LoadingScreen({
   const startTimeRef = useRef(Date.now())
   const removeListenerRef = useRef<(() => void) | undefined>(undefined)
   const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const loadingInitiatedRef = useRef(false)
 
   // Block scrolling when loading screen is visible
   useEffect(() => {
@@ -129,9 +135,7 @@ export default function LoadingScreen({
       removeListener = addProgressListener((type, assetProgress) => {
         if (!isMountedRef.current) return
 
-        if (type === "starModel") {
-          setStarModelProgress(assetProgress)
-        } else if (type === "video") {
+        if (type === "video") {
           setVideoProgress(assetProgress)
         }
 
@@ -140,7 +144,7 @@ export default function LoadingScreen({
         progressRef.current = overallProgress
         setProgress(overallProgress)
 
-        // If both assets are loaded, ensure we show 100%
+        // If assets are loaded, ensure we show 100%
         if (assetProgress === 100 && areAllAssetsLoaded()) {
           assetsLoadedRef.current = true
           setAssetsLoaded(true)
@@ -149,54 +153,60 @@ export default function LoadingScreen({
         }
       })
 
-      // Start preloading assets - this is the ONLY place we trigger loading
-      console.log("LoadingScreen: Starting asset preloading")
-      preloadAllAssets()
-        .then((assets) => {
-          if (!isMountedRef.current) return
+      // Start preloading assets using the singleton service - only once
+      if (!loadingInitiatedRef.current) {
+        console.log("LoadingScreen: Starting asset preloading via singleton")
+        loadingInitiatedRef.current = true
 
-          console.log("LoadingScreen: All assets loaded successfully", {
-            hasStarModel: !!assets.starModel,
-            hasVideo: !!assets.video,
+        // Use the singleton service to initiate loading
+        assetLoader.initiatePreloading()
+
+        // Set up a promise to handle completion
+        preloadAllAssets()
+          .then((assets) => {
+            if (!isMountedRef.current) return
+
+            console.log("LoadingScreen: All assets loaded successfully", {
+              hasVideo: !!assets.video,
+            })
+
+            // Double-check that the assets are actually loaded and cached
+            if (!assets.video) {
+              console.warn("LoadingScreen: Assets loaded but video is missing")
+            }
+            console.warn("LoadingScreen: Assets loaded but video is missing")
+
+            assetsLoadedRef.current = true
+            setAssetsLoaded(true)
+
+            // Set progress to 100% when complete
+            progressRef.current = 100
+            setProgress(100)
+            setLoadingMessage("Ready!")
+
+            // Calculate remaining time to meet minimum display time
+            const remainingTime = calculateRemainingTime()
+
+            // Wait for the minimum display time before hiding
+            completionTimeoutRef.current = setTimeout(() => {
+              if (!isMountedRef.current) return
+              completeLoading()
+            }, remainingTime)
+
+            return assets
           })
+          .catch((error) => {
+            console.error("LoadingScreen: Error preloading assets:", error)
 
-          // Double-check that the assets are actually loaded and cached
-          if (!assets.starModel || !assets.video) {
-            console.warn("LoadingScreen: Assets loaded but some are missing, retrying...")
-            // Try one more time to ensure assets are loaded
-            return preloadAllAssets()
-          }
+            // Even on error, wait the minimum time
+            const remainingTime = calculateRemainingTime()
 
-          assetsLoadedRef.current = true
-          setAssetsLoaded(true)
-
-          // Set progress to 100% when complete
-          progressRef.current = 100
-          setProgress(100)
-          setLoadingMessage("Ready!")
-
-          // Calculate remaining time to meet minimum display time
-          const remainingTime = calculateRemainingTime()
-
-          // Wait for the minimum display time before hiding
-          completionTimeoutRef.current = setTimeout(() => {
-            if (!isMountedRef.current) return
-            completeLoading()
-          }, remainingTime)
-
-          return assets
-        })
-        .catch((error) => {
-          console.error("LoadingScreen: Error preloading assets:", error)
-
-          // Even on error, wait the minimum time
-          const remainingTime = calculateRemainingTime()
-
-          completionTimeoutRef.current = setTimeout(() => {
-            if (!isMountedRef.current) return
-            completeLoading()
-          }, remainingTime)
-        })
+            completionTimeoutRef.current = setTimeout(() => {
+              if (!isMountedRef.current) return
+              completeLoading()
+            }, remainingTime)
+          })
+      }
     } else {
       // If external progress is provided, use it
       progressRef.current = externalProgress
@@ -389,10 +399,6 @@ export default function LoadingScreen({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
           >
-            <div className="flex items-center">
-              <div className="w-2 h-2 rounded-full bg-yellow-400/70 mr-2" />
-              <span>3D Model: {starModelProgress}%</span>
-            </div>
             <div className="flex items-center">
               <div className="w-2 h-2 rounded-full bg-amber-400/70 mr-2" />
               <span>Video: {videoProgress}%</span>
