@@ -8,7 +8,6 @@ import { Sun, Moon } from "lucide-react"
 import Particles, { initParticlesEngine } from "@tsparticles/react"
 import { loadSlim } from "@tsparticles/slim"
 import type { ISourceOptions } from "@tsparticles/engine"
-import { getPreloadedVideo, areVideosLoaded } from "@/utils/video-preloader"
 
 // Define scenario types and content
 type ScenarioType = "day" | "night"
@@ -16,23 +15,26 @@ type ScenarioType = "day" | "night"
 interface ScenarioContent {
   title: string
   description: string
-  videoKey: "day" | "night"
+  videoSrc: string
+  poster: string
   icon: React.ElementType
 }
 
-// Update the scenarios to use video keys
+// Update the scenarios to use direct video sources
 const scenarios: Record<ScenarioType, ScenarioContent> = {
   day: {
     title: "Daytime",
     description:
       "Excess energy produced gets sent back to the grid providing potential credits to offset future electric bills.",
-    videoKey: "day",
+    videoSrc: "/day.mp4",
+    poster: "/day1.png",
     icon: Sun,
   },
   night: {
     title: "Nighttime",
     description: "At night, simply use grid energy to power your home.",
-    videoKey: "night",
+    videoSrc: "/night.mp4",
+    poster: "/night3.png",
     icon: Moon,
   },
 }
@@ -46,15 +48,12 @@ export default function HowSolarWorks() {
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
   const [isLandscape, setIsLandscape] = useState(false)
-  const [videosAttached, setVideosAttached] = useState(false)
 
   // Refs
   const sectionRef = useRef<HTMLElement>(null)
-  const videoContainerRef = useRef<HTMLDivElement>(null)
   const dayVideoRef = useRef<HTMLVideoElement | null>(null)
   const nightVideoRef = useRef<HTMLVideoElement | null>(null)
   const componentIdRef = useRef<string>(`how-solar-works-${Math.random().toString(36).substr(2, 9)}`)
-  const hasInitializedRef = useRef(false)
 
   // Initialize media queries
   useEffect(() => {
@@ -83,102 +82,113 @@ export default function HowSolarWorks() {
     })
   }, [])
 
-  // Attach preloaded videos
+  // Initialize videos
   useEffect(() => {
-    // Skip if already initialized
-    if (hasInitializedRef.current || videosAttached) {
-      return
-    }
+    const instanceId = componentIdRef.current
+    console.log(`HowSolarWorks [${instanceId}]: Component mounted`)
 
-    // Check if videos are preloaded
-    if (!areVideosLoaded()) {
-      console.log("HowSolarWorks: Videos not yet preloaded, waiting...")
-      return
-    }
+    // Create day video
+    const dayVideo = document.createElement("video")
+    dayVideo.muted = true
+    dayVideo.playsInline = true
+    dayVideo.loop = true
+    dayVideo.src = scenarios.day.videoSrc
+    dayVideo.poster = scenarios.day.poster
+    dayVideo.className = "absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+    dayVideo.style.opacity = scenario === "day" ? "1" : "0"
+    dayVideoRef.current = dayVideo
 
-    hasInitializedRef.current = true
-    console.log(`HowSolarWorks: Initializing ${componentIdRef.current}`)
+    // Create night video
+    const nightVideo = document.createElement("video")
+    nightVideo.muted = true
+    nightVideo.playsInline = true
+    nightVideo.loop = true
+    nightVideo.src = scenarios.night.videoSrc
+    nightVideo.poster = scenarios.night.poster
+    nightVideo.className = "absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+    nightVideo.style.opacity = scenario === "night" ? "1" : "0"
+    nightVideoRef.current = nightVideo
 
-    try {
-      // Get the preloaded videos
-      const dayVideo = getPreloadedVideo("day")
-      const nightVideo = getPreloadedVideo("night")
-
-      if (dayVideo && nightVideo && videoContainerRef.current) {
-        console.log("HowSolarWorks: Got preloaded day and night videos")
-
-        // Clone the videos to avoid conflicts with other components
-        const dayVideoElement = dayVideo.cloneNode(true) as HTMLVideoElement
-        const nightVideoElement = nightVideo.cloneNode(true) as HTMLVideoElement
-
-        // Ensure videos have proper attributes
-        dayVideoElement.muted = true
-        dayVideoElement.playsInline = true
-        dayVideoElement.loop = true
-        dayVideoElement.crossOrigin = "anonymous"
-
-        nightVideoElement.muted = true
-        nightVideoElement.playsInline = true
-        nightVideoElement.loop = true
-        nightVideoElement.crossOrigin = "anonymous"
-
-        // Add the videos to the refs
-        dayVideoRef.current = dayVideoElement
-        nightVideoRef.current = nightVideoElement
-
-        // Add the videos to the DOM
-        const dayVideoContainer = document.createElement("div")
-        dayVideoContainer.className = "absolute inset-0 w-full h-full"
-        dayVideoContainer.appendChild(dayVideoElement)
-        dayVideoElement.className = "absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-        dayVideoElement.style.opacity = scenario === "day" ? "1" : "0"
-
-        const nightVideoContainer = document.createElement("div")
-        nightVideoContainer.className = "absolute inset-0 w-full h-full"
-        nightVideoContainer.appendChild(nightVideoElement)
-        nightVideoElement.className = "absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-        nightVideoElement.style.opacity = scenario === "night" ? "1" : "0"
-
-        videoContainerRef.current.appendChild(dayVideoContainer)
-        videoContainerRef.current.appendChild(nightVideoContainer)
-
-        // Mark as attached
-        setVideosAttached(true)
-
-        // Start with day video
-        if (scenario === "day") {
-          dayVideoElement.play().catch((error) => {
-            console.warn("Could not autoplay day video:", error)
-          })
-        } else {
-          nightVideoElement.play().catch((error) => {
-            console.warn("Could not autoplay night video:", error)
-          })
-        }
-
-        // Mark as loaded
-        setIsLoaded(true)
-      } else {
-        console.warn("HowSolarWorks: Preloaded videos not available")
-        setIsLoaded(true) // Still mark as loaded to show UI
+    // Set up event listeners
+    const handleDayVideoLoaded = () => {
+      console.log(`HowSolarWorks [${instanceId}]: Day video loaded`)
+      if (scenario === "day") {
+        dayVideo.play().catch((error) => {
+          console.warn(`HowSolarWorks [${instanceId}]: Could not autoplay day video:`, error)
+        })
       }
-    } catch (error) {
-      console.error("HowSolarWorks: Error setting up videos:", error)
-      setIsLoaded(true) // Still mark as loaded to show UI
+      checkIfAllLoaded()
     }
-  }, [scenario, videosAttached])
 
-  // Force loaded state after timeout
-  useEffect(() => {
-    if (!isLoaded) {
-      const forceLoadedTimeout = setTimeout(() => {
-        console.log("HowSolarWorks: Force setting loaded state after timeout")
+    const handleNightVideoLoaded = () => {
+      console.log(`HowSolarWorks [${instanceId}]: Night video loaded`)
+      if (scenario === "night") {
+        nightVideo.play().catch((error) => {
+          console.warn(`HowSolarWorks [${instanceId}]: Could not autoplay night video:`, error)
+        })
+      }
+      checkIfAllLoaded()
+    }
+
+    const checkIfAllLoaded = () => {
+      if (dayVideo.readyState >= 2 && nightVideo.readyState >= 2) {
+        console.log(`HowSolarWorks [${instanceId}]: All videos loaded`)
         setIsLoaded(true)
-      }, 3000)
-
-      return () => clearTimeout(forceLoadedTimeout)
+      }
     }
-  }, [isLoaded])
+
+    dayVideo.addEventListener("loadeddata", handleDayVideoLoaded)
+    nightVideo.addEventListener("error", () => {
+      console.error(`HowSolarWorks [${instanceId}]: Day video error:`, dayVideo.error)
+      checkIfAllLoaded()
+    })
+
+    nightVideo.addEventListener("loadeddata", handleNightVideoLoaded)
+    nightVideo.addEventListener("error", () => {
+      console.error(`HowSolarWorks [${instanceId}]: Night video error:`, nightVideo.error)
+      checkIfAllLoaded()
+    })
+
+    // Add videos to the DOM
+    const videoContainer = document.getElementById("how-solar-works-video-container")
+    if (videoContainer) {
+      videoContainer.appendChild(dayVideo)
+      videoContainer.appendChild(nightVideo)
+    }
+
+    // Start loading videos
+    dayVideo.load()
+    nightVideo.load()
+
+    // Force loaded state after timeout
+    const forceLoadedTimeout = setTimeout(() => {
+      if (!isLoaded) {
+        console.log(`HowSolarWorks [${instanceId}]: Force setting loaded state after timeout`)
+        setIsLoaded(true)
+      }
+    }, 5000)
+
+    return () => {
+      clearTimeout(forceLoadedTimeout)
+
+      // Clean up event listeners
+      dayVideo.removeEventListener("loadeddata", handleDayVideoLoaded)
+      nightVideo.removeEventListener("loadeddata", handleNightVideoLoaded)
+
+      // Clean up video elements
+      if (dayVideoRef.current) {
+        dayVideoRef.current.pause()
+        dayVideoRef.current.remove()
+      }
+
+      if (nightVideoRef.current) {
+        nightVideoRef.current.pause()
+        nightVideoRef.current.remove()
+      }
+
+      console.log(`HowSolarWorks [${instanceId}]: Component unmounted`)
+    }
+  }, [])
 
   // Handle scenario switching
   const switchScenario = useCallback(
@@ -210,7 +220,7 @@ export default function HowSolarWorks() {
 
           // Play the next video
           await nextVideo.play().catch((error) => {
-            console.warn(`Could not play ${nextScenario} video:`, error)
+            console.warn(`HowSolarWorks: Could not play ${nextScenario} video:`, error)
           })
 
           // Update the scenario state
@@ -380,13 +390,13 @@ export default function HowSolarWorks() {
               {/* Video in the middle */}
               <div className={getVideoContainerClasses()}>
                 <motion.div
-                  ref={videoContainerRef}
+                  id="how-solar-works-video-container"
                   className="w-full h-full relative rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: isLoaded ? 1 : 0, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
-                  {/* Video container - videos will be inserted here dynamically */}
+                  {/* Videos will be inserted here dynamically */}
                 </motion.div>
               </div>
             </>
@@ -409,13 +419,13 @@ export default function HowSolarWorks() {
               {/* Center video */}
               <div className={getVideoContainerClasses()}>
                 <motion.div
-                  ref={videoContainerRef}
+                  id="how-solar-works-video-container"
                   className="w-full h-full relative rounded-3xl overflow-hidden shadow-2xl"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: isLoaded ? 1 : 0, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
-                  {/* Video container - videos will be inserted here dynamically */}
+                  {/* Videos will be inserted here dynamically */}
                 </motion.div>
               </div>
 

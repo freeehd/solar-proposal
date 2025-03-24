@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef } from "react"
 import HeroSection from "@/components/hero-section"
 import EnergyUsageSection from "@/components/energy-usage-section"
 import SolarDesignSection from "@/components/solar-design-section"
@@ -18,16 +18,6 @@ import AppSection from "@/components/app-section"
 import LoadingScreen from "@/components/ui/loading-screen"
 import { Sun, EyeOff } from "lucide-react"
 import { useProposalData, type ProposalData } from "@/hooks/use-proposal-data"
-import { preloadAllVideos, addVideoProgressListener, areVideosLoaded } from "@/utils/video-preloader"
-
-// Start preloading videos as early as possible
-if (typeof window !== "undefined") {
-  console.log("Page: Initiating video preloading from page component")
-  // Force preloading to start immediately
-  preloadAllVideos().catch((error) => {
-    console.warn("Page: Error during initial video preloading:", error)
-  })
-}
 
 interface ProposalContentProps {
   proposalId?: string
@@ -53,23 +43,10 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
   const [activeSection, setActiveSection] = useState("hero")
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({})
   const [isLoading, setIsLoading] = useState(true)
-  const [videoProgress, setVideoProgress] = useState({
-    hero: 0,
-    day: 0,
-    night: 0,
-    overall: 0,
-  })
   const instanceIdRef = useRef(`proposal-content-${Math.random().toString(36).substring(2, 9)}`)
-  const preloadingInitiatedRef = useRef(false)
 
   // Use our hook for proposal data
-  const {
-    proposalData,
-    visibleSections,
-    dataLoaded,
-    setProposalData,
-    loadingProgress: dataProgress,
-  } = useProposalData({
+  const { proposalData, visibleSections, dataLoaded, setProposalData } = useProposalData({
     proposalId,
     initialData,
   })
@@ -84,75 +61,11 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
     }
   }, [])
 
-  // Ensure video preloading is initiated
-  useEffect(() => {
-    if (!preloadingInitiatedRef.current) {
-      preloadingInitiatedRef.current = true
-      console.log("ProposalContent: Ensuring video preloading is initiated")
-
-      // Double-check that preloading has started
-      preloadAllVideos().catch((error) => {
-        console.warn("ProposalContent: Error during video preloading:", error)
-      })
-    }
-  }, [])
-
-  // Track video loading progress
-  useEffect(() => {
-    console.log("ProposalContent: Setting up video progress listener")
-
-    const removeListener = addVideoProgressListener((progress) => {
-      console.log("ProposalContent: Video progress update:", progress)
-      setVideoProgress(progress)
-    })
-
-    return () => {
-      console.log("ProposalContent: Removing video progress listener")
-      removeListener()
-    }
-  }, [])
-
-  // Calculate overall progress for loading screen
-  const getOverallProgress = useCallback(() => {
-    // If data is loaded and videos are loaded, return 100%
-    if (dataLoaded && areVideosLoaded()) {
-      return 100
-    }
-
-    // Weight: 40% data, 60% videos
-    const dataProgressValue = typeof dataProgress === "number" ? dataProgress : 0
-    const videoProgressValue = typeof videoProgress.overall === "number" ? videoProgress.overall : 0
-
-    // Calculate weighted average
-    const calculatedProgress = Math.round(dataProgressValue * 0.4 + videoProgressValue * 0.6)
-
-    console.log("ProposalContent: Overall progress calculation:", {
-      dataProgress: dataProgressValue,
-      videoProgress: videoProgressValue,
-      calculatedProgress,
-    })
-
-    // Ensure we return a value between 0-100
-    return Math.max(0, Math.min(100, calculatedProgress))
-  }, [dataProgress, videoProgress.overall, dataLoaded])
-
-  // Check if everything is loaded and hide loading screen
-  useEffect(() => {
-    // Only hide loading when both data and videos are loaded
-    if (dataLoaded && areVideosLoaded()) {
-      console.log("ProposalContent: Data and videos are loaded, preparing to hide loading screen")
-
-      // Force hide loader after a maximum time (15 seconds) as a fallback
-      const forceHideTimeout = setTimeout(() => {
-        if (isLoading) {
-          console.warn("ProposalContent: Force hiding loader after timeout")
-          setIsLoading(false)
-        }
-      }, 15000)
-
-      return () => clearTimeout(forceHideTimeout)
-    }
-  }, [dataLoaded, isLoading])
+  // Handle loading completion
+  const handleLoadingComplete = () => {
+    console.log(`ProposalContent [${instanceIdRef.current}]: Loading complete, hiding loading screen`)
+    setIsLoading(false)
+  }
 
   // Handle scroll position for navigation
   useEffect(() => {
@@ -210,15 +123,10 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
 
   return (
     <div className="text-foreground bg-background">
-      {/* Centralized loading screen - only place we show loading UI */}
+      {/* Simplified loading screen */}
       {isLoading && (
         <LoadingScreen
-          onLoadingComplete={() => {
-            // This callback is triggered after the fade-out animation completes
-            console.log("ProposalContent: Loading screen completed, hiding it")
-            setIsLoading(false)
-          }}
-          progress={getOverallProgress()}
+          onLoadingComplete={handleLoadingComplete}
           minDisplayTime={3000} // Ensure loading screen shows for at least 3 seconds
         />
       )}
