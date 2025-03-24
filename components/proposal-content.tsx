@@ -42,7 +42,6 @@ const sections = [
 export default function ProposalContent({ proposalId, initialData = {} }: ProposalContentProps) {
   const [activeSection, setActiveSection] = useState("hero")
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({})
-  const [isLoading, setIsLoading] = useState(true)
   const instanceIdRef = useRef(`proposal-content-${Math.random().toString(36).substring(2, 9)}`)
 
   // Use our hook for proposal data
@@ -60,12 +59,6 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
       console.log(`ProposalContent [${instanceId}]: Component unmounted`)
     }
   }, [])
-
-  // Handle loading completion
-  const handleLoadingComplete = () => {
-    console.log(`ProposalContent [${instanceIdRef.current}]: Loading complete, hiding loading screen`)
-    setIsLoading(false)
-  }
 
   // Handle scroll position for navigation
   useEffect(() => {
@@ -123,16 +116,11 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
 
   return (
     <div className="text-foreground bg-background">
-      {/* Simplified loading screen */}
-      {isLoading && (
-        <LoadingScreen
-          onLoadingComplete={handleLoadingComplete}
-          minDisplayTime={3000} // Ensure loading screen shows for at least 3 seconds
-        />
-      )}
+      {/* Self-contained loading screen overlay with fixed display time */}
+      <LoadingScreen  />
 
       {visibleSectionsList.length > 0 && (
-        <nav className="fixed top-0 right-0 h-screen z-50 flex items-center">
+        <nav className="fixed top-0 right-0 h-screen z-40 flex items-center">
           <ul className="space-y-4 p-4">
             {visibleSectionsList.map((section) => (
               <li key={section.id}>
@@ -162,7 +150,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
         </nav>
       )}
 
-      <div className="fixed top-4 left-4 z-50">
+      <div className="fixed top-4 left-4 z-40">
         <ThemeToggle />
       </div>
 
