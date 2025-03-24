@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { Center, useDetectGPU, Environment } from "@react-three/drei"
+import { Center, Environment } from "@react-three/drei"
 import * as THREE from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 
@@ -13,7 +13,6 @@ interface StarMeshProps {
   onAnimationComplete?: () => void
   delay?: number
   prefersReducedMotion: boolean
-  quality: "high" | "low"
   inView?: boolean
 }
 
@@ -251,7 +250,6 @@ const StarMesh = React.memo(
     onAnimationComplete,
     delay = 0,
     prefersReducedMotion,
-    quality,
     inView = true,
   }: StarMeshProps) => {
     const groupRef = useRef<THREE.Group>(null)
@@ -362,7 +360,7 @@ const StarMesh = React.memo(
 
       materialRef.current = material
       return material
-    }, [quality])
+    }, [])
 
     // Animation state reference to avoid re-renders
     const animationState = useRef({
@@ -564,17 +562,6 @@ export const StarAnimation = React.memo(
     const systemPrefersReducedMotion = useReducedMotion()
     const prefersReducedMotion = propsPrefersReducedMotion || !!systemPrefersReducedMotion
 
-    // Detect GPU capabilities once and memoize the result
-    const gpu = useDetectGPU()
-    const quality = useMemo(() => {
-      // Lower quality for Safari/macOS to improve performance
-      if (isMacOS) {
-        return "high"
-      }
-
-      return gpu && gpu.tier >= 2 ? "high" : "low"
-    }, [gpu])
-
     // Force completion after a timeout, but only if in view
     useEffect(() => {
       if (inView && !hasCompletedEntrance && !hasCalledCompletionRef.current) {
@@ -650,7 +637,7 @@ export const StarAnimation = React.memo(
         style: { background: "transparent" },
         frameloop: "always", // Always run animation loop for immediate rendering
         gl: {
-          antialias: quality === "high", // Only use antialias for high quality
+          antialias: true, // Always use antialias for high quality
           alpha: true,
           powerPreference: "high-performance" as WebGLPowerPreference,
           depth: true,
@@ -659,14 +646,18 @@ export const StarAnimation = React.memo(
           // Safari-specific WebGL context attributes
           ...(isMacOS
             ? {
-                powerPreference: "default" as WebGLPowerPreference,
-                antialias: false,
+              antialias: true, // Always use antialias for high quality
+          alpha: true,
+          powerPreference: "high-performance" as WebGLPowerPreference,
+          depth: true,
+          stencil: false,
+          logarithmicDepthBuffer: true,
               }
             : {}),
         },
         onError: handleError,
       }),
-      [dpr, quality, handleError],
+      [dpr, handleError],
     )
 
     // Fallback for errors
@@ -711,7 +702,6 @@ export const StarAnimation = React.memo(
                 onAnimationComplete={handleComplete}
                 delay={delay}
                 prefersReducedMotion={prefersReducedMotion}
-                quality={quality}
                 inView={inView}
               />
             </Center>
