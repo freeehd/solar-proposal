@@ -19,7 +19,7 @@ export default function ProposalEdit({ id }: { id: string }) {
     const fetchProposal = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/proposal/${id}`)
+        const response = await fetch(`/api/proposals/${id}`)
 
         if (!response.ok) {
           throw new Error(`Failed to fetch proposal: ${response.status}`)
@@ -50,7 +50,7 @@ export default function ProposalEdit({ id }: { id: string }) {
     })
 
     // Redirect to the proposal view page
-    router.push(`/proposals/${id}`)
+    router.push(`/proposal/${id}`)
   }
 
   if (loading) {
