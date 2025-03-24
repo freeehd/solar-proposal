@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect, useMemo } from "react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowRight, TrendingUp, DollarSign, Percent, Calendar, CreditCard, Wallet } from "lucide-react"
+import { ArrowRight, TrendingUp, DollarSign, Percent, Calendar, CreditCard } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import type { EnabledFinanceFields } from "@/hooks/use-proposal-data"
@@ -208,7 +208,7 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
         }
       case "LightReach":
         return {
-          name: "LightReach Solar Loan",
+          name: `Light Reach Predictable PPA - ${proposalData.escalation_rate || 0}%`,
           logo: "/public/icons/lightreach.png",
         }
       case "Aurora Custom Financing":
@@ -485,16 +485,11 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-2xl font-semibold mb-6 text-center"
           >
-            Financing Details
+            Financial Details
           </motion.h3>
 
-          <motion.div
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-          >
-            {/* Financing Details Card */}
+          <motion.div variants={cardVariants} initial="hidden" animate="visible">
+            {/* Single Financial Details Card */}
             <Card className="bg-card/50 backdrop-blur border-primary/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -511,121 +506,177 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
                   ) : (
                     <CreditCard className="h-5 w-5" />
                   )}
-                  Financing Details
+                  Financial Details
                 </CardTitle>
-                <CardDescription>
-                  {proposalData.financing_type === "Cash" ? "Cash purchase details" : "Loan and financing information"}
-                </CardDescription>
+                <CardDescription>Complete financial information for your solar investment</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Only show these fields for non-cash purchases */}
-                  {proposalData.financing_type !== "Cash" && (
-                    <>
-                      {enabledFields.apr && proposalData.apr && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Annual Percentage Rate (APR)</p>
-                          <p className="text-lg font-medium">{proposalData.apr}%</p>
+
+              <CardContent>
+                {/* Calculate how many sections are visible */}
+                {(() => {
+                  const hasSystemCosts =
+                    (enabledFields.totalSystemCost && proposalData.total_system_cost) ||
+                    (enabledFields.netCost && proposalData.net_cost)
+
+                  const hasFinancing =
+                    (enabledFields.financingType && proposalData.financing_type) ||
+                    (proposalData.financing_type !== "Cash" &&
+                      ((enabledFields.apr && proposalData.apr) ||
+                        (enabledFields.duration && proposalData.duration) ||
+                        (enabledFields.downPayment && proposalData.down_payment) ||
+                        (enabledFields.financedAmount && proposalData.financed_amount) ||
+                        (enabledFields.monthlyPayments && proposalData.monthly_payments)))
+
+                  const hasSavings =
+                    (enabledFields.solarRate && proposalData.solar_rate) ||
+                    (enabledFields.escalationRate && proposalData.escalation_rate) ||
+                    (enabledFields.year1MonthlyPayments && proposalData.year1_monthly_payments) ||
+                    (enabledFields.paybackPeriod && proposalData.payback_period) ||
+                    (enabledFields.lifetimeSavings && proposalData.lifetime_savings)
+
+                  const visibleSections = [hasSystemCosts, hasFinancing, hasSavings].filter(Boolean).length
+
+                  // Determine grid columns based on visible sections
+                  const gridCols =
+                    visibleSections === 1
+                      ? "md:grid-cols-1"
+                      : visibleSections === 2
+                        ? "md:grid-cols-2"
+                        : "md:grid-cols-3"
+
+                  return (
+                    <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
+                      {/* System Costs Column - Only show if at least one field is enabled */}
+                      {hasSystemCosts && (
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-primary">System Costs</h4>
+                          <div className="space-y-3">
+                            {enabledFields.totalSystemCost && proposalData.total_system_cost && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Total System Cost</p>
+                                <p className="text-lg font-medium">{formatCurrency(proposalData.total_system_cost)}</p>
+                              </div>
+                            )}
+
+                            {enabledFields.netCost && proposalData.net_cost && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Net System Cost</p>
+                                <p className="text-lg font-medium">{formatCurrency(proposalData.net_cost)}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 
-                      {enabledFields.duration && proposalData.duration && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Loan Term</p>
-                          <p className="text-lg font-medium">{proposalData.duration} years</p>
+                      {/* Financing Details Column - Only show if at least one field is enabled */}
+                      {hasFinancing && (
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-primary">Financing</h4>
+                          <div className="space-y-3">
+                            {enabledFields.financingType && proposalData.financing_type && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Financing Type</p>
+                                <p className="text-lg font-medium">{financingInfo.name}</p>
+                              </div>
+                            )}
+
+                            {/* Only show these fields for non-cash purchases */}
+                            {proposalData.financing_type !== "Cash" && (
+                              <>
+                                {enabledFields.apr && proposalData.apr && (
+                                  <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Annual Percentage Rate (APR)</p>
+                                    <p className="text-lg font-medium">{proposalData.apr}%</p>
+                                  </div>
+                                )}
+
+                                {enabledFields.duration && proposalData.duration && (
+                                  <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Loan Term</p>
+                                    <p className="text-lg font-medium">{proposalData.duration} years</p>
+                                  </div>
+                                )}
+
+                                {enabledFields.downPayment && proposalData.down_payment && (
+                                  <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Down Payment</p>
+                                    <p className="text-lg font-medium">{formatCurrency(proposalData.down_payment)}</p>
+                                  </div>
+                                )}
+
+                                {enabledFields.financedAmount && proposalData.financed_amount && (
+                                  <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Financed Amount</p>
+                                    <p className="text-lg font-medium">
+                                      {formatCurrency(proposalData.financed_amount)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {enabledFields.monthlyPayments && proposalData.monthly_payments && (
+                                  <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Monthly Payments</p>
+                                    <p className="text-lg font-medium">
+                                      {formatCurrency(proposalData.monthly_payments)}/month
+                                    </p>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       )}
 
-                      {enabledFields.downPayment && proposalData.down_payment && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Down Payment</p>
-                          <p className="text-lg font-medium">{formatCurrency(proposalData.down_payment)}</p>
+                      {/* Savings Column - Only show if at least one field is enabled */}
+                      {hasSavings && (
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-primary">Savings & Benefits</h4>
+                          <div className="space-y-3">
+                            {enabledFields.solarRate && proposalData.solar_rate && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Solar Rate</p>
+                                <p className="text-lg font-medium">${proposalData.solar_rate}/kWh</p>
+                              </div>
+                            )}
+
+                            {enabledFields.escalationRate && proposalData.escalation_rate && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Escalation Rate</p>
+                                <p className="text-lg font-medium">{proposalData.escalation_rate}% per year</p>
+                              </div>
+                            )}
+
+                            {enabledFields.year1MonthlyPayments && proposalData.year1_monthly_payments && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Year 1 Monthly Payments</p>
+                                <p className="text-lg font-medium">
+                                  {formatCurrency(proposalData.year1_monthly_payments)}/month
+                                </p>
+                              </div>
+                            )}
+
+                            {enabledFields.paybackPeriod && proposalData.payback_period && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Payback Period</p>
+                                <p className="text-lg font-medium">{proposalData.payback_period} years</p>
+                              </div>
+                            )}
+
+                            {enabledFields.lifetimeSavings && proposalData.lifetime_savings && (
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Lifetime Savings</p>
+                                <p className="text-lg font-medium">{formatCurrency(proposalData.lifetime_savings)}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
-
-                      {enabledFields.financedAmount && proposalData.financed_amount && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Financed Amount</p>
-                          <p className="text-lg font-medium">{formatCurrency(proposalData.financed_amount)}</p>
-                        </div>
-                      )}
-
-                      {enabledFields.monthlyPayments && proposalData.monthly_payments && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Monthly Payments</p>
-                          <p className="text-lg font-medium">{formatCurrency(proposalData.monthly_payments)}/month</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Show for all financing types */}
-                  {enabledFields.netCost && proposalData.net_cost && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Net System Cost</p>
-                      <p className="text-lg font-medium">{formatCurrency(proposalData.net_cost)}</p>
                     </div>
-                  )}
-
-                  {enabledFields.totalSystemCost && proposalData.total_system_cost && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Total System Cost</p>
-                      <p className="text-lg font-medium">{formatCurrency(proposalData.total_system_cost)}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Solar Savings Card */}
-            <Card className="bg-card/50 backdrop-blur border-primary/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wallet className="h-5 w-5" />
-                  Solar Savings
-                </CardTitle>
-                <CardDescription>Long-term financial benefits of your solar investment</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {enabledFields.solarRate && proposalData.solar_rate && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Solar Rate</p>
-                      <p className="text-lg font-medium">${proposalData.solar_rate}/kWh</p>
-                    </div>
-                  )}
-
-                  {enabledFields.escalationRate && proposalData.escalation_rate && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Escalation Rate</p>
-                      <p className="text-lg font-medium">{proposalData.escalation_rate}% per year</p>
-                    </div>
-                  )}
-
-                  {enabledFields.year1MonthlyPayments && proposalData.year1_monthly_payments && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Year 1 Monthly Payments</p>
-                      <p className="text-lg font-medium">{formatCurrency(proposalData.year1_monthly_payments)}/month</p>
-                    </div>
-                  )}
-
-                  {enabledFields.paybackPeriod && proposalData.payback_period && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Payback Period</p>
-                      <p className="text-lg font-medium">{proposalData.payback_period} years</p>
-                    </div>
-                  )}
-
-                  {enabledFields.lifetimeSavings && proposalData.lifetime_savings && (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Lifetime Savings</p>
-                      <p className="text-lg font-medium">{formatCurrency(proposalData.lifetime_savings)}</p>
-                    </div>
-                  )}
-                </div>
+                  )
+                })()}
 
                 {/* ROI Information */}
-                <Separator className="my-4" />
+                <Separator className="my-6" />
                 <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-blue-600" />

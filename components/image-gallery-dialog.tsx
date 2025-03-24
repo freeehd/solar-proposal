@@ -15,6 +15,7 @@ interface ImageGalleryDialogProps {
   initialImage?: string
   onSelect: (imagePath: string) => void
   imageType?: "solar" | "battery" // Add imageType prop
+  disabled?: boolean // Add disabled prop
 }
 
 interface ImageItem {
@@ -24,7 +25,12 @@ interface ImageItem {
   uploadedAt: string
 }
 
-export function ImageGalleryDialog({ initialImage, onSelect, imageType = "battery" }: ImageGalleryDialogProps) {
+export function ImageGalleryDialog({
+  initialImage,
+  onSelect,
+  imageType = "battery",
+  disabled = false,
+}: ImageGalleryDialogProps) {
   const [selectedImage, setSelectedImage] = useState<string | undefined>(initialImage)
   const [images, setImages] = useState<ImageItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -121,7 +127,7 @@ export function ImageGalleryDialog({ initialImage, onSelect, imageType = "batter
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
+        <Button variant="outline" className="w-full" disabled={disabled}>
           <ImagePlus className="mr-2 h-4 w-4" />
           {initialImage ? "Change Image" : "Select Image"}
         </Button>

@@ -75,7 +75,9 @@ const formSchema = z.object({
   year1MonthlyPayments: z.string().default("0.00"),
 })
 
-export interface EnabledFinanceFields {
+// Update the EnabledFinanceFields interface to include all toggleable fields
+export interface EnabledFields {
+  // Financing fields
   financingType: boolean
   paybackPeriod: boolean
   totalSystemCost: boolean
@@ -89,8 +91,29 @@ export interface EnabledFinanceFields {
   solarRate: boolean
   escalationRate: boolean
   year1MonthlyPayments: boolean
+
+  // Battery fields
+  batteryName: boolean
+  inverterName: boolean
+  capacity: boolean
+  outputKW: boolean
+  cost: boolean
+  batteryImage: boolean
+
+  // System details fields
+  solarSystemModel: boolean
+  solarSystemQuantity: boolean
+  solarSystemPrice: boolean
+  incentives: boolean
+  storageSystemModel: boolean
+  storageSystemQuantity: boolean
+  storageSystemPrice: boolean
+  backupAllocation: boolean
+  solarPanelDesign: boolean
+  operatingMode: boolean
 }
 
+// Replace all instances of EnabledFinanceFields with EnabledFields
 interface DefaultFormProps {
   initialData?: any
   isEditing?: boolean
@@ -221,11 +244,12 @@ export function DefaultForm({
         },
   )
 
-  // Add a state to track which financial items are enabled
-  const [enabledFinanceFields, setEnabledFinanceFields] = useState<EnabledFinanceFields>(
-    initialData && initialData.enabled_finance_fields
-      ? initialData.enabled_finance_fields
+  // Update the state to include all toggleable fields
+  const [enabledFields, setEnabledFields] = useState<EnabledFields>(
+    initialData && initialData.enabled_fields
+      ? initialData.enabled_fields
       : {
+          // Financing fields
           financingType: true,
           paybackPeriod: true,
           totalSystemCost: true,
@@ -239,15 +263,35 @@ export function DefaultForm({
           solarRate: false,
           escalationRate: false,
           year1MonthlyPayments: false,
+
+          // Battery fields
+          batteryName: true,
+          inverterName: true,
+          capacity: true,
+          outputKW: true,
+          cost: true,
+          batteryImage: true,
+
+          // System details fields
+          solarSystemModel: true,
+          solarSystemQuantity: true,
+          solarSystemPrice: true,
+          incentives: true,
+          storageSystemModel: true,
+          storageSystemQuantity: true,
+          storageSystemPrice: true,
+          backupAllocation: true,
+          solarPanelDesign: true,
+          operatingMode: true,
         },
   )
 
   // Add loading state for form submission
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Add a function to toggle financial fields
-  const toggleFinanceField = (fieldName: string) => {
-    setEnabledFinanceFields((prev) => ({
+  // Update the toggle function to work with all fields
+  const toggleField = (fieldName: string) => {
+    setEnabledFields((prev) => ({
       ...prev,
       [fieldName as keyof typeof prev]: !prev[fieldName as keyof typeof prev],
     }))
@@ -310,7 +354,7 @@ export function DefaultForm({
         year1_monthly_payments: values.year1MonthlyPayments || "0.00",
         energy_data: energyData,
         section_visibility: sectionVisibility,
-        enabled_finance_fields: enabledFinanceFields,
+        enabled_fields: enabledFields,
       }
 
       // Log the data being submitted
@@ -511,8 +555,9 @@ export function DefaultForm({
       form.setValue(key as any, value)
     })
 
-    // Enable some of the new fields in the example
-    setEnabledFinanceFields({
+    // Enable all fields for the example
+    setEnabledFields({
+      // Financing fields
       financingType: true,
       paybackPeriod: true,
       totalSystemCost: true,
@@ -526,6 +571,26 @@ export function DefaultForm({
       solarRate: false,
       escalationRate: false,
       year1MonthlyPayments: false,
+
+      // Battery fields
+      batteryName: true,
+      inverterName: true,
+      capacity: true,
+      outputKW: true,
+      cost: true,
+      batteryImage: true,
+      backupAllocation: true,
+      operatingMode: true,
+      solarPanelDesign: true,
+
+      // System details fields
+      solarSystemModel: true,
+      solarSystemQuantity: true,
+      solarSystemPrice: true,
+      incentives: true,
+      storageSystemModel: true,
+      storageSystemQuantity: true,
+      storageSystemPrice: true,
     })
 
     setEnergyData(`Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
@@ -538,11 +603,24 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
     setEnergyData(e.target.value)
   }
 
+  // Update the "Enable All Fields" button to enable all fields
+  const enableAllFields = () => {
+    const allFields = Object.keys(enabledFields).reduce(
+      (acc, key) => {
+        acc[key as keyof typeof enabledFields] = true
+        return acc
+      },
+      { ...enabledFields },
+    )
+    setEnabledFields(allFields)
+  }
+
   return (
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h2 className="col-span-full text-xl font-semibold text-primary mb-2 mt-4">1. Hero Section</h2>
             <FormField
               control={form.control}
               name="name"
@@ -572,6 +650,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h2 className="col-span-full text-xl font-semibold text-primary mb-2 mt-6">2. Energy Usage Section</h2>
             <FormField
               control={form.control}
               name="averageRateKWh"
@@ -662,6 +741,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                 </FormItem>
               )}
             />
+            <h2 className="col-span-full text-xl font-semibold text-primary mb-2 mt-6">3. Solar Design Section</h2>
             <FormField
               control={form.control}
               name="numberOfSolarPanels"
@@ -764,171 +844,236 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             />
           </div>
 
+          {/* Update the grid for battery name and inverter name to include toggles */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="batteryName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Battery Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Tesla Powerwall"
-                      {...field}
-                      value={formData.batteryName}
-                      onChange={handleChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="inverterName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Inverter Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="SolarEdge SE7600H"
-                      {...field}
-                      value={formData.inverterName}
-                      onChange={handleChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="operatingMode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Operating Mode</FormLabel>
-                  <Select
-                    onValueChange={(value) => handleSelectChange(value, "operatingMode")}
-                    defaultValue={formData.operatingMode}
-                    value={formData.operatingMode}
-                  >
+            <div className="space-y-2 border p-3 rounded-md relative">
+              <div className="absolute top-3 right-3">
+                <Switch checked={enabledFields.batteryName} onCheckedChange={() => toggleField("batteryName")} />
+              </div>
+              <FormField
+                control={form.control}
+                name="batteryName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={!enabledFields.batteryName ? "text-muted-foreground" : ""}>
+                      Battery Name
+                    </FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select operating mode" />
-                      </SelectTrigger>
+                      <Input
+                        placeholder="Tesla Powerwall"
+                        {...field}
+                        value={formData.batteryName}
+                        onChange={handleChange}
+                        disabled={!enabledFields.batteryName}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Backup">Backup</SelectItem>
-                      <SelectItem value="Self-Consumption">Self-Consumption</SelectItem>
-                      <SelectItem value="Time of Use">Time of Use</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="space-y-2 border p-3 rounded-md relative">
+              <div className="absolute top-3 right-3">
+                <Switch checked={enabledFields.inverterName} onCheckedChange={() => toggleField("inverterName")} />
+              </div>
+              <FormField
+                control={form.control}
+                name="inverterName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={!enabledFields.inverterName ? "text-muted-foreground" : ""}>
+                      Inverter Name
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="SolarEdge SE7600H"
+                        {...field}
+                        value={formData.inverterName}
+                        onChange={handleChange}
+                        disabled={!enabledFields.inverterName}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
+          {/* Update the operating mode section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 border p-3 rounded-md relative">
+              <div className="absolute top-3 right-3">
+                <Switch checked={enabledFields.operatingMode} onCheckedChange={() => toggleField("operatingMode")} />
+              </div>
+              <FormField
+                control={form.control}
+                name="operatingMode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={!enabledFields.operatingMode ? "text-muted-foreground" : ""}>
+                      Operating Mode
+                    </FormLabel>
+                    <Select
+                      onValueChange={(value) => handleSelectChange(value, "operatingMode")}
+                      defaultValue={formData.operatingMode}
+                      value={formData.operatingMode}
+                      disabled={!enabledFields.operatingMode}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select operating mode" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Backup">Backup</SelectItem>
+                        <SelectItem value="Self-Consumption">Self-Consumption</SelectItem>
+                        <SelectItem value="Time of Use">Time of Use</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Update the capacity, output, and cost grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2 border p-3 rounded-md relative">
+              <div className="absolute top-3 right-3">
+                <Switch checked={enabledFields.capacity} onCheckedChange={() => toggleField("capacity")} />
+              </div>
+              <FormField
+                control={form.control}
+                name="capacity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={!enabledFields.capacity ? "text-muted-foreground" : ""}>
+                      Capacity (kWh)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="13.50"
+                        {...field}
+                        value={formData.capacity}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        disabled={!enabledFields.capacity}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="space-y-2 border p-3 rounded-md relative">
+              <div className="absolute top-3 right-3">
+                <Switch checked={enabledFields.outputKW} onCheckedChange={() => toggleField("outputKW")} />
+              </div>
+              <FormField
+                control={form.control}
+                name="outputKW"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={!enabledFields.outputKW ? "text-muted-foreground" : ""}>
+                      Output (kW)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="7.60"
+                        {...field}
+                        value={formData.outputKW}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        disabled={!enabledFields.outputKW}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="space-y-2 border p-3 rounded-md relative">
+              <div className="absolute top-3 right-3">
+                <Switch checked={enabledFields.cost} onCheckedChange={() => toggleField("cost")} />
+              </div>
+              <FormField
+                control={form.control}
+                name="cost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={!enabledFields.cost ? "text-muted-foreground" : ""}>Cost ($)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="8500.00"
+                        {...field}
+                        value={formData.cost}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        disabled={!enabledFields.cost}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Update the backup allocation field */}
+          <div className="space-y-2 border p-3 rounded-md relative">
+            <div className="absolute top-3 right-3">
+              <Switch
+                checked={enabledFields.backupAllocation}
+                onCheckedChange={() => toggleField("backupAllocation")}
+              />
+            </div>
             <FormField
               control={form.control}
-              name="capacity"
+              name="backupAllocation"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Capacity (kWh)</FormLabel>
+                  <FormLabel className={!enabledFields.backupAllocation ? "text-muted-foreground" : ""}>
+                    Backup Allocation
+                  </FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="13.50"
+                    <Textarea
+                      placeholder="Configure backup allocation..."
+                      className="resize-none"
                       {...field}
-                      value={formData.capacity}
+                      value={formData.backupAllocation}
                       onChange={handleChange}
-                      onBlur={handleBlur}
+                      disabled={!enabledFields.backupAllocation}
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="outputKW"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Output (kW)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="7.60"
-                      {...field}
-                      value={formData.outputKW}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cost"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cost ($)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="8500.00"
-                      {...field}
-                      value={formData.cost}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </FormControl>
+                  <FormDescription>Allocate battery power to specific devices or circuits.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name="backupAllocation"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Backup Allocation</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Configure backup allocation..."
-                    className="resize-none"
-                    {...field}
-                    value={formData.backupAllocation}
-                    onChange={handleChange}
-                  />
-                </FormControl>
-                <FormDescription>Allocate battery power to specific devices or circuits.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Battery Image Dialog */}
-          <div className="space-y-2">
-            <Label>Battery Image</Label>
+          {/* Update the battery image section */}
+          <div className="space-y-2 border p-3 rounded-md relative">
+            <div className="absolute top-3 right-3">
+              <Switch checked={enabledFields.batteryImage} onCheckedChange={() => toggleField("batteryImage")} />
+            </div>
+            <Label className={!enabledFields.batteryImage ? "text-muted-foreground" : ""}>Battery Image</Label>
             <div className="space-y-4">
               <ImageGalleryDialog
                 initialImage={formData.batteryImage}
                 onSelect={handleBatteryImageSelect}
                 imageType="battery"
+                disabled={!enabledFields.batteryImage}
               />
-              {formData.batteryImage && (
+              {formData.batteryImage && enabledFields.batteryImage && (
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
                   <Image
                     src={formData.batteryImage || "/placeholder.svg"}
@@ -941,9 +1086,17 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             </div>
           </div>
 
-          {/* Solar Panel Design Image Dialog */}
-          <div className="space-y-2">
-            <Label>Solar Panel Design Image</Label>
+          {/* Update the solar panel design image section */}
+          <div className="space-y-2 border p-3 rounded-md relative">
+            <div className="absolute top-3 right-3">
+              <Switch
+                checked={enabledFields.solarPanelDesign}
+                onCheckedChange={() => toggleField("solarPanelDesign")}
+              />
+            </div>
+            <Label className={!enabledFields.solarPanelDesign ? "text-muted-foreground" : ""}>
+              Solar Panel Design Image
+            </Label>
             <div className="space-y-4">
               <ImageGalleryDialog
                 initialImage={formData.solarPanelDesign}
@@ -952,8 +1105,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   form.setValue("solarPanelDesign", imagePath)
                 }}
                 imageType="solar"
+                disabled={!enabledFields.solarPanelDesign}
               />
-              {formData.solarPanelDesign && (
+              {formData.solarPanelDesign && enabledFields.solarPanelDesign && (
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
                   <Image
                     src={formData.solarPanelDesign || "/placeholder.svg"}
@@ -970,21 +1124,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Financing Options</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Toggle all finance fields to be enabled
-                  const allFields = Object.keys(enabledFinanceFields).reduce(
-                    (acc, key) => {
-                      acc[key as keyof typeof enabledFinanceFields] = true
-                      return acc
-                    },
-                    { ...enabledFinanceFields },
-                  )
-                  setEnabledFinanceFields(allFields)
-                }}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={enableAllFields}>
                 Enable All Fields
               </Button>
             </div>
@@ -993,21 +1133,15 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Financing Type - Always visible */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledFinanceFields.financingType}
-                    onCheckedChange={() => toggleFinanceField("financingType")}
-                  />
+                  <Switch checked={enabledFields.financingType} onCheckedChange={() => toggleField("financingType")} />
                 </div>
-                <Label
-                  htmlFor="financingType"
-                  className={!enabledFinanceFields.financingType ? "text-muted-foreground" : ""}
-                >
+                <Label htmlFor="financingType" className={!enabledFields.financingType ? "text-muted-foreground" : ""}>
                   Financing Type
                 </Label>
                 <Select
                   value={formData.financingType}
                   onValueChange={(value) => handleSelectChange(value, "financingType")}
-                  disabled={!enabledFinanceFields.financingType}
+                  disabled={!enabledFields.financingType}
                 >
                   <SelectTrigger id="financingType">
                     <SelectValue placeholder="Select financing type" />
@@ -1025,9 +1159,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* APR (%) - New field */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch checked={enabledFinanceFields.apr} onCheckedChange={() => toggleFinanceField("apr")} />
+                  <Switch checked={enabledFields.apr} onCheckedChange={() => toggleField("apr")} />
                 </div>
-                <Label htmlFor="apr" className={!enabledFinanceFields.apr ? "text-muted-foreground" : ""}>
+                <Label htmlFor="apr" className={!enabledFields.apr ? "text-muted-foreground" : ""}>
                   APR (%)
                 </Label>
                 <Input
@@ -1038,7 +1172,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.apr}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.apr}
+                  disabled={!enabledFields.apr}
                   placeholder="4.99"
                 />
               </div>
@@ -1046,12 +1180,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Duration (years) - New field */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledFinanceFields.duration}
-                    onCheckedChange={() => toggleFinanceField("duration")}
-                  />
+                  <Switch checked={enabledFields.duration} onCheckedChange={() => toggleField("duration")} />
                 </div>
-                <Label htmlFor="duration" className={!enabledFinanceFields.duration ? "text-muted-foreground" : ""}>
+                <Label htmlFor="duration" className={!enabledFields.duration ? "text-muted-foreground" : ""}>
                   Duration (years)
                 </Label>
                 <Input
@@ -1060,7 +1191,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   type="number"
                   value={formData.duration}
                   onChange={handleChange}
-                  disabled={!enabledFinanceFields.duration}
+                  disabled={!enabledFields.duration}
                   placeholder="20"
                 />
               </div>
@@ -1068,15 +1199,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Down Payment - New field */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledFinanceFields.downPayment}
-                    onCheckedChange={() => toggleFinanceField("downPayment")}
-                  />
+                  <Switch checked={enabledFields.downPayment} onCheckedChange={() => toggleField("downPayment")} />
                 </div>
-                <Label
-                  htmlFor="downPayment"
-                  className={!enabledFinanceFields.downPayment ? "text-muted-foreground" : ""}
-                >
+                <Label htmlFor="downPayment" className={!enabledFields.downPayment ? "text-muted-foreground" : ""}>
                   Down Payment ($)
                 </Label>
                 <Input
@@ -1087,7 +1212,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.downPayment}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.downPayment}
+                  disabled={!enabledFields.downPayment}
                   placeholder="5000.00"
                 />
               </div>
@@ -1096,13 +1221,13 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
                   <Switch
-                    checked={enabledFinanceFields.financedAmount}
-                    onCheckedChange={() => toggleFinanceField("financedAmount")}
+                    checked={enabledFields.financedAmount}
+                    onCheckedChange={() => toggleField("financedAmount")}
                   />
                 </div>
                 <Label
                   htmlFor="financedAmount"
-                  className={!enabledFinanceFields.financedAmount ? "text-muted-foreground" : ""}
+                  className={!enabledFields.financedAmount ? "text-muted-foreground" : ""}
                 >
                   Financed Amount ($)
                 </Label>
@@ -1114,7 +1239,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.financedAmount}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.financedAmount}
+                  disabled={!enabledFields.financedAmount}
                   placeholder="30000.00"
                 />
               </div>
@@ -1123,13 +1248,13 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
                   <Switch
-                    checked={enabledFinanceFields.totalSystemCost}
-                    onCheckedChange={() => toggleFinanceField("totalSystemCost")}
+                    checked={enabledFields.totalSystemCost}
+                    onCheckedChange={() => toggleField("totalSystemCost")}
                   />
                 </div>
                 <Label
                   htmlFor="totalSystemCost"
-                  className={!enabledFinanceFields.totalSystemCost ? "text-muted-foreground" : ""}
+                  className={!enabledFields.totalSystemCost ? "text-muted-foreground" : ""}
                 >
                   Total System Cost ($)
                 </Label>
@@ -1141,7 +1266,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.totalSystemCost}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.totalSystemCost}
+                  disabled={!enabledFields.totalSystemCost}
                   placeholder="35000.00"
                 />
               </div>
@@ -1149,12 +1274,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Net Cost - Existing field */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledFinanceFields.netCost}
-                    onCheckedChange={() => toggleFinanceField("netCost")}
-                  />
+                  <Switch checked={enabledFields.netCost} onCheckedChange={() => toggleField("netCost")} />
                 </div>
-                <Label htmlFor="netCost" className={!enabledFinanceFields.netCost ? "text-muted-foreground" : ""}>
+                <Label htmlFor="netCost" className={!enabledFields.netCost ? "text-muted-foreground" : ""}>
                   Net Cost ($)
                 </Label>
                 <Input
@@ -1165,7 +1287,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.netCost}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.netCost}
+                  disabled={!enabledFields.netCost}
                   placeholder="25900.00"
                 />
               </div>
@@ -1174,13 +1296,13 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
                   <Switch
-                    checked={enabledFinanceFields.lifetimeSavings}
-                    onCheckedChange={() => toggleFinanceField("lifetimeSavings")}
+                    checked={enabledFields.lifetimeSavings}
+                    onCheckedChange={() => toggleField("lifetimeSavings")}
                   />
                 </div>
                 <Label
                   htmlFor="lifetimeSavings"
-                  className={!enabledFinanceFields.lifetimeSavings ? "text-muted-foreground" : ""}
+                  className={!enabledFields.lifetimeSavings ? "text-muted-foreground" : ""}
                 >
                   Lifetime Savings ($)
                 </Label>
@@ -1192,7 +1314,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.lifetimeSavings}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.lifetimeSavings}
+                  disabled={!enabledFields.lifetimeSavings}
                   placeholder="85000.00"
                 />
               </div>
@@ -1201,13 +1323,13 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
                   <Switch
-                    checked={enabledFinanceFields.monthlyPayments}
-                    onCheckedChange={() => toggleFinanceField("monthlyPayments")}
+                    checked={enabledFields.monthlyPayments}
+                    onCheckedChange={() => toggleField("monthlyPayments")}
                   />
                 </div>
                 <Label
                   htmlFor="monthlyPayments"
-                  className={!enabledFinanceFields.monthlyPayments ? "text-muted-foreground" : ""}
+                  className={!enabledFields.monthlyPayments ? "text-muted-foreground" : ""}
                 >
                   Monthly Payments ($)
                 </Label>
@@ -1219,7 +1341,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.monthlyPayments}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.monthlyPayments}
+                  disabled={!enabledFields.monthlyPayments}
                   placeholder="198.25"
                 />
               </div>
@@ -1227,12 +1349,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Solar Rate - New field */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledFinanceFields.solarRate}
-                    onCheckedChange={() => toggleFinanceField("solarRate")}
-                  />
+                  <Switch checked={enabledFields.solarRate} onCheckedChange={() => toggleField("solarRate")} />
                 </div>
-                <Label htmlFor="solarRate" className={!enabledFinanceFields.solarRate ? "text-muted-foreground" : ""}>
+                <Label htmlFor="solarRate" className={!enabledFields.solarRate ? "text-muted-foreground" : ""}>
                   Solar Rate ($ per kWh)
                 </Label>
                 <Input
@@ -1243,7 +1362,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.solarRate}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.solarRate}
+                  disabled={!enabledFields.solarRate}
                   placeholder="0.12"
                 />
               </div>
@@ -1252,13 +1371,13 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
                   <Switch
-                    checked={enabledFinanceFields.escalationRate}
-                    onCheckedChange={() => toggleFinanceField("escalationRate")}
+                    checked={enabledFields.escalationRate}
+                    onCheckedChange={() => toggleField("escalationRate")}
                   />
                 </div>
                 <Label
                   htmlFor="escalationRate"
-                  className={!enabledFinanceFields.escalationRate ? "text-muted-foreground" : ""}
+                  className={!enabledFields.escalationRate ? "text-muted-foreground" : ""}
                 >
                   Escalation (% per year)
                 </Label>
@@ -1270,7 +1389,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.escalationRate}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.escalationRate}
+                  disabled={!enabledFields.escalationRate}
                   placeholder="2.50"
                 />
               </div>
@@ -1279,13 +1398,13 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
                   <Switch
-                    checked={enabledFinanceFields.year1MonthlyPayments}
-                    onCheckedChange={() => toggleFinanceField("year1MonthlyPayments")}
+                    checked={enabledFields.year1MonthlyPayments}
+                    onCheckedChange={() => toggleField("year1MonthlyPayments")}
                   />
                 </div>
                 <Label
                   htmlFor="year1MonthlyPayments"
-                  className={!enabledFinanceFields.year1MonthlyPayments ? "text-muted-foreground" : ""}
+                  className={!enabledFields.year1MonthlyPayments ? "text-muted-foreground" : ""}
                 >
                   Year 1 Monthly Payments ($)
                 </Label>
@@ -1297,7 +1416,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.year1MonthlyPayments}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.year1MonthlyPayments}
+                  disabled={!enabledFields.year1MonthlyPayments}
                   placeholder="185.50"
                 />
               </div>
@@ -1305,15 +1424,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Payback Period - Existing field */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledFinanceFields.paybackPeriod}
-                    onCheckedChange={() => toggleFinanceField("paybackPeriod")}
-                  />
+                  <Switch checked={enabledFields.paybackPeriod} onCheckedChange={() => toggleField("paybackPeriod")} />
                 </div>
-                <Label
-                  htmlFor="paybackPeriod"
-                  className={!enabledFinanceFields.paybackPeriod ? "text-muted-foreground" : ""}
-                >
+                <Label htmlFor="paybackPeriod" className={!enabledFields.paybackPeriod ? "text-muted-foreground" : ""}>
                   Payback Period (years)
                 </Label>
                 <Input
@@ -1324,7 +1437,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   value={formData.paybackPeriod}
                   onChange={handleChange}
                   onBlur={handleBlur}
-                  disabled={!enabledFinanceFields.paybackPeriod}
+                  disabled={!enabledFields.paybackPeriod}
                   placeholder="8.50"
                 />
               </div>
@@ -1332,30 +1445,96 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
           </div>
 
           <div className="border-t pt-4">
-            <h3 className="font-semibold mb-2">System Details</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">System Details</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Enable only system details fields
+                  const systemFields = [
+                    "solarSystemModel",
+                    "solarSystemQuantity",
+                    "solarSystemPrice",
+                    "incentives",
+                    "storageSystemModel",
+                    "storageSystemQuantity",
+                    "storageSystemPrice",
+                  ]
+                  setEnabledFields((prev) => {
+                    const updated = { ...prev }
+                    systemFields.forEach((field) => {
+                      updated[field as keyof typeof prev] = true
+                    })
+                    return updated
+                  })
+                }}
+              >
+                Enable System Fields
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="solarSystemModel">Solar System Model</Label>
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFields.solarSystemModel}
+                    onCheckedChange={() => toggleField("solarSystemModel")}
+                  />
+                </div>
+                <Label
+                  htmlFor="solarSystemModel"
+                  className={!enabledFields.solarSystemModel ? "text-muted-foreground" : ""}
+                >
+                  Solar System Model
+                </Label>
                 <Input
                   id="solarSystemModel"
                   name="solarSystemModel"
                   type="text"
                   value={formData.solarSystemModel}
                   onChange={handleChange}
+                  disabled={!enabledFields.solarSystemModel}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="solarSystemQuantity">Solar System Quantity</Label>
+
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFields.solarSystemQuantity}
+                    onCheckedChange={() => toggleField("solarSystemQuantity")}
+                  />
+                </div>
+                <Label
+                  htmlFor="solarSystemQuantity"
+                  className={!enabledFields.solarSystemQuantity ? "text-muted-foreground" : ""}
+                >
+                  Solar System Quantity
+                </Label>
                 <Input
                   id="solarSystemQuantity"
                   name="solarSystemQuantity"
                   type="number"
                   value={formData.solarSystemQuantity}
                   onChange={handleChange}
+                  disabled={!enabledFields.solarSystemQuantity}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="solarSystemPrice">Solar System Price ($)</Label>
+
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFields.solarSystemPrice}
+                    onCheckedChange={() => toggleField("solarSystemPrice")}
+                  />
+                </div>
+                <Label
+                  htmlFor="solarSystemPrice"
+                  className={!enabledFields.solarSystemPrice ? "text-muted-foreground" : ""}
+                >
+                  Solar System Price ($)
+                </Label>
                 <Input
                   id="solarSystemPrice"
                   name="solarSystemPrice"
@@ -1363,10 +1542,17 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   step="0.01"
                   value={formData.solarSystemPrice}
                   onChange={handleChange}
+                  disabled={!enabledFields.solarSystemPrice}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="incentives">Incentives ($)</Label>
+
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch checked={enabledFields.incentives} onCheckedChange={() => toggleField("incentives")} />
+                </div>
+                <Label htmlFor="incentives" className={!enabledFields.incentives ? "text-muted-foreground" : ""}>
+                  Incentives ($)
+                </Label>
                 <Input
                   id="incentives"
                   name="incentives"
@@ -1376,32 +1562,71 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   onChange={handleChange}
                   onBlur={handleBlur}
                   placeholder="9100.00"
+                  disabled={!enabledFields.incentives}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="storageSystemModel">Storage System Model</Label>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFields.storageSystemModel}
+                    onCheckedChange={() => toggleField("storageSystemModel")}
+                  />
+                </div>
+                <Label
+                  htmlFor="storageSystemModel"
+                  className={!enabledFields.storageSystemModel ? "text-muted-foreground" : ""}
+                >
+                  Storage System Model
+                </Label>
                 <Input
                   id="storageSystemModel"
                   name="storageSystemModel"
                   type="text"
                   value={formData.storageSystemModel}
                   onChange={handleChange}
+                  disabled={!enabledFields.storageSystemModel}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="storageSystemQuantity">Storage System Quantity</Label>
+
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFields.storageSystemQuantity}
+                    onCheckedChange={() => toggleField("storageSystemQuantity")}
+                  />
+                </div>
+                <Label
+                  htmlFor="storageSystemQuantity"
+                  className={!enabledFields.storageSystemQuantity ? "text-muted-foreground" : ""}
+                >
+                  Storage System Quantity
+                </Label>
                 <Input
                   id="storageSystemQuantity"
                   name="storageSystemQuantity"
                   type="number"
                   value={formData.storageSystemQuantity}
                   onChange={handleChange}
+                  disabled={!enabledFields.storageSystemQuantity}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="storageSystemPrice">Storage System Price ($)</Label>
+
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFields.storageSystemPrice}
+                    onCheckedChange={() => toggleField("storageSystemPrice")}
+                  />
+                </div>
+                <Label
+                  htmlFor="storageSystemPrice"
+                  className={!enabledFields.storageSystemPrice ? "text-muted-foreground" : ""}
+                >
+                  Storage System Price ($)
+                </Label>
                 <Input
                   id="storageSystemPrice"
                   name="storageSystemPrice"
@@ -1409,6 +1634,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   step="0.01"
                   value={formData.storageSystemPrice}
                   onChange={handleChange}
+                  disabled={!enabledFields.storageSystemPrice}
                 />
               </div>
             </div>
