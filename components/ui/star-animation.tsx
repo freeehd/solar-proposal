@@ -24,7 +24,7 @@ interface StarAnimationProps {
 }
 
 // Constants
-const FINAL_SCALE = 0.8
+const FINAL_SCALE = 0.5
 
 // Add the model URLs
 const STAR_MODEL_URL = "/models/star.glb"
