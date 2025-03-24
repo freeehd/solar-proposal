@@ -569,7 +569,7 @@ export const StarAnimation = React.memo(
     const quality = useMemo(() => {
       // Lower quality for Safari/macOS to improve performance
       if (isMacOS) {
-        return "low"
+        return "high"
       }
 
       return gpu && gpu.tier >= 2 ? "high" : "low"
