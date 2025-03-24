@@ -238,43 +238,28 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
         </motion.div>
 
         {/* Overview Section */}
-       
-
-        {/* Financing Type Badge */}
-        {enabledFields.financingType && proposalData.financing_type && (
-          <motion.div
+        <div className="mb-12">
+          <motion.h3
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex justify-center mb-8"
+            transition={{ duration: 0.5 }}
+            className="text-2xl font-semibold mb-6 text-center"
           >
-            <Badge variant="outline" className="px-4 py-2 text-base bg-primary/10 border-primary/20">
-              {financingInfo.logo ? (
-                <div className="flex items-center gap-2">
-                  <div className="relative w-6 h-6 mr-2">
-                    <Image
-                      src={financingInfo.logo.replace("/public", "") || "/placeholder.svg"}
-                      alt={financingInfo.name}
-                      width={24}
-                      height={24}
-                      className="object-contain"
-                    />
-                  </div>
-                  {financingInfo.name}
-                </div>
-              ) : (
-                <>
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  {financingInfo.name}
-                </>
-              )}
-            </Badge>
-          </motion.div>
-        )}
+            Financial Overview
+          </motion.h3>
+
+          
 
         {/* Financing Details Section */}
         <div className="mt-16">
-      
+          <motion.h3
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-2xl font-semibold mb-6 text-center"
+          >
+            Financial Details
+          </motion.h3>
 
           <motion.div variants={cardVariants} initial="hidden" animate="visible">
             {/* Single Financial Details Card */}
