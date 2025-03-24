@@ -8,8 +8,8 @@ import { Sun, Moon } from "lucide-react"
 import Particles, { initParticlesEngine } from "@tsparticles/react"
 import { loadSlim } from "@tsparticles/slim"
 import type { ISourceOptions } from "@tsparticles/engine"
-import { useMediaQuery } from "@/hooks/use-media-query"
 
+// Define scenario types and content
 type ScenarioType = "day" | "night"
 
 interface ScenarioContent {
@@ -36,62 +36,177 @@ const scenarios: Record<ScenarioType, ScenarioContent> = {
 }
 
 export default function HowSolarWorks() {
+  // State management
   const [scenario, setScenario] = useState<ScenarioType>("day")
   const [isLoaded, setIsLoaded] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [init, setInit] = useState(false)
-  const currentVideoRef = useRef<HTMLVideoElement>(null)
-  const nextVideoRef = useRef<HTMLVideoElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
+  const [isLandscape, setIsLandscape] = useState(false)
+
+  // Refs
   const sectionRef = useRef<HTMLElement>(null)
+  const videoContainerRef = useRef<HTMLDivElement>(null)
+  const dayVideoRef = useRef<HTMLVideoElement>(null)
+  const nightVideoRef = useRef<HTMLVideoElement>(null)
 
-  // Media queries for responsive design
-  const isMobile = useMediaQuery("(max-width: 640px)")
-  const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
-  const isLandscape = useMediaQuery("(orientation: landscape) and (max-height: 500px)")
+  // Cache for video elements
+  const videoCache = useRef<Map<string, HTMLVideoElement>>(new Map())
 
+  // Initialize media queries
   useEffect(() => {
-    // Initialize particles
+    const checkMediaQueries = () => {
+      setIsMobile(window.matchMedia("(max-width: 640px)").matches)
+      setIsTablet(window.matchMedia("(min-width: 641px) and (max-width: 1024px)").matches)
+      setIsLandscape(window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches)
+    }
+
+    // Initial check
+    checkMediaQueries()
+
+    // Add listener for window resize
+    window.addEventListener("resize", checkMediaQueries)
+
+    return () => {
+      window.removeEventListener("resize", checkMediaQueries)
+    }
+  }, [])
+
+  // Initialize particles
+  useEffect(() => {
     initParticlesEngine(async (engine) => {
       await loadSlim(engine)
       setInit(true)
     })
-
-    // Preload videos
-    Object.values(scenarios).forEach(({ video }) => {
-      const videoElement = document.createElement("video")
-      videoElement.src = video
-      videoElement.load()
-    })
   }, [])
 
+  // Preload and cache videos
+  useEffect(() => {
+    const preloadVideos = async () => {
+      const videoUrls = Object.values(scenarios).map((s) => s.video)
+
+      for (const url of videoUrls) {
+        try {
+          // Create a new video element for each scenario
+          const video = document.createElement("video")
+          video.muted = true
+          video.playsInline = true
+          video.preload = "auto"
+
+          // Set crossOrigin to avoid CORS issues on some platforms
+          video.crossOrigin = "anonymous"
+
+          // Create a new object URL from the video to ensure it's cached properly
+          const response = await fetch(url, {
+            method: "GET",
+            cache: "force-cache",
+            mode: "cors",
+            credentials: "same-origin",
+          })
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch video: ${url}`)
+          }
+
+          const blob = await response.blob()
+          const objectUrl = URL.createObjectURL(blob)
+
+          // Set the source and load the video
+          video.src = objectUrl
+
+          // Store the video element in our cache
+          videoCache.current.set(url, video)
+
+          // Add event listener to know when it's loaded
+          const loadPromise = new Promise<void>((resolve) => {
+            video.addEventListener("loadeddata", () => resolve(), { once: true })
+          })
+
+          // Start loading
+          video.load()
+          await loadPromise
+
+          console.log(`Video preloaded: ${url}`)
+        } catch (error) {
+          console.error(`Error preloading video ${url}:`, error)
+        }
+      }
+
+      // Initialize the video elements with the cached videos
+      initializeVideoElements()
+    }
+
+    preloadVideos()
+
+    // Cleanup function to revoke object URLs
+    return () => {
+      videoCache.current.forEach((video) => {
+        if (video.src.startsWith("blob:")) {
+          URL.revokeObjectURL(video.src)
+        }
+      })
+    }
+  }, [])
+
+  // Initialize video elements with cached videos
+  const initializeVideoElements = useCallback(() => {
+    if (dayVideoRef.current && nightVideoRef.current) {
+      const dayVideo = videoCache.current.get(scenarios.day.video)
+      const nightVideo = videoCache.current.get(scenarios.night.video)
+
+      if (dayVideo && nightVideo) {
+        // Clone the cached videos to use in our component
+        dayVideoRef.current.src = dayVideo.src
+        nightVideoRef.current.load()
+
+        nightVideoRef.current.src = nightVideo.src
+        nightVideoRef.current.load()
+
+        // Start with day video
+        dayVideoRef.current.play().catch(console.error)
+        setIsLoaded(true)
+      }
+    }
+  }, [])
+
+  // Handle scenario switching
   const switchScenario = useCallback(
     async (targetScenario?: ScenarioType) => {
       if (isTransitioning) return
-      setIsTransitioning(true)
 
       const nextScenario = targetScenario || (scenario === "day" ? "night" : "day")
-      const nextVideo = nextVideoRef.current
-      const currentVideo = currentVideoRef.current
 
-      if (nextVideo && currentVideo) {
-        // Prepare next video
-        nextVideo.src = scenarios[nextScenario].video
-        nextVideo.currentTime = 0
+      // Don't switch if it's the same scenario
+      if (nextScenario === scenario) return
 
+      setIsTransitioning(true)
+
+      // Get the appropriate video elements
+      const currentVideo = scenario === "day" ? dayVideoRef.current : nightVideoRef.current
+      const nextVideo = nextScenario === "day" ? dayVideoRef.current : nightVideoRef.current
+
+      if (currentVideo && nextVideo) {
         try {
-          // Load and play the next video
-          await nextVideo.load()
+          // Reset the next video to the beginning
+          nextVideo.currentTime = 0
+
+          // Fade out current video, fade in next video
+          if (currentVideo) {
+            currentVideo.style.opacity = "0"
+          }
+
+          nextVideo.style.opacity = "1"
+
+          // Play the next video
           await nextVideo.play()
 
-          // Update scenario after ensuring next video is playing
+          // Update the scenario state
           setScenario(nextScenario)
 
           // Reset transition state after animation completes
           setTimeout(() => {
             setIsTransitioning(false)
-            // Update current video source after transition
-            currentVideo.src = scenarios[nextScenario].video
-            currentVideo.load()
           }, 1000)
         } catch (error) {
           console.error("Error during video transition:", error)
@@ -102,11 +217,12 @@ export default function HowSolarWorks() {
     [isTransitioning, scenario],
   )
 
+  // Handle video end event
   useEffect(() => {
-    const currentVideo = currentVideoRef.current
-    const nextVideo = nextVideoRef.current
+    const dayVideo = dayVideoRef.current
+    const nightVideo = nightVideoRef.current
 
-    if (!currentVideo || !nextVideo) return
+    if (!dayVideo || !nightVideo) return
 
     const handleVideoEnd = () => {
       if (!isTransitioning) {
@@ -114,28 +230,16 @@ export default function HowSolarWorks() {
       }
     }
 
-    const handleCanPlay = () => {
-      setIsLoaded(true)
-      currentVideo.play().catch(console.error)
-    }
-
-    currentVideo.addEventListener("ended", handleVideoEnd)
-    currentVideo.addEventListener("canplay", handleCanPlay)
-    nextVideo.addEventListener("ended", handleVideoEnd)
-
-    // Start playing when mounted
-    if (currentVideo.readyState >= 3) {
-      // HAVE_FUTURE_DATA or higher
-      handleCanPlay()
-    }
+    dayVideo.addEventListener("ended", handleVideoEnd)
+    nightVideo.addEventListener("ended", handleVideoEnd)
 
     return () => {
-      currentVideo.removeEventListener("ended", handleVideoEnd)
-      currentVideo.removeEventListener("canplay", handleCanPlay)
-      nextVideo.removeEventListener("ended", handleVideoEnd)
+      dayVideo.removeEventListener("ended", handleVideoEnd)
+      nightVideo.removeEventListener("ended", handleVideoEnd)
     }
   }, [isTransitioning, switchScenario])
 
+  // Particles configuration
   const particlesOptions: ISourceOptions = {
     particles: {
       number: {
@@ -264,30 +368,33 @@ export default function HowSolarWorks() {
               {/* Video in the middle */}
               <div className={getVideoContainerClasses()}>
                 <motion.div
+                  ref={videoContainerRef}
                   className="w-full h-full relative rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: isLoaded ? 1 : 0, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
+                  {/* Video container with both videos always present */}
                   <div className="relative w-full h-full">
+                    {/* Day video */}
                     <video
-                      ref={currentVideoRef}
-                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000
-                        ${isTransitioning ? "opacity-0" : "opacity-100"}`}
+                      ref={dayVideoRef}
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                      style={{ opacity: scenario === "day" ? 1 : 0 }}
                       muted
                       playsInline
-                    >
-                      <source src={scenarios[scenario].video} type="video/mp4" />
-                    </video>
+                      crossOrigin="anonymous"
+                    />
+
+                    {/* Night video */}
                     <video
-                      ref={nextVideoRef}
-                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000
-                        ${isTransitioning ? "opacity-100" : "opacity-0"}`}
+                      ref={nightVideoRef}
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                      style={{ opacity: scenario === "night" ? 1 : 0 }}
                       muted
                       playsInline
-                    >
-                      <source src={scenarios[scenario === "day" ? "night" : "day"].video} type="video/mp4" />
-                    </video>
+                      crossOrigin="anonymous"
+                    />
                   </div>
                 </motion.div>
               </div>
@@ -311,30 +418,33 @@ export default function HowSolarWorks() {
               {/* Center video */}
               <div className={getVideoContainerClasses()}>
                 <motion.div
+                  ref={videoContainerRef}
                   className="w-full h-full relative rounded-3xl overflow-hidden shadow-2xl"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: isLoaded ? 1 : 0, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
+                  {/* Video container with both videos always present */}
                   <div className="relative w-full h-full">
+                    {/* Day video */}
                     <video
-                      ref={currentVideoRef}
-                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000
-                        ${isTransitioning ? "opacity-0" : "opacity-100"}`}
+                      ref={dayVideoRef}
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                      style={{ opacity: scenario === "day" ? 1 : 0 }}
                       muted
                       playsInline
-                    >
-                      <source src={scenarios[scenario].video} type="video/mp4" />
-                    </video>
+                      crossOrigin="anonymous"
+                    />
+
+                    {/* Night video */}
                     <video
-                      ref={nextVideoRef}
-                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000
-                        ${isTransitioning ? "opacity-100" : "opacity-0"}`}
+                      ref={nightVideoRef}
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                      style={{ opacity: scenario === "night" ? 1 : 0 }}
                       muted
                       playsInline
-                    >
-                      <source src={scenarios[scenario === "day" ? "night" : "day"].video} type="video/mp4" />
-                    </video>
+                      crossOrigin="anonymous"
+                    />
                   </div>
                 </motion.div>
               </div>
