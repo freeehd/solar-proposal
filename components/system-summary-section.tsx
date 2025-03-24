@@ -73,12 +73,12 @@ export default function SystemSummarySection({
                       {proposalData.solar_system_quantity || "0"}
                     </p>
                   </div>
-                  <div>
+                  {/* <div>
                     <p className="text-sm text-muted-foreground">Price:</p>
                     <p className="text-xl font-normal leading-tight text-primary">
                       {formatCurrency(proposalData.solar_system_price)}
                     </p>
-                  </div>
+                  </div> */}
                 </div>
               </CardContent>
             </Card>
@@ -102,18 +102,18 @@ export default function SystemSummarySection({
                       {proposalData.storage_system_quantity || "0"}
                     </p>
                   </div>
-                  <div>
+                  {/* <div>
                     <p className="text-sm text-muted-foreground">Price:</p>
                     <p className="text-xl font-normal leading-tight text-primary">
                       {formatCurrency(proposalData.storage_system_price)}
                     </p>
-                  </div>
+                  </div> */}
                 </div>
               </CardContent>
             </Card>
           </motion.div>
         </div>
-        <motion.div variants={cardVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
+        {/* <motion.div variants={cardVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
           <Card className="bg-card/50 backdrop-blur border-primary/10">
             <CardHeader>
               <CardTitle>Incentives</CardTitle>
@@ -124,7 +124,7 @@ export default function SystemSummarySection({
               </p>
             </CardContent>
           </Card>
-        </motion.div>
+        </motion.div> */}
       </div>
     </section>
   )

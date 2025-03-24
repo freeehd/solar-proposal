@@ -27,7 +27,7 @@ const reasons = [
   },
   {
     text: "Only solar company that offers customer satisfaction guarantee",
-    description: "We stand behind our work with an industry-leading customer satisfaction guarantee.",
+    description: "If you are not happy with our customer service or solar results we guarantee to pay your first 6 months.",
   },
 ]
 

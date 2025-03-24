@@ -465,14 +465,14 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
 
                 {/* ROI Information */}
                 <Separator className="my-6" />
-                <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                {/* <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-blue-600" />
                     <span className="text-sm font-medium text-blue-600">
                       30-Year ROI: <span className="font-bold">{Math.round(roi)}%</span>
                     </span>
                   </div>
-                </div>
+                </div> */}
               </CardContent>
             </Card>
           </motion.div>
