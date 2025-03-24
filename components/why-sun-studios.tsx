@@ -15,7 +15,7 @@ const reasons = [
   },
   {
     text: "5 stars rating Google",
-    description: "Join thousands of satisfied customers who have rated us 5 stars on Google.",
+    description: "Join the ever-growing list of satisfied customers who have rated us 5 stars on Google.",
   },
   {
     text: "5 stars rating Consumer Affairs",
