@@ -1,8 +1,7 @@
 // Asset URLs
+const VIDEO_URL = "/video3.webm"
+const FALLBACK_VIDEO_URL = "/video3.mp4"
 
-  const VIDEO_URL = "/video3.webm"
-  const FALLBACK_VIDEO_URL =
-    "/video3.mp4"
 // Debug tracking
 let videoLoadCount = 0
 // Track active video requests to prevent duplicates
@@ -158,6 +157,85 @@ class AssetLoaderService {
     return video
   }
 
+  // Try direct loading without fetch for CORS issues
+  public tryDirectVideoLoading(): Promise<HTMLVideoElement> {
+    console.log("Attempting direct video loading (bypassing fetch) due to CORS issues")
+
+    return new Promise<HTMLVideoElement>((resolve) => {
+      const videoUrl = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
+      const video = this.createOptimizedVideoElement()
+
+      // Set up event listeners
+      video.addEventListener(
+        "canplaythrough",
+        () => {
+          console.log("Direct loading: Video can play through")
+          assetCache.video.element = video
+          assetCache.video.isLoaded = true
+          assetCache.video.isLoading = false
+          this.markVideoAsLoaded()
+          notifyProgress("video", 100)
+          resolve(video)
+        },
+        { once: true },
+      )
+
+      video.addEventListener(
+        "loadeddata",
+        () => {
+          console.log("Direct loading: Video data loaded")
+          // For iOS, we consider the video loaded when data is loaded
+          if (isAppleDevice && !assetCache.video.isLoaded) {
+            assetCache.video.element = video
+            assetCache.video.isLoaded = true
+            assetCache.video.isLoading = false
+            this.markVideoAsLoaded()
+            notifyProgress("video", 100)
+            resolve(video)
+          }
+        },
+        { once: true },
+      )
+
+      video.addEventListener(
+        "error",
+        () => {
+          console.error("Direct loading: Video error:", video.error)
+          // Create a placeholder video element
+          const placeholderVideo = this.createOptimizedVideoElement()
+          placeholderVideo.poster = "/night3.png"
+
+          assetCache.video.element = placeholderVideo
+          assetCache.video.isLoaded = true
+          assetCache.video.isLoading = false
+          notifyProgress("video", 100)
+          resolve(placeholderVideo)
+        },
+        { once: true },
+      )
+
+      // Set source and start loading
+      video.src = videoUrl
+      video.load()
+
+      // Set timeout to prevent indefinite loading
+      setTimeout(() => {
+        if (!assetCache.video.isLoaded) {
+          console.warn("Direct loading: Video loading timed out, using placeholder")
+          // Create a placeholder video element
+          const placeholderVideo = this.createOptimizedVideoElement()
+          placeholderVideo.poster = "/night3.png"
+
+          assetCache.video.element = placeholderVideo
+          assetCache.video.isLoaded = true
+          assetCache.video.isLoading = false
+          notifyProgress("video", 100)
+          resolve(placeholderVideo)
+        }
+      }, 10000) // 10 second timeout
+    })
+  }
+
   public preloadVideo(): Promise<HTMLVideoElement> {
     const cacheKey = "mainVideo"
     const videoUrl = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
@@ -242,7 +320,20 @@ class AssetLoaderService {
 
     // Create new loading promise
     console.log("Starting new video loading process")
-    const loadPromise = this.createVideoLoadPromise()
+
+    // Try with fetch first, but fall back to direct loading if CORS issues occur
+    let loadPromise: Promise<HTMLVideoElement>
+
+    try {
+      loadPromise = this.createVideoLoadPromise().catch((error) => {
+        console.error("Error with fetch-based loading, trying direct loading:", error)
+        return this.tryDirectVideoLoading()
+      })
+    } catch (error) {
+      console.error("Could not create video load promise, using direct loading:", error)
+      loadPromise = this.tryDirectVideoLoading()
+    }
+
     this.loadingPromises.set(cacheKey, loadPromise)
 
     // Clear promise from map when settled to prevent memory leaks
@@ -395,36 +486,43 @@ class AssetLoaderService {
 
       // Try to fetch the video as a blob first for better caching
       fetch(videoUrl, {
-        method: 'GET',
-        mode: 'cors',
+        method: "GET",
+        mode: "cors",
         // Don't send credentials to avoid CORS preflight requests
-        credentials: 'omit',
+        credentials: "omit",
         // Don't add custom headers that would trigger preflight requests
       })
-        .then(response => {
+        .then((response) => {
           if (!response.ok) {
             throw new Error(`Failed to fetch video: ${videoUrl}`)
           }
           return response.blob()
         })
-        .then(blob => {
+        .then((blob) => {
           // Create an object URL from the blob
           const objectUrl = URL.createObjectURL(blob)
-          
+
           // Store the object URL in the cache
           assetCache.video.objectUrl = objectUrl
-          
+
           // Set the video source to the object URL
           video.src = objectUrl
           video.load()
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Error fetching video as blob:", error)
-          
-          // CORS fallback: Try direct loading without fetch
-          console.log("Trying direct video loading as fallback due to CORS issue")
+
+          // IMPROVED FALLBACK: Try direct loading without fetch
+          console.log("Trying direct video loading as fallback due to fetch issue")
           video.src = videoUrl
           video.load()
+
+          // For local paths, we should still consider this a success
+          // This helps with development environments where CORS might be an issue
+          if (videoUrl.startsWith("/")) {
+            console.log("Local video path detected, continuing with direct loading")
+            // Don't reject the promise, let the video load events handle it
+          }
         })
 
       // Clean up on promise settlement
@@ -445,6 +543,22 @@ class AssetLoaderService {
         cleanup,
       )
     })
+  }
+
+  // Add a function to create a video element directly from a URL
+  // Add this function to the AssetLoaderService class:
+
+  public createVideoElementFromUrl(url: string): HTMLVideoElement {
+    console.log(`Creating video element directly from URL: ${url}`)
+
+    // Create a new video element with optimized settings
+    const video = this.createOptimizedVideoElement()
+
+    // Set the source directly
+    video.src = url
+    video.load()
+
+    return video
   }
 
   public async preloadAllAssets(): Promise<{
@@ -576,9 +690,29 @@ export function getCachedAssets() {
   }
 }
 
-// Create a video element from the cached video
+// Export the function
+export function createVideoElementFromUrl(url: string): HTMLVideoElement {
+  return assetLoader.createVideoElementFromUrl(url)
+}
+
+// Improve the createVideoElementFromCache function to handle missing cache
 export function createVideoElementFromCache(): HTMLVideoElement | null {
-  return assetLoader.createVideoElementFromCache()
+  const element = assetLoader.createVideoElementFromCache()
+
+  if (!element && typeof window !== "undefined") {
+    // If no cached element but we're in the browser, create a direct element
+    console.log("No cached video available, creating direct element")
+    const video = document.createElement("video")
+    video.muted = true
+    video.playsInline = true
+    video.loop = true
+    video.preload = "auto"
+    video.crossOrigin = "anonymous"
+    video.src = isAppleDevice ? FALLBACK_VIDEO_URL : VIDEO_URL
+    return video
+  }
+
+  return element
 }
 
 // Check if all assets are loaded
@@ -622,3 +756,4 @@ export function getOverallProgress(): number {
   // Ensure we return a value between 0-100
   return Math.max(0, Math.min(100, videoProgress))
 }
+

@@ -1,17 +1,11 @@
 "use client"
 
-import type React from "react"
-
-import { useRef, useState, useEffect, MutableRefObject } from "react"
+import { useRef, useState, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import Image from "next/image"
-import { usePreloadedAssets } from "@/hooks/use-preloaded-assets"
-import { isAppleDevice } from "@/utils/asset-preloader"
-
-// Track component instances to prevent duplicate initialization
-const initializedInstances = new Set<string>()
+import { getPreloadedVideo, areVideosLoaded } from "@/utils/video-preloader"
 
 interface HeroSectionProps {
   name: string
@@ -27,47 +21,30 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
 
   // Core state
   const [loadingState, setLoadingState] = useState<"initial" | "loading" | "ready" | "error">("initial")
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [fallbackImageVisible, setFallbackImageVisible] = useState(false)
   const [videoAttached, setVideoAttached] = useState(false)
 
   // Refs
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const videoContainerRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null)
   const isVisibleRef = useRef(true)
 
-  // Get preloaded video - this is the key part that needs to be fixed
-  const { video: preloadedVideo, isLoaded: assetsLoaded } = usePreloadedAssets()
-
-  // Log preloaded assets state for debugging
-  useEffect(() => {
-    console.log("HeroSection: Preloaded assets state:", {
-      hasPreloadedVideo: !!preloadedVideo,
-      assetsLoaded,
-      videoAttached,
-      loadingState,
-    })
-  }, [preloadedVideo, assetsLoaded, videoAttached, loadingState])
-
-  // Media queries for responsive design
+  // Update the media queries section to match the original approach while adding landscape detection
   const isMobileView = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
+  const isLandscape = useMediaQuery("(orientation: landscape) and (max-height: 500px)")
 
   // Initialize component - only run once per instance
   useEffect(() => {
     const instanceId = instanceIdRef.current
 
     // Check if this specific instance has been initialized
-    if (!initializedInstances.has(instanceId) && !hasInitializedRef.current) {
+    if (!hasInitializedRef.current) {
       console.log(`HeroSection mounted: ${instanceId}`)
-      initializedInstances.add(instanceId)
       hasInitializedRef.current = true
-
-      // Set loading state
-      if (!initialLoadComplete) {
-        setLoadingState("loading")
-      }
+      setLoadingState("loading")
     }
 
     return () => {
@@ -77,107 +54,85 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
         visibilityObserverRef.current = null
       }
     }
-  }, [initialLoadComplete])
+  }, [])
 
-  // Use preloaded video - improved to prevent duplicate loading
+  // Attach preloaded video
   useEffect(() => {
-    // Skip if we've already attached the video or if preloaded video isn't ready
-    // Also skip if this instance hasn't been properly initialized
-    if (videoAttached || !preloadedVideo || loadingState !== "loading" || !hasInitializedRef.current) {
+    // Skip if we've already attached the video
+    if (videoAttached || loadingState !== "loading") {
       return
     }
 
-    console.log("HeroSection: Using preloaded video", {
-      preloadedVideoSrc: preloadedVideo.src,
-      preloadedVideoDataset: preloadedVideo.dataset,
-      isAppleDevice,
-    })
+    // Check if videos are preloaded
+    if (!areVideosLoaded()) {
+      console.log("HeroSection: Videos not yet preloaded, waiting...")
+      return
+    }
+
+    console.log("HeroSection: Attaching preloaded video")
 
     try {
-      // Check if this is our preloaded video with the proper tag
-      if (preloadedVideo.dataset.preloaded === "true") {
-        // For Apple devices, we need special handling
-        if (isAppleDevice) {
-          console.log("HeroSection: Apple device detected, using special video handling")
+      // Get the preloaded video
+      const preloadedVideo = getPreloadedVideo("hero")
 
-          // On Apple devices, we'll clone the preloaded video to avoid removing it from cache
-          const videoContainer = videoRef.current?.parentNode
-          if (videoContainer && videoRef.current) {
-            console.log("HeroSection: Cloning preloaded video for Apple device")
+      if (preloadedVideo) {
+        console.log("HeroSection: Got preloaded hero video")
 
-            // IMPORTANT: Clone the preloaded video instead of moving it
-            const videoClone = preloadedVideo.cloneNode(true) as HTMLVideoElement
+        // Get the video container
+        const videoContainer = videoContainerRef.current
 
-            // Ensure the clone has all the necessary attributes
-            videoClone.muted = true
-            videoClone.playsInline = true
-            videoClone.loop = true
-            videoClone.crossOrigin = "anonymous"
+        if (videoContainer) {
+          // Clone the video to avoid conflicts with other components
+          const videoElement = preloadedVideo.cloneNode(true) as HTMLVideoElement
 
-            // Replace the placeholder with our clone
-            if (videoRef.current) {
-              videoContainer.replaceChild(videoClone, videoRef.current)
-            }
-            (videoRef as MutableRefObject<HTMLVideoElement | null>).current = videoClone
-          } else {
-            console.log("HeroSection: No video container found, using fallback image")
-            setFallbackImageVisible(true)
+          // Ensure video has proper attributes
+          videoElement.muted = true
+          videoElement.playsInline = true
+          videoElement.loop = true
+          videoElement.crossOrigin = "anonymous"
+
+          // If we have a video ref already, replace it
+          if (videoRef.current && videoRef.current.parentNode) {
+            console.log("HeroSection: Replacing existing video element")
+            videoContainer.replaceChild(videoElement, videoRef.current)
+            videoRef.current = videoElement
           }
+          // Otherwise, append the new video element
+          else {
+            console.log("HeroSection: Appending new video element")
+            videoContainer.appendChild(videoElement)
+            videoRef.current = videoElement
+          }
+
+          // Mark as attached
+          setVideoAttached(true)
+
+          // Try to play the video
+          videoElement.play().catch((err) => {
+            console.warn("HeroSection: Could not autoplay video:", err)
+            setFallbackImageVisible(true)
+          })
         } else {
-          // For non-Apple devices, we can safely set the src from the preloaded video
-          if (videoRef.current && preloadedVideo.src) {
-            console.log("HeroSection: Setting video src from preloaded video")
-
-            // Important: Only set src if it's not already set
-            if (!videoRef.current.src) {
-              // Use the same src as the preloaded video
-              videoRef.current.src = preloadedVideo.src
-
-              // Copy other important attributes
-              videoRef.current.muted = true
-              videoRef.current.playsInline = true
-              videoRef.current.loop = true
-              videoRef.current.crossOrigin = "anonymous"
-            }
-          } else {
-            console.log("HeroSection: No video ref or src, using fallback image")
-            setFallbackImageVisible(true)
-          }
+          console.warn("HeroSection: No video container found")
+          setFallbackImageVisible(true)
         }
-
-        // Mark as attached to prevent duplicate attachment
-        setVideoAttached(true)
       } else {
-        // If not properly tagged, use fallback
-        console.log("HeroSection: Preloaded video not properly tagged, using fallback image")
+        console.warn("HeroSection: Preloaded hero video not available")
         setFallbackImageVisible(true)
       }
 
       // Mark as ready
       setLoadingState("ready")
-      setInitialLoadComplete(true)
 
       // Notify parent component only once
       if (onReady && !readyNotifiedRef.current) {
         readyNotifiedRef.current = true
         onReady()
       }
-
-      // Start playing if visible
-      if (isVisibleRef.current && videoRef.current && videoRef.current.src) {
-        console.log("HeroSection: Attempting to play video")
-        videoRef.current.play().catch((err) => {
-          console.warn("HeroSection: Could not autoplay video:", err)
-          // Show fallback image if video can't play
-          setFallbackImageVisible(true)
-        })
-      }
     } catch (error) {
       console.error("HeroSection: Error setting up video:", error)
-      // Show fallback image on error
       setFallbackImageVisible(true)
       setLoadingState("ready")
-      setInitialLoadComplete(true)
 
       // Notify parent component only once, even on error
       if (onReady && !readyNotifiedRef.current) {
@@ -185,7 +140,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
         onReady()
       }
     }
-  }, [preloadedVideo, loadingState, onReady, videoAttached])
+  }, [loadingState, onReady, videoAttached])
 
   // Handle video errors
   useEffect(() => {
@@ -252,11 +207,29 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
     }
   }, [loadingState, fallbackImageVisible])
 
+  // Force ready state after timeout
+  useEffect(() => {
+    if (loadingState === "loading") {
+      const timeout = setTimeout(() => {
+        console.log("HeroSection: Force setting ready state after timeout")
+        setLoadingState("ready")
+
+        // Notify parent component only once
+        if (onReady && !readyNotifiedRef.current) {
+          readyNotifiedRef.current = true
+          onReady()
+        }
+      }, 5000)
+
+      return () => clearTimeout(timeout)
+    }
+  }, [loadingState, onReady])
+
   return (
     <section ref={containerRef} className="relative h-screen w-full overflow-hidden">
       {/* Loading placeholder - only show during initial loading */}
       <AnimatePresence>
-        {loadingState === "loading" && !initialLoadComplete && (
+        {loadingState === "loading" && (
           <motion.div
             className="absolute inset-0 z-10 bg-black"
             initial={{ opacity: 1 }}
@@ -271,7 +244,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
       </AnimatePresence>
 
       {/* Video Background - Always present but opacity controlled */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 overflow-hidden">
         {/* Fallback image - shown when video fails */}
         {fallbackImageVisible && (
           <div className="absolute inset-0">
@@ -286,48 +259,28 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
             transition: "opacity 1000ms cubic-bezier(0.4, 0.0, 0.2, 1)",
           }}
         >
-          {/* Only create video element if not using Apple device approach */}
-          {!isAppleDevice && (
-            <video
-              ref={videoRef}
-              className="absolute h-full w-full object-cover will-change-transform"
-              style={{ transform: "translateZ(0)" }}
-              muted
-              loop
-              playsInline
-              preload="auto"
-              crossOrigin="anonymous"
-              disablePictureInPicture
-              poster="/night3.png"
-              // IMPORTANT: Remove src attribute to prevent automatic loading
-              // Let the useEffect handle setting the src
-            >
-              Your browser does not support the video tag.
-            </video>
-          )}
-
-          {/* For Apple devices, we'll insert the preloaded video via the useEffect */}
-          {isAppleDevice && (
-            <div ref={videoRef as React.RefObject<HTMLDivElement>} className="absolute h-full w-full"></div>
-          )}
+          {/* Video container - we'll insert the video here */}
+          <div ref={videoContainerRef} className="absolute inset-0 h-full w-full overflow-hidden">
+            {/* Video element will be inserted here dynamically */}
+          </div>
         </div>
 
         {/* Gradient overlay for better text contrast */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/10 to-black/10" />
       </div>
 
-      {/* Content Container */}
+      {/* Content Container - Adjusted for better mobile layout */}
       <div className="relative z-5 h-full flex flex-col">
-        {/* Top section with main heading */}
-        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 md:px-12">
+        {/* Top section with main heading - Adjusted for better spacing on small screens */}
+        <div className="flex-1 flex items-center justify-center px-3 sm:px-6 md:px-12">
           <div className="w-full max-w-6xl mx-auto">
             <div className="text-center relative">
-              {/* Sun icon */}
+              {/* Sun icon - Adjusted position for small screens */}
               <div className="absolute -top-8 sm:-top-12 md:-top-16 text-yellow-400/90 flex justify-center w-full">
-                <Sun size={isMobileView ? 36 : isTablet ? 44 : 52} strokeWidth={1.5} />
+                <Sun size={isMobileView ? 36 : isTablet ? 44 : 52} strokeWidth={isMobileView ? 2 : 1.5} />
               </div>
 
-              {/* Text content */}
+              {/* Text content - Responsive text sizes */}
               <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white drop-shadow-md">
                 Welcome to
                 <span className="block mt-1 sm:mt-2 text-indigo-dye-700 text-4xl sm:text-5xl md:text-7xl lg:text-8xl">
@@ -335,14 +288,16 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
                 </span>
               </h1>
 
-              {/* Underline */}
-              <div className="h-0.5 bg-indigo-dye-500 mt-4 sm:mt-6 mx-auto w-[120px] sm:w-[160px] md:w-[200px]" />
+              {/* Underline - Adjusted size for mobile */}
+              <div
+                className={`h-0.5 bg-indigo-dye-500 mt-3 ${isMobileView ? "mt-2 w-[80px]" : "mt-4 w-[120px]"} sm:mt-6 sm:w-[160px] md:w-[200px] mx-auto`}
+              />
             </div>
           </div>
         </div>
 
-        {/* User information section */}
-        {isMobileView ? (
+        {/* User information section - Improved mobile layout */}
+        {isMobileView || isLandscape ? (
           <div className="w-full flex-grow flex flex-col">
             <div className="relative flex items-center justify-center mb-6">
               <div className="relative inline-block px-5 py-3 rounded-xl">

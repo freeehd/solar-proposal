@@ -18,13 +18,14 @@ import AppSection from "@/components/app-section"
 import LoadingScreen from "@/components/ui/loading-screen"
 import { Sun, EyeOff } from "lucide-react"
 import { useProposalData, type ProposalData } from "@/hooks/use-proposal-data"
-import { preloadAllAssets, addProgressListener, areAllAssetsLoaded } from "@/utils/asset-preloader"
+import { preloadAllVideos, addVideoProgressListener, areVideosLoaded } from "@/utils/video-preloader"
 
-// Start preloading assets as early as possible
+// Start preloading videos as early as possible
 if (typeof window !== "undefined") {
+  console.log("Page: Initiating video preloading from page component")
   // Force preloading to start immediately
-  preloadAllAssets().catch((error) => {
-    console.warn("Error during initial asset preloading:", error)
+  preloadAllVideos().catch((error) => {
+    console.warn("Page: Error during initial video preloading:", error)
   })
 }
 
@@ -52,10 +53,14 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
   const [activeSection, setActiveSection] = useState("hero")
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({})
   const [isLoading, setIsLoading] = useState(true)
-  const [assetProgress, setAssetProgress] = useState({
-    starModel: 0,
-    video: 0,
+  const [videoProgress, setVideoProgress] = useState({
+    hero: 0,
+    day: 0,
+    night: 0,
+    overall: 0,
   })
+  const instanceIdRef = useRef(`proposal-content-${Math.random().toString(36).substring(2, 9)}`)
+  const preloadingInitiatedRef = useRef(false)
 
   // Use our hook for proposal data
   const {
@@ -69,56 +74,78 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
     initialData,
   })
 
-  // Handle loading completion
-  const handleLoadingComplete = useCallback(() => {
-    setIsLoading(false)
+  // Log component mounting
+  useEffect(() => {
+    const instanceId = instanceIdRef.current
+    console.log(`ProposalContent [${instanceId}]: Component mounted`)
+
+    return () => {
+      console.log(`ProposalContent [${instanceId}]: Component unmounted`)
+    }
   }, [])
 
-  // Track asset loading progress
+  // Ensure video preloading is initiated
   useEffect(() => {
-    const removeListener = addProgressListener((type, progress) => {
-      setAssetProgress((prev) => ({
-        ...prev,
-        [type]: progress,
-      }))
+    if (!preloadingInitiatedRef.current) {
+      preloadingInitiatedRef.current = true
+      console.log("ProposalContent: Ensuring video preloading is initiated")
+
+      // Double-check that preloading has started
+      preloadAllVideos().catch((error) => {
+        console.warn("ProposalContent: Error during video preloading:", error)
+      })
+    }
+  }, [])
+
+  // Track video loading progress
+  useEffect(() => {
+    console.log("ProposalContent: Setting up video progress listener")
+
+    const removeListener = addVideoProgressListener((progress) => {
+      console.log("ProposalContent: Video progress update:", progress)
+      setVideoProgress(progress)
     })
 
-    return () => removeListener()
+    return () => {
+      console.log("ProposalContent: Removing video progress listener")
+      removeListener()
+    }
   }, [])
 
   // Calculate overall progress for loading screen
   const getOverallProgress = useCallback(() => {
-    // If data is loaded and assets are loaded, return 100%
-    if (dataLoaded && areAllAssetsLoaded()) {
+    // If data is loaded and videos are loaded, return 100%
+    if (dataLoaded && areVideosLoaded()) {
       return 100
     }
 
-    // Weight: 40% data, 30% star model, 30% video
+    // Weight: 40% data, 60% videos
     const dataProgressValue = typeof dataProgress === "number" ? dataProgress : 0
-    const starModelProgressValue = typeof assetProgress.starModel === "number" ? assetProgress.starModel : 0
-    const videoProgressValue = typeof assetProgress.video === "number" ? assetProgress.video : 0
+    const videoProgressValue = typeof videoProgress.overall === "number" ? videoProgress.overall : 0
 
     // Calculate weighted average
-    const calculatedProgress = Math.round(
-      dataProgressValue * 0.4 + starModelProgressValue * 0.3 + videoProgressValue * 0.3,
-    )
+    const calculatedProgress = Math.round(dataProgressValue * 0.4 + videoProgressValue * 0.6)
+
+    console.log("ProposalContent: Overall progress calculation:", {
+      dataProgress: dataProgressValue,
+      videoProgress: videoProgressValue,
+      calculatedProgress,
+    })
 
     // Ensure we return a value between 0-100
     return Math.max(0, Math.min(100, calculatedProgress))
-  }, [dataProgress, assetProgress.starModel, assetProgress.video, dataLoaded])
+  }, [dataProgress, videoProgress.overall, dataLoaded])
 
   // Check if everything is loaded and hide loading screen
   useEffect(() => {
-    // Only hide loading when both data and assets are loaded
-    if (dataLoaded && areAllAssetsLoaded()) {
-      // We don't immediately set isLoading to false
-      // Instead, we let the LoadingScreen component handle its own fade-out
-      // The onLoadingComplete callback will set isLoading to false after animation completes
+    // Only hide loading when both data and videos are loaded
+    if (dataLoaded && areVideosLoaded()) {
+      console.log("ProposalContent: Data and videos are loaded, preparing to hide loading screen")
 
       // Force hide loader after a maximum time (15 seconds) as a fallback
       const forceHideTimeout = setTimeout(() => {
         if (isLoading) {
-          console.warn("Force hiding loader after timeout")
+          console.warn("ProposalContent: Force hiding loader after timeout")
           setIsLoading(false)
         }
       }, 15000)
@@ -188,6 +215,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
         <LoadingScreen
           onLoadingComplete={() => {
             // This callback is triggered after the fade-out animation completes
+            console.log("ProposalContent: Loading screen completed, hiding it")
             setIsLoading(false)
           }}
           progress={getOverallProgress()}

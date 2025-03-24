@@ -3,21 +3,14 @@
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Sun } from "lucide-react"
-import {
-  addProgressListener,
-  preloadAllAssets,
-  getOverallProgress,
-  areAllAssetsLoaded,
-  assetLoader,
-} from "@/utils/asset-preloader"
 
 interface LoadingScreenProps {
   onLoadingComplete: () => void
-  progress?: number // Add optional progress prop
+  progress?: number // External progress value (0-100)
   minDisplayTime?: number // Minimum time to display the loading screen
 }
 
-// Default minimum display time of 2 seconds (2000ms)
+// Default minimum display time of 2 seconds
 const DEFAULT_MINIMUM_DISPLAY_TIME = 2000
 
 export default function LoadingScreen({
@@ -25,20 +18,32 @@ export default function LoadingScreen({
   progress: externalProgress,
   minDisplayTime = DEFAULT_MINIMUM_DISPLAY_TIME,
 }: LoadingScreenProps) {
-  const [progress, setProgress] = useState(0)
   const [displayProgress, setDisplayProgress] = useState(0)
-  const [videoProgress, setVideoProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState("Initializing...")
   const [isVisible, setIsVisible] = useState(true)
   const [showParticles, setShowParticles] = useState(false)
-  const [assetsLoaded, setAssetsLoaded] = useState(false)
-  const progressRef = useRef(0)
   const isMountedRef = useRef(true)
-  const assetsLoadedRef = useRef(false)
   const startTimeRef = useRef(Date.now())
-  const removeListenerRef = useRef<(() => void) | undefined>(undefined)
   const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const loadingInitiatedRef = useRef(false)
+  const progressRef = useRef(0)
+  const animationFrameRef = useRef<number | null>(null)
+  const instanceIdRef = useRef(`loading-screen-${Math.random().toString(36).substring(2, 9)}`)
+
+  // Log component mounting
+  useEffect(() => {
+    const instanceId = instanceIdRef.current
+    console.log(`LoadingScreen [${instanceId}]: Component mounted`)
+
+    return () => {
+      console.log(`LoadingScreen [${instanceId}]: Component unmounted`)
+      isMountedRef.current = false
+
+      // Clean up animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [])
 
   // Block scrolling when loading screen is visible
   useEffect(() => {
@@ -56,28 +61,13 @@ export default function LoadingScreen({
     }
   }, [isVisible])
 
-  // Animate progress counter
-  useEffect(() => {
-    progressRef.current = externalProgress !== undefined ? externalProgress : progressRef.current
-
-    // Smoothly animate the displayed progress
-    const animateProgress = () => {
-      if (displayProgress < progressRef.current) {
-        setDisplayProgress((prev) => Math.min(prev + 1, progressRef.current))
-        requestAnimationFrame(animateProgress)
-      }
-    }
-
-    requestAnimationFrame(animateProgress)
-  }, [progress, externalProgress, displayProgress])
-
   // Show particles after initial load
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isMountedRef.current) {
         setShowParticles(true)
       }
-    }, 500) // Reduced from 1000ms for faster appearance
+    }, 500)
 
     return () => clearTimeout(timer)
   }, [])
@@ -90,135 +80,81 @@ export default function LoadingScreen({
 
   // Handle loading completion
   const completeLoading = () => {
+    const instanceId = instanceIdRef.current
+
     if (completionTimeoutRef.current) {
       clearTimeout(completionTimeoutRef.current)
       completionTimeoutRef.current = null
     }
 
-    console.log("LoadingScreen: Starting fade-out after minimum display time")
+    console.log(`LoadingScreen [${instanceId}]: Starting fade-out after minimum display time`)
     setIsVisible(false)
 
     // Notify parent component after fade-out animation
     setTimeout(() => {
       if (!isMountedRef.current) return
-      console.log("LoadingScreen: Notifying parent of completion")
+      console.log(`LoadingScreen [${instanceId}]: Notifying parent of completion`)
       onLoadingComplete()
-    }, 800) // Reduced from 1300ms for faster transition
+    }, 800)
   }
 
-  // Handle loading and ensure minimum display time
+  // Handle progress updates
   useEffect(() => {
-    isMountedRef.current = true
-    console.log("LoadingScreen: Initializing")
+    const instanceId = instanceIdRef.current
 
-    // Record start time
-    startTimeRef.current = Date.now()
+    // Update the internal progress reference when external progress changes
+    if (externalProgress !== undefined) {
+      console.log(`LoadingScreen [${instanceId}]: External progress updated to ${externalProgress}%`)
+      progressRef.current = externalProgress
+    }
 
-    // Update loading message based on progress
+    // Smoothly animate the displayed progress
+    const animateProgress = () => {
+      if (!isMountedRef.current) return
+
+      if (displayProgress < progressRef.current) {
+        setDisplayProgress((prev) => {
+          // Move faster when there's a big gap
+          const gap = progressRef.current - prev
+          const increment = Math.max(1, Math.floor(gap / 10))
+          return Math.min(prev + increment, progressRef.current)
+        })
+        animationFrameRef.current = requestAnimationFrame(animateProgress)
+      }
+    }
+
+    // Start the animation
+    animationFrameRef.current = requestAnimationFrame(animateProgress)
+
+    // Clean up animation frame on unmount or when dependencies change
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [externalProgress, displayProgress])
+
+  // Update loading message based on progress
+  useEffect(() => {
     if (progressRef.current < 20) {
       setLoadingMessage("Initializing...")
     } else if (progressRef.current < 40) {
-      setLoadingMessage("Loading assets...")
+      setLoadingMessage("Loading videos...")
     } else if (progressRef.current < 80) {
       setLoadingMessage("Preparing content...")
     } else {
       setLoadingMessage("Almost ready...")
     }
 
-    // Only set up internal progress tracking if external progress is not provided
-    let removeListener: (() => void) | undefined
-
-    if (externalProgress === undefined) {
-      console.log("LoadingScreen: Setting up progress tracking")
-
-      // Listen for progress updates
-      removeListener = addProgressListener((type, assetProgress) => {
-        if (!isMountedRef.current) return
-
-        if (type === "video") {
-          setVideoProgress(assetProgress)
-        }
-
-        // Update overall progress
-        const overallProgress = getOverallProgress()
-        progressRef.current = overallProgress
-        setProgress(overallProgress)
-
-        // If assets are loaded, ensure we show 100%
-        if (assetProgress === 100 && areAllAssetsLoaded()) {
-          assetsLoadedRef.current = true
-          setAssetsLoaded(true)
-          progressRef.current = 100
-          setProgress(100)
-        }
-      })
-
-      // Start preloading assets using the singleton service - only once
-      if (!loadingInitiatedRef.current) {
-        console.log("LoadingScreen: Starting asset preloading via singleton")
-        loadingInitiatedRef.current = true
-
-        // Use the singleton service to initiate loading
-        assetLoader.initiatePreloading()
-
-        // Set up a promise to handle completion
-        preloadAllAssets()
-          .then((assets) => {
-            if (!isMountedRef.current) return
-
-            console.log("LoadingScreen: All assets loaded successfully", {
-              hasVideo: !!assets.video,
-            })
-
-            // Double-check that the assets are actually loaded and cached
-            if (!assets.video) {
-              console.warn("LoadingScreen: Assets loaded but video is missing")
-            }
-            console.warn("LoadingScreen: Assets loaded but video is missing")
-
-            assetsLoadedRef.current = true
-            setAssetsLoaded(true)
-
-            // Set progress to 100% when complete
-            progressRef.current = 100
-            setProgress(100)
-            setLoadingMessage("Ready!")
-
-            // Calculate remaining time to meet minimum display time
-            const remainingTime = calculateRemainingTime()
-
-            // Wait for the minimum display time before hiding
-            completionTimeoutRef.current = setTimeout(() => {
-              if (!isMountedRef.current) return
-              completeLoading()
-            }, remainingTime)
-
-            return assets
-          })
-          .catch((error) => {
-            console.error("LoadingScreen: Error preloading assets:", error)
-
-            // Even on error, wait the minimum time
-            const remainingTime = calculateRemainingTime()
-
-            completionTimeoutRef.current = setTimeout(() => {
-              if (!isMountedRef.current) return
-              completeLoading()
-            }, remainingTime)
-          })
-      }
-    } else {
-      // If external progress is provided, use it
-      progressRef.current = externalProgress
-      setProgress(externalProgress)
-    }
-
     // If progress reaches 100%, complete loading after minimum time
     if (progressRef.current >= 100) {
+      const instanceId = instanceIdRef.current
+      console.log(`LoadingScreen [${instanceId}]: Progress reached 100%, preparing to complete`)
       setLoadingMessage("Ready!")
 
       // Calculate remaining time to meet minimum display time
       const remainingTime = calculateRemainingTime()
+      console.log(`LoadingScreen [${instanceId}]: Minimum display time remaining: ${remainingTime}ms`)
 
       // Wait for the minimum display time before hiding
       completionTimeoutRef.current = setTimeout(() => {
@@ -226,15 +162,24 @@ export default function LoadingScreen({
         completeLoading()
       }, remainingTime)
     }
+  }, [externalProgress])
 
-    // Force completion after timeout (10 seconds) - reduced from 15 seconds
+  // Handle loading and ensure minimum display time
+  useEffect(() => {
+    const instanceId = instanceIdRef.current
+    isMountedRef.current = true
+    console.log(`LoadingScreen [${instanceId}]: Initializing with min display time: ${minDisplayTime}ms`)
+
+    // Record start time
+    startTimeRef.current = Date.now()
+
+    // Force completion after timeout (15 seconds)
     const forceCompleteTimeout = setTimeout(() => {
       if (!isMountedRef.current) return
 
       if (isVisible) {
-        console.warn("LoadingScreen: Force completing loading after timeout")
+        console.warn(`LoadingScreen [${instanceId}]: Force completing loading after timeout`)
         progressRef.current = 100
-        setProgress(100)
         setLoadingMessage("Ready!")
 
         // Still ensure minimum display time
@@ -246,19 +191,18 @@ export default function LoadingScreen({
             completeLoading()
           },
           Math.min(remainingTime, minDisplayTime / 2),
-        ) // Use half the minimum time if we've already waited 10 seconds
+        )
       }
-    }, 10000) // Reduced from 15000ms
+    }, 15000) // 15 second timeout (increased from 10s)
 
     return () => {
       isMountedRef.current = false
-      if (removeListener) removeListener()
       if (completionTimeoutRef.current) {
         clearTimeout(completionTimeoutRef.current)
       }
       clearTimeout(forceCompleteTimeout)
     }
-  }, [onLoadingComplete, isVisible, externalProgress, minDisplayTime])
+  }, [onLoadingComplete, isVisible, minDisplayTime])
 
   return (
     <div
@@ -360,7 +304,7 @@ export default function LoadingScreen({
             <motion.div
               className="h-full bg-gradient-to-r from-yellow-500 to-amber-400 relative"
               initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
+              animate={{ width: `${displayProgress}%` }}
               transition={{
                 type: "spring",
                 stiffness: 50,
@@ -390,21 +334,6 @@ export default function LoadingScreen({
         >
           {loadingMessage}
         </motion.p>
-
-        {/* Asset-specific progress (only show if not using external progress) */}
-        {externalProgress === undefined && (
-          <motion.div
-            className="mt-4 flex gap-6 text-xs text-white/40"
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-          >
-            <div className="flex items-center">
-              <div className="w-2 h-2 rounded-full bg-amber-400/70 mr-2" />
-              <span>Video: {videoProgress}%</span>
-            </div>
-          </motion.div>
-        )}
       </div>
     </div>
   )
