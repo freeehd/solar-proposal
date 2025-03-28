@@ -110,8 +110,8 @@ export const ReasonItem = React.memo(function ReasonItem({
 
       <div className="flex-1">
         <motion.div {...textAnimationProps}>
-          <h3 className="text-lg md:text-xl font-medium mb-2">{reason.text}</h3>
-          <p className="text-gray-600 text-sm md:text-base">{reason.description}</p>
+          <h3 className="text-lg md:text-xl font-medium text-foreground mb-2">{reason.text}</h3>
+          <p className="text-muted-foreground text-sm md:text-base">{reason.description}</p>
         </motion.div>
       </div>
     </li>

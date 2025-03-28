@@ -45,7 +45,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
   const instanceIdRef = useRef(`proposal-content-${Math.random().toString(36).substring(2, 9)}`)
 
   // Use our hook for proposal data
-  const { proposalData, visibleSections, dataLoaded, setProposalData } = useProposalData({
+  const { proposalData, visibleSections, enabledFinanceFields, enabledBatteryFields, dataLoaded, setProposalData } = useProposalData({
     proposalId,
     initialData,
   })
@@ -239,18 +239,19 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 solar_panel_size: proposalData.number_of_solar_panels,
                 lifetime_savings: proposalData.lifetime_savings,
                 solar_panel_design: proposalData.solar_panel_design,
-                // Add storage section props - only show if storage section is visible
-                battery_name: visibleSections.storage ? proposalData.battery_name : "",
-                inverter_name: visibleSections.storage ? proposalData.inverter_name : "",
-                capacity: visibleSections.storage ? proposalData.capacity : "",
-                output_kw: visibleSections.storage ? proposalData.output_kw : "",
+                // Add storage section props - only show if storage section is visible and field is enabled
+                battery_name: visibleSections.storage && enabledBatteryFields.batteryName ? proposalData.battery_name : "",
+                inverter_name: visibleSections.storage && enabledBatteryFields.inverterName ? proposalData.inverter_name : "",
+                capacity: visibleSections.storage && enabledBatteryFields.capacity ? proposalData.capacity : "",
+                output_kw: visibleSections.storage && enabledBatteryFields.outputKW ? proposalData.output_kw : "",
                 operating_mode: visibleSections.storage ? proposalData.operating_mode : "",
                 backup_allocation: visibleSections.storage ? proposalData.backup_allocation : "",
-                battery_image: visibleSections.storage ? proposalData.battery_image : "",
+                battery_image: visibleSections.storage && enabledBatteryFields.batteryImage ? proposalData.battery_image : "",
                 essentials_days: visibleSections.storage ? proposalData.essentials_days : "",
                 appliances_days: visibleSections.storage ? proposalData.appliances_days : "",
                 whole_home_days: visibleSections.storage ? proposalData.whole_home_days : "",
               }}
+              enabledBatteryFields={enabledBatteryFields}
             />
           </div>
         </ErrorBoundary>
@@ -317,6 +318,8 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 storage_system_price: proposalData.storage_system_price,
                 incentives: proposalData.incentives,
               }}
+              enabledBatteryFields={enabledBatteryFields}
+              enabledFinanceFields={enabledFinanceFields}
             />
           </div>
         </ErrorBoundary>

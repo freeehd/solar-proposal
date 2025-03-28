@@ -89,6 +89,20 @@ export interface EnabledFinanceFields {
   solarRate: boolean
   escalationRate: boolean
   year1MonthlyPayments: boolean
+  incentives: boolean
+  cumulativeCashflow: boolean
+}
+
+export interface EnabledBatteryFields {
+  batteryName: boolean
+  inverterName: boolean
+  capacity: boolean
+  outputKW: boolean
+  cost: boolean
+  batteryImage: boolean
+  storageSystemModel: boolean
+  storageSystemQuantity: boolean
+  storageSystemPrice: boolean
 }
 
 interface DefaultFormProps {
@@ -239,6 +253,25 @@ export function DefaultForm({
           solarRate: false,
           escalationRate: false,
           year1MonthlyPayments: false,
+          incentives: false,
+          cumulativeCashflow: false,
+        },
+  )
+
+  // Add a state to track which battery items are enabled
+  const [enabledBatteryFields, setEnabledBatteryFields] = useState<EnabledBatteryFields>(
+    initialData && initialData.enabled_battery_fields
+      ? initialData.enabled_battery_fields
+      : {
+          batteryName: true,
+          inverterName: true,
+          capacity: true,
+          outputKW: true,
+          cost: true,
+          batteryImage: true,
+          storageSystemModel: true,
+          storageSystemQuantity: true,
+          storageSystemPrice: true,
         },
   )
 
@@ -251,6 +284,25 @@ export function DefaultForm({
       ...prev,
       [fieldName as keyof typeof prev]: !prev[fieldName as keyof typeof prev],
     }))
+  }
+
+  // Add a function to toggle battery fields
+  const toggleBatteryField = (fieldName: string) => {
+    setEnabledBatteryFields((prev) => ({
+      ...prev,
+      [fieldName as keyof typeof prev]: !prev[fieldName as keyof typeof prev],
+    }))
+  }
+
+  // Add a function to toggle all battery fields
+  const toggleAllBatteryFields = (enabled: boolean) => {
+    setEnabledBatteryFields((prev) => {
+      const newState = { ...prev }
+      Object.keys(newState).forEach((key) => {
+        newState[key as keyof typeof newState] = enabled
+      })
+      return newState
+    })
   }
 
   const [energyData, setEnergyData] = useState(initialData ? initialData.energy_data || "" : "")
@@ -311,6 +363,7 @@ export function DefaultForm({
         energy_data: energyData,
         section_visibility: sectionVisibility,
         enabled_finance_fields: enabledFinanceFields,
+        enabled_battery_fields: enabledBatteryFields,
       }
 
       // Log the data being submitted
@@ -450,11 +503,10 @@ export function DefaultForm({
     form.setValue("batteryImage", imagePath)
   }
 
-  // Add the handleVisibilityChange function after the handleBatteryImageSelect function
   const handleVisibilityChange = (section: string) => {
-    setSectionVisibility((prev) => ({
+    setSectionVisibility((prev: Record<string, boolean>) => ({
       ...prev,
-      [section]: !prev[section as keyof typeof prev],
+      [section]: !prev[section],
     }))
   }
 
@@ -526,6 +578,8 @@ export function DefaultForm({
       solarRate: false,
       escalationRate: false,
       year1MonthlyPayments: false,
+      incentives: true,
+      cumulativeCashflow: false,
     })
 
     setEnergyData(`Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
@@ -764,183 +818,6 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="batteryName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Battery Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Tesla Powerwall"
-                      {...field}
-                      value={formData.batteryName}
-                      onChange={handleChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="inverterName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Inverter Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="SolarEdge SE7600H"
-                      {...field}
-                      value={formData.inverterName}
-                      onChange={handleChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="operatingMode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Operating Mode</FormLabel>
-                  <Select
-                    onValueChange={(value) => handleSelectChange(value, "operatingMode")}
-                    defaultValue={formData.operatingMode}
-                    value={formData.operatingMode}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select operating mode" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Backup">Backup</SelectItem>
-                      <SelectItem value="Self-Consumption">Self-Consumption</SelectItem>
-                      <SelectItem value="Time of Use">Time of Use</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField
-              control={form.control}
-              name="capacity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Capacity (kWh)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="13.50"
-                      {...field}
-                      value={formData.capacity}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="outputKW"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Output (kW)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="7.60"
-                      {...field}
-                      value={formData.outputKW}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cost"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cost ($)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="8500.00"
-                      {...field}
-                      value={formData.cost}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="backupAllocation"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Backup Allocation</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Configure backup allocation..."
-                    className="resize-none"
-                    {...field}
-                    value={formData.backupAllocation}
-                    onChange={handleChange}
-                  />
-                </FormControl>
-                <FormDescription>Allocate battery power to specific devices or circuits.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Battery Image Dialog */}
-          <div className="space-y-2">
-            <Label>Battery Image</Label>
-            <div className="space-y-4">
-              <ImageGalleryDialog
-                initialImage={formData.batteryImage}
-                onSelect={handleBatteryImageSelect}
-                imageType="battery"
-              />
-              {formData.batteryImage && (
-                <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
-                  <Image
-                    src={formData.batteryImage || "/placeholder.svg"}
-                    alt="Selected battery"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Solar Panel Design Image Dialog */}
           <div className="space-y-2">
             <Label>Solar Panel Design Image</Label>
@@ -966,27 +843,253 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             </div>
           </div>
 
+          {/* Energy Usage Data */}
+          <div className="space-y-2">
+            <Label htmlFor="energyData">Energy Usage Data</Label>
+            <Textarea
+              id="energyData"
+              value={energyData}
+              onChange={handleEnergyDataChange}
+              className="min-h-[150px]"
+              placeholder="Enter energy usage data in tabular format"
+            />
+            <FormDescription>Enter monthly energy usage and production data in a tabular format.</FormDescription>
+          </div>
+
+          {/* Battery Fields section */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Battery Fields</h3>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleAllBatteryFields(true)}
+                >
+                  Enable All
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleAllBatteryFields(false)}
+                >
+                  Disable All
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Battery Name */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.batteryName}
+                    onCheckedChange={() => toggleBatteryField("batteryName")}
+                  />
+                </div>
+                <Label
+                  htmlFor="batteryName"
+                  className={!enabledBatteryFields.batteryName ? "text-muted-foreground" : ""}
+                >
+                  Battery Name
+                </Label>
+                <Input
+                  id="batteryName"
+                  name="batteryName"
+                  type="text"
+                  value={formData.batteryName}
+                  onChange={handleChange}
+                  disabled={!enabledBatteryFields.batteryName}
+                  placeholder="Tesla Powerwall"
+                />
+              </div>
+
+              {/* Inverter Name */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.inverterName}
+                    onCheckedChange={() => toggleBatteryField("inverterName")}
+                  />
+                </div>
+                <Label
+                  htmlFor="inverterName"
+                  className={!enabledBatteryFields.inverterName ? "text-muted-foreground" : ""}
+                >
+                  Inverter Name
+                </Label>
+                <Input
+                  id="inverterName"
+                  name="inverterName"
+                  type="text"
+                  value={formData.inverterName}
+                  onChange={handleChange}
+                  disabled={!enabledBatteryFields.inverterName}
+                  placeholder="SolarEdge SE7600H"
+                />
+              </div>
+
+              {/* Capacity */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.capacity}
+                    onCheckedChange={() => toggleBatteryField("capacity")}
+                  />
+                </div>
+                <Label
+                  htmlFor="capacity"
+                  className={!enabledBatteryFields.capacity ? "text-muted-foreground" : ""}
+                >
+                  Capacity (kWh)
+                </Label>
+                <Input
+                  id="capacity"
+                  name="capacity"
+                  type="number"
+                  step="0.01"
+                  value={formData.capacity}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  disabled={!enabledBatteryFields.capacity}
+                  placeholder="13.50"
+                />
+              </div>
+
+              {/* Output KW */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.outputKW}
+                    onCheckedChange={() => toggleBatteryField("outputKW")}
+                  />
+                </div>
+                <Label
+                  htmlFor="outputKW"
+                  className={!enabledBatteryFields.outputKW ? "text-muted-foreground" : ""}
+                >
+                  Output (kW)
+                </Label>
+                <Input
+                  id="outputKW"
+                  name="outputKW"
+                  type="number"
+                  step="0.01"
+                  value={formData.outputKW}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  disabled={!enabledBatteryFields.outputKW}
+                  placeholder="7.60"
+                />
+              </div>
+
+              {/* Cost */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.cost}
+                    onCheckedChange={() => toggleBatteryField("cost")}
+                  />
+                </div>
+                <Label
+                  htmlFor="cost"
+                  className={!enabledBatteryFields.cost ? "text-muted-foreground" : ""}
+                >
+                  Cost ($)
+                </Label>
+                <Input
+                  id="cost"
+                  name="cost"
+                  type="number"
+                  step="0.01"
+                  value={formData.cost}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  disabled={!enabledBatteryFields.cost}
+                  placeholder="8500.00"
+                />
+              </div>
+
+              {/* Battery Image */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.batteryImage}
+                    onCheckedChange={() => toggleBatteryField("batteryImage")}
+                  />
+                </div>
+                <Label
+                  htmlFor="batteryImage"
+                  className={!enabledBatteryFields.batteryImage ? "text-muted-foreground" : ""}
+                >
+                  Battery Image
+                </Label>
+                <div className="space-y-4">
+                  <ImageGalleryDialog
+                    initialImage={formData.batteryImage}
+                    onSelect={handleBatteryImageSelect}
+                    imageType="battery"
+                    disabled={!enabledBatteryFields.batteryImage}
+                  />
+                  {formData.batteryImage && enabledBatteryFields.batteryImage && (
+                    <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
+                      <Image
+                        src={formData.batteryImage || "/placeholder.svg"}
+                        alt="Selected battery"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Financing Options section */}
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Financing Options</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Toggle all finance fields to be enabled
-                  const allFields = Object.keys(enabledFinanceFields).reduce(
-                    (acc, key) => {
-                      acc[key as keyof typeof enabledFinanceFields] = true
-                      return acc
-                    },
-                    { ...enabledFinanceFields },
-                  )
-                  setEnabledFinanceFields(allFields)
-                }}
-              >
-                Enable All Fields
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Toggle all finance fields to be enabled
+                    const allFields = Object.keys(enabledFinanceFields).reduce(
+                      (acc, key) => {
+                        acc[key as keyof typeof enabledFinanceFields] = true
+                        return acc
+                      },
+                      { ...enabledFinanceFields },
+                    )
+                    setEnabledFinanceFields(allFields)
+                  }}
+                >
+                  Enable All
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Toggle all finance fields to be disabled
+                    const allFields = Object.keys(enabledFinanceFields).reduce(
+                      (acc, key) => {
+                        acc[key as keyof typeof enabledFinanceFields] = false
+                        return acc
+                      },
+                      { ...enabledFinanceFields },
+                    )
+                    setEnabledFinanceFields(allFields)
+                  }}
+                >
+                  Disable All
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1328,6 +1431,44 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   placeholder="8.50"
                 />
               </div>
+
+              {/* Incentives - Moved to financing section */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFinanceFields.incentives}
+                    onCheckedChange={() => toggleFinanceField("incentives")}
+                  />
+                </div>
+                <Label htmlFor="incentives" className={!enabledFinanceFields.incentives ? "text-muted-foreground" : ""}>
+                  Incentives ($)
+                </Label>
+                <Input
+                  id="incentives"
+                  name="incentives"
+                  type="number"
+                  step="0.01"
+                  value={formData.incentives}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  disabled={!enabledFinanceFields.incentives}
+                  placeholder="9100.00"
+                />
+              </div>
+
+              {/* Cumulative Cash Flow Chart */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledFinanceFields.cumulativeCashflow}
+                    onCheckedChange={() => toggleFinanceField("cumulativeCashflow")}
+                  />
+                </div>
+                <Label htmlFor="cumulativeCashflow" className={!enabledFinanceFields.cumulativeCashflow ? "text-muted-foreground" : ""}>
+                  Cumulative Cash Flow Chart
+                </Label>
+                <p className="text-sm text-muted-foreground">Show the cumulative cash flow chart and ROI information</p>
+              </div>
             </div>
           </div>
 
@@ -1365,43 +1506,68 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   onChange={handleChange}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="incentives">Incentives ($)</Label>
-                <Input
-                  id="incentives"
-                  name="incentives"
-                  type="number"
-                  step="0.01"
-                  value={formData.incentives}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="9100.00"
-                />
-              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="storageSystemModel">Storage System Model</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              {/* Storage System Model */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.storageSystemModel}
+                    onCheckedChange={() => toggleBatteryField("storageSystemModel")}
+                  />
+                </div>
+                <Label
+                  htmlFor="storageSystemModel"
+                  className={!enabledBatteryFields.storageSystemModel ? "text-muted-foreground" : ""}
+                >
+                  Storage System Model
+                </Label>
                 <Input
                   id="storageSystemModel"
                   name="storageSystemModel"
                   type="text"
                   value={formData.storageSystemModel}
                   onChange={handleChange}
+                  disabled={!enabledBatteryFields.storageSystemModel}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="storageSystemQuantity">Storage System Quantity</Label>
+              {/* Storage System Quantity */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.storageSystemQuantity}
+                    onCheckedChange={() => toggleBatteryField("storageSystemQuantity")}
+                  />
+                </div>
+                <Label
+                  htmlFor="storageSystemQuantity"
+                  className={!enabledBatteryFields.storageSystemQuantity ? "text-muted-foreground" : ""}
+                >
+                  Storage System Quantity
+                </Label>
                 <Input
                   id="storageSystemQuantity"
                   name="storageSystemQuantity"
                   type="number"
                   value={formData.storageSystemQuantity}
                   onChange={handleChange}
+                  disabled={!enabledBatteryFields.storageSystemQuantity}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="storageSystemPrice">Storage System Price ($)</Label>
+              {/* Storage System Price */}
+              <div className="space-y-2 border p-3 rounded-md relative">
+                <div className="absolute top-3 right-3">
+                  <Switch
+                    checked={enabledBatteryFields.storageSystemPrice}
+                    onCheckedChange={() => toggleBatteryField("storageSystemPrice")}
+                  />
+                </div>
+                <Label
+                  htmlFor="storageSystemPrice"
+                  className={!enabledBatteryFields.storageSystemPrice ? "text-muted-foreground" : ""}
+                >
+                  Storage System Price ($)
+                </Label>
                 <Input
                   id="storageSystemPrice"
                   name="storageSystemPrice"
@@ -1409,6 +1575,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                   step="0.01"
                   value={formData.storageSystemPrice}
                   onChange={handleChange}
+                  disabled={!enabledBatteryFields.storageSystemPrice}
                 />
               </div>
             </div>
@@ -1482,18 +1649,6 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="energyData">Energy Usage Data</Label>
-            <Textarea
-              id="energyData"
-              value={energyData}
-              onChange={handleEnergyDataChange}
-              className="min-h-[150px]"
-              placeholder="Enter energy usage data in tabular format"
-            />
-            <FormDescription>Enter monthly energy usage and production data in a tabular format.</FormDescription>
           </div>
 
           <div className="flex gap-4 pt-4">

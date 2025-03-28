@@ -81,7 +81,7 @@ const TextContent = memo(({ variants }: { variants: any }) => (
       transform: "translateZ(0)"
     }}
   >
-    <div className="text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed text-[#0b0a08]/80 font-light tracking-wide mt-4 sm:mt-6 md:mt-8">
+    <div className="text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed text-foreground/80 font-light tracking-wide mt-4 sm:mt-6 md:mt-8">
       Sun Studios is a leading provider of solar energy solutions, committed to powering a sustainable
       future. With our innovative technology and expert team, we're transforming how homes and
       businesses harness the sun's energy.
@@ -93,7 +93,7 @@ TextContent.displayName = "TextContent";
 
 // Memoized background gradient for better performance
 const BackgroundGradient = memo(() => (
-  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(194,202,220,0.3),rgba(255,255,255,0))]" />
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary)/0.05),transparent)]" />
 ));
 
 BackgroundGradient.displayName = "BackgroundGradient";
@@ -104,7 +104,7 @@ const AnimatedBackground = memo(({ animation, transition }: { animation: any, tr
     <motion.div
       className="absolute top-[5%] right-[5%] w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] md:w-[800px] md:h-[800px] rounded-full"
       style={{
-        background: "radial-gradient(circle, rgba(107,114,34,0.15) 0%, rgba(107,114,34,0) 70%)",
+        background: "radial-gradient(circle, hsl(var(--primary)/0.15) 0%, hsl(var(--primary)/0) 70%)",
         willChange: "transform, opacity", 
         transform: "translateZ(0)"
       }}
@@ -224,11 +224,11 @@ export default function WhySunStudios() {
 
   // Performance optimization - skip animation if not in view
   if (!shouldRenderContent) {
-    return <section ref={sectionRef} className="relative min-h-screen bg-white" />;
+    return <section ref={sectionRef} className="relative min-h-screen bg-background" />;
   }
 
   return (
-    <section ref={sectionRef} className="relative min-h-screen py-16 sm:py-20 md:py-32 overflow-hidden bg-white">
+    <section ref={sectionRef} className="relative min-h-screen py-16 sm:py-20 md:py-32 overflow-hidden bg-background">
       <BackgroundGradient />
 
       <motion.div
@@ -236,9 +236,9 @@ export default function WhySunStudios() {
         variants={animationVariants.container}
         initial="hidden"
         animate="visible"
-        layout={false} // Disable layout animations for better performance
+        layout={false}
       >
-        <Card className="p-5 sm:p-8 md:p-12 mb-8 md:mb-12 bg-white/90 backdrop-blur-sm border-[#125170]/10 shadow-xl">
+        <Card className="p-5 sm:p-8 md:p-12 mb-8 md:mb-12 bg-card/90 backdrop-blur-sm border-primary/10 shadow-xl">
           <div className="flex flex-col lg:flex-row items-start justify-between max-w-full mx-auto">
             <div className="w-full lg:w-1/2 mb-10 sm:mb-12 lg:mb-0 pr-0 lg:pr-10">
               <div
@@ -251,25 +251,25 @@ export default function WhySunStudios() {
                   animate="visible"
                   className="relative"
                   style={{ willChange: "transform" }}
-                  layout={false} // Disable layout animations
+                  layout={false}
                 >
                   <div className="mb-2 sm:mb-4">
                     <motion.h2
-                      className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium tracking-normal text-[#0b0a08] leading-tight"
+                      className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium tracking-normal text-foreground leading-tight"
                       variants={animationVariants.title}
                       style={{ 
                         willChange: "opacity, transform",
                         transform: "translateZ(0)"
                       }}
-                      layout={false} // Disable layout animations
+                      layout={false}
                     >
-                      <span className="block text-[#0b0a08]">Why Choose</span>
+                      <span className="block text-foreground">Why Choose</span>
                       <div className="mt-2 sm:mt-4">
                         <motion.div
                           variants={animationVariants.title}
                           className="w-full max-w-[400px] h-auto"
                           style={{ willChange: "opacity, transform" }}
-                          layout={false} // Disable layout animations
+                          layout={false}
                         >
                           <ImageWithFallback
                             src="/icon.png"

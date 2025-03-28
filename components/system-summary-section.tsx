@@ -13,6 +13,14 @@ interface SystemSummarySectionProps {
     storage_system_price?: string
     incentives?: string
   }
+  enabledBatteryFields?: {
+    storageSystemModel: boolean
+    storageSystemQuantity: boolean
+    storageSystemPrice: boolean
+  }
+  enabledFinanceFields?: {
+    incentives: boolean
+  }
 }
 
 export default function SystemSummarySection({
@@ -24,6 +32,14 @@ export default function SystemSummarySection({
     storage_system_quantity: "0",
     storage_system_price: "0",
     incentives: "0",
+  },
+  enabledBatteryFields = {
+    storageSystemModel: true,
+    storageSystemQuantity: true,
+    storageSystemPrice: true,
+  },
+  enabledFinanceFields = {
+    incentives: true,
   },
 }: SystemSummarySectionProps) {
   const cardVariants = {
@@ -73,58 +89,54 @@ export default function SystemSummarySection({
                       {proposalData.solar_system_quantity || "0"}
                     </p>
                   </div>
-                  {/* <div>
-                    <p className="text-sm text-muted-foreground">Price:</p>
-                    <p className="text-xl font-normal leading-tight text-primary">
-                      {formatCurrency(proposalData.solar_system_price)}
-                    </p>
-                  </div> */}
                 </div>
               </CardContent>
             </Card>
           </motion.div>
-          <motion.div variants={cardVariants} initial="hidden" animate="visible" transition={{ delay: 0.2 }}>
+          {(enabledBatteryFields.storageSystemModel || enabledBatteryFields.storageSystemQuantity) && (
+            <motion.div variants={cardVariants} initial="hidden" animate="visible" transition={{ delay: 0.2 }}>
+              <Card className="bg-card/50 backdrop-blur border-primary/10">
+                <CardHeader>
+                  <CardTitle>Storage System</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    {enabledBatteryFields.storageSystemModel && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Model:</p>
+                        <p className="text-xl font-normal leading-tight text-primary">
+                          {proposalData.storage_system_model || "Not specified"}
+                        </p>
+                      </div>
+                    )}
+                    {enabledBatteryFields.storageSystemQuantity && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Quantity:</p>
+                        <p className="text-xl font-normal leading-tight text-primary">
+                          {proposalData.storage_system_quantity || "0"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </div>
+        {enabledFinanceFields.incentives && (
+          <motion.div variants={cardVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
             <Card className="bg-card/50 backdrop-blur border-primary/10">
               <CardHeader>
-                <CardTitle>Storage System</CardTitle>
+                <CardTitle>Incentives</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Model:</p>
-                    <p className="text-xl font-normal leading-tight text-primary">
-                      {proposalData.storage_system_model || "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Quantity:</p>
-                    <p className="text-xl font-normal leading-tight text-primary">
-                      {proposalData.storage_system_quantity || "0"}
-                    </p>
-                  </div>
-                  {/* <div>
-                    <p className="text-sm text-muted-foreground">Price:</p>
-                    <p className="text-xl font-normal leading-tight text-primary">
-                      {formatCurrency(proposalData.storage_system_price)}
-                    </p>
-                  </div> */}
-                </div>
+                <p className="text-4xl font-normal leading-tight text-center text-primary">
+                  {formatCurrency(proposalData.incentives)}
+                </p>
               </CardContent>
             </Card>
           </motion.div>
-        </div>
-        {/* <motion.div variants={cardVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
-          <Card className="bg-card/50 backdrop-blur border-primary/10">
-            <CardHeader>
-              <CardTitle>Incentives</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-normal leading-tight text-center text-primary">
-                {formatCurrency(proposalData.incentives)}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div> */}
+        )}
       </div>
     </section>
   )

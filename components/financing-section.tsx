@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
-  Line,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -12,17 +11,18 @@ import {
   type TooltipProps,
   Area,
   ComposedChart,
+  Line,
   ReferenceArea,
   Label,
 } from "recharts"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect, useMemo } from "react"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowRight, TrendingUp, DollarSign, Percent, Calendar, CreditCard } from "lucide-react"
+import { TrendingUp, CreditCard, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import type { EnabledFinanceFields } from "@/hooks/use-proposal-data"
 import Image from "next/image"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface FinancingSectionProps {
   proposalData: {
@@ -95,6 +95,7 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
     solarRate: false,
     escalationRate: false,
     year1MonthlyPayments: false,
+    cumulativeCashflow: false,
   }
 
   // Calculate cashflow data
@@ -238,7 +239,6 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
         </motion.div>
 
         {/* Overview Section */}
-       
 
         {/* Financing Type Badge */}
         {enabledFields.financingType && proposalData.financing_type && (
@@ -248,7 +248,7 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
             transition={{ duration: 0.5, delay: 0.2 }}
             className="flex justify-center mb-8"
           >
-            <Badge variant="outline" className="px-4 py-2 text-base bg-primary/10 border-primary/20">
+            <Badge variant="secondary" className="px-4 py-2 text-base bg-primary/10 border-primary/20">
               {financingInfo.logo ? (
                 <div className="flex items-center gap-2">
                   <div className="relative w-6 h-6 mr-2">
@@ -274,8 +274,6 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
 
         {/* Financing Details Section */}
         <div className="mt-16">
-      
-
           <motion.div variants={cardVariants} initial="hidden" animate="visible">
             {/* Single Financial Details Card */}
             <Card className="bg-card/50 backdrop-blur border-primary/10">
@@ -465,18 +463,164 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
 
                 {/* ROI Information */}
                 <Separator className="my-6" />
-                {/* <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-600">
-                      30-Year ROI: <span className="font-bold">{Math.round(roi)}%</span>
-                    </span>
+                {enabledFields.cumulativeCashflow && (
+                  <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-600">
+                        30-Year ROI: <span className="font-bold">{Math.round(roi)}%</span>
+                      </span>
+                    </div>
                   </div>
-                </div> */}
+                )}
               </CardContent>
             </Card>
           </motion.div>
         </div>
+
+        {/* Cumulative Cash Flow Chart */}
+        {enabledFields.cumulativeCashflow && (
+          <motion.div variants={cardVariants} initial="hidden" animate="visible">
+            <Card className="bg-card/50 backdrop-blur border-primary/10">
+              <CardHeader className="pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle>Cumulative Cashflow</CardTitle>
+                    <CardDescription>Track your savings over time</CardDescription>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Tabs
+                      value={activeTimeframe}
+                      onValueChange={(v) => setActiveTimeframe(v as "10" | "20" | "30")}
+                      className="w-auto"
+                    >
+                      <TabsList className="bg-background/50">
+                        <TabsTrigger value="10">10 Years</TabsTrigger>
+                        <TabsTrigger value="20">20 Years</TabsTrigger>
+                        <TabsTrigger value="30">30 Years</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                </div>
+
+                {breakEvenYear && (
+                  <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-600">
+                        Break-even point: <span className="font-bold">Year {breakEvenYear}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </CardHeader>
+
+              <CardContent>
+                <AnimatePresence>
+                  {isChartVisible && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.7 }}
+                      className="h-[450px] w-full"
+                    >
+                      {filteredData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                            <defs>
+                              <linearGradient id="colorCashflow" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                              </linearGradient>
+                              <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="#3B82F6" />
+                                <stop offset="100%" stopColor="#8B5CF6" />
+                              </linearGradient>
+                            </defs>
+
+                            <CartesianGrid strokeDasharray="3 3" stroke="#6B7280/30" />
+
+                            <XAxis
+                              dataKey="year"
+                              stroke="#6B7280"
+                              label={{
+                                value: "Years",
+                                position: "insideBottomRight",
+                                offset: -10,
+                              }}
+                            />
+
+                            <YAxis
+                              stroke="#6B7280"
+                              domain={yDomain}
+                              tickFormatter={(value) =>
+                                new Intl.NumberFormat("en-US", {
+                                  style: "currency",
+                                  currency: "USD",
+                                  notation: "compact",
+                                  maximumFractionDigits: 1,
+                                }).format(value)
+                              }
+                            />
+
+                            <Tooltip content={<CustomTooltip />} />
+
+                            <ReferenceLine y={0} stroke="#6B7280" strokeWidth={1.5} strokeDasharray="3 3" />
+
+                            {/* Highlight break-even area */}
+                            {breakEvenYear && breakEvenYear <= Number.parseInt(activeTimeframe) && (
+                              <ReferenceArea
+                                x1={breakEvenYear - 1}
+                                x2={breakEvenYear}
+                                y1={yDomain[0]}
+                                y2={0}
+                                fill="#22C55E"
+                                fillOpacity={0.1}
+                                stroke="#22C55E"
+                                strokeOpacity={0.3}
+                                strokeDasharray="3 3"
+                              >
+                                <Label value="Break-even" position="insideTopRight" fill="#22C55E" fontSize={12} />
+                              </ReferenceArea>
+                            )}
+
+                            {/* Area and line for cashflow */}
+                            <Area
+                              type="monotone"
+                              dataKey="cashflow"
+                              fill="url(#colorCashflow)"
+                              fillOpacity={0.3}
+                              stroke="none"
+                            />
+
+                            <Line
+                              type="monotone"
+                              dataKey="cashflow"
+                              name="Savings"
+                              stroke="url(#lineGradient)"
+                              strokeWidth={3}
+                              dot={false}
+                              activeDot={{
+                                r: 6,
+                                stroke: "#3B82F6",
+                                strokeWidth: 2,
+                                fill: "white",
+                              }}
+                            />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <p className="text-muted-foreground">No data available</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}

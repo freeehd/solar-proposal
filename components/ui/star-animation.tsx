@@ -23,14 +23,14 @@ interface StarAnimationProps {
 }
 
 // Constants
-const FINAL_SCALE = 1
+const FINAL_SCALE = 0.8
 const STAR_MODEL_URL = "/models/star2.glb"
 
 // Material configuration for consistent appearance
 const createStarMaterial = (emissiveIntensity = 0.3) => {
   return new THREE.MeshStandardMaterial({
-    color: new THREE.Color("#c7960e"), // Gold color
-    emissive: new THREE.Color("#ffd500"), // Bright gold for glow
+    color: new THREE.Color("#c77d0e"), // Gold color
+    emissive: new THREE.Color("#ffb300"), // Bright gold for glow
     emissiveIntensity: 0.5,
     roughness: 0.01, // Extremely low roughness for mirror-like reflection
     metalness: 1.0, // Maximum metalness for perfect mirror finish

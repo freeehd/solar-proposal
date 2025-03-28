@@ -35,7 +35,7 @@ interface SolarMetricsGridProps {
     text4: boolean
     circleText: boolean
   }
-  handleChargingComplete: (iconKey: string) => void
+  handleChargingComplete: (iconKey: "circle" | "icon1" | "icon2" | "batteryCapacity" | "icon3" | "icon4") => void
   icon1Ref: React.RefObject<HTMLDivElement>
   icon2Ref: React.RefObject<HTMLDivElement>
   batteryCapacityRef: React.RefObject<HTMLDivElement>
@@ -45,6 +45,14 @@ interface SolarMetricsGridProps {
   metricsCardRef?: React.RefObject<HTMLDivElement>
   circleCardRef?: React.RefObject<HTMLDivElement>
   isSimplifiedView?: boolean
+  enabledBatteryFields?: {
+    batteryName: boolean
+    inverterName: boolean
+    capacity: boolean
+    outputKW: boolean
+    cost: boolean
+    batteryImage: boolean
+  }
 }
 
 export function SolarMetricsGrid({
@@ -62,6 +70,7 @@ export function SolarMetricsGrid({
   metricsCardRef,
   circleCardRef,
   isSimplifiedView,
+  enabledBatteryFields,
 }: SolarMetricsGridProps) {
   const energyOffset = Number.parseInt(proposalData.energy_offset || "0", 10)
   const lifetimeSavings = Number.parseInt(proposalData.lifetime_savings?.replace(/,/g, "") || "0", 10)
@@ -76,21 +85,14 @@ export function SolarMetricsGrid({
           <CardTitle className="text-xl sm:text-2xl font-bold text-indigo-dye-600">System Specifications</CardTitle>
         </CardHeader>
         <CardContent className={`${isSimplifiedView ? "p-3 xs:p-4" : "p-4 xs:p-5"} sm:p-6`}>
-          <div
-            className={`${isSimplifiedView ? "grid grid-cols-2 gap-x-2 gap-y-4 xs:grid-cols-2 xs:gap-x-3 xs:gap-y-5" : "grid grid-cols-2 gap-x-3 gap-y-5 xs:grid-cols-2 xs:gap-x-4 xs:gap-y-6"} 
-  md:grid-cols-3 lg:grid-cols-5 sm:gap-x-4 sm:gap-y-8 md:gap-x-6 md:gap-y-10 lg:gap-x-10
-  w-full justify-items-center`}
-          >
+          <div className={`grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 ${enabledBatteryFields?.capacity ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4 xs:gap-6 sm:gap-8 md:gap-10 pb-5 justify-items-center ${!enabledBatteryFields?.capacity ? 'lg:justify-center' : ''}`}>
             {/* System Size */}
             <div
-              className={`flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full 
-  ${isSimplifiedView ? "max-w-[85px] xs:max-w-[100px]" : "max-w-[70px] xs:max-w-[90px]"} 
-  sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
+              ref={icon1Ref}
+              className="relative flex flex-col items-center text-center w-full max-w-[160px] xs:col-span-1"
             >
               <motion.div
-                ref={icon1Ref}
-                id="icon1"
-                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center`}
+                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center mb-2 xs:mb-3 sm:mb-4 md:mb-5`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{
                   opacity: isInView ? 1 : 0,
@@ -147,14 +149,11 @@ export function SolarMetricsGrid({
 
             {/* Solar Panels */}
             <div
-              className={`flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full 
-  ${isSimplifiedView ? "max-w-[85px] xs:max-w-[100px]" : "max-w-[70px] xs:max-w-[90px]"} 
-  sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
+              ref={icon2Ref}
+              className="relative flex flex-col items-center text-center w-full max-w-[160px] xs:col-span-1"
             >
               <motion.div
-                ref={icon2Ref}
-                id="icon2"
-                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center`}
+                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center mb-2 xs:mb-3 sm:mb-4 md:mb-5`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{
                   opacity: isInView ? 1 : 0,
@@ -209,80 +208,76 @@ export function SolarMetricsGrid({
               </motion.div>
             </div>
 
-            {/* Battery Capacity */}
-            <div
-              className={`flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full 
-  ${isSimplifiedView ? "max-w-[85px] xs:max-w-[100px]" : "max-w-[70px] xs:max-w-[90px]"} 
-  sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
-            >
-              <motion.div
+            {/* Battery Capacity - Only show if enabled */}
+            {enabledBatteryFields?.capacity && (
+              <div
                 ref={batteryCapacityRef}
-                id="batteryCapacity"
-                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center`}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{
-                  opacity: isInView ? 1 : 0,
-                  scale: isInView ? 1 : 0.8,
-                }}
-                transition={{ duration: isSimplifiedView ? 0.3 : 0.5, delay: isSimplifiedView ? 0.2 : 0.4 }}
+                className="relative flex flex-col items-center text-center w-full max-w-[160px] xs:col-span-1"
               >
-                <PremiumIcon
-                  className={`${isSimplifiedView ? "w-16 h-16 xs:w-18 xs:h-18" : "w-12 xs:w-14 h-12 xs:h-14"} sm:w-18 md:w-24 lg:w-28 sm:h-18 md:h-24 lg:h-28`}
-                  isCharging={chargingStates.batteryCapacity}
-                  onChargingComplete={() => handleChargingComplete("batteryCapacity")}
-                  delay={isSimplifiedView ? 0 : 1.5}
+                <motion.div
+                  className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center mb-2 xs:mb-3 sm:mb-4 md:mb-5`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{
+                    opacity: isInView ? 1 : 0,
+                    scale: isInView ? 1 : 0.8,
+                  }}
+                  transition={{ duration: isSimplifiedView ? 0.3 : 0.5, delay: isSimplifiedView ? 0.2 : 0.4 }}
                 >
-                  <Battery
-                    className={`${isSimplifiedView ? "w-8 h-8 xs:w-9 xs:h-9" : "w-6 xs:w-7 h-6 xs:h-7"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-green-600`}
-                  />
-                </PremiumIcon>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{
-                  opacity: textRevealStates.batteryCapacityText ? 1 : 0,
-                  y: textRevealStates.batteryCapacityText ? 0 : 10,
-                  scale: chargingStates.batteryCapacity ? [1, 1.05, 1] : 1,
-                }}
-                transition={{
-                  opacity: { duration: isSimplifiedView ? 0.3 : 0.8, ease: "easeOut" },
-                  y: { duration: isSimplifiedView ? 0.3 : 0.8, ease: "easeOut" },
-                  scale: { duration: 0.3 },
-                }}
-                className="text-center w-full"
-              >
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: textRevealStates.batteryCapacityText ? 1 : 0 }}
-                  transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5`}
-                >
-                  Battery Capacity
-                </motion.p>
-                <motion.p
-                  initial={{ opacity: 0, y: 5 }}
+                  <PremiumIcon
+                    className={`${isSimplifiedView ? "w-16 h-16 xs:w-18 xs:h-18" : "w-12 xs:w-14 h-12 xs:h-14"} sm:w-18 md:w-24 lg:w-28 sm:h-18 md:h-24 lg:h-28`}
+                    isCharging={chargingStates.batteryCapacity}
+                    onChargingComplete={() => handleChargingComplete("batteryCapacity")}
+                    delay={isSimplifiedView ? 0 : 1.5}
+                  >
+                    <Battery
+                      className={`${isSimplifiedView ? "w-8 h-8 xs:w-9 xs:h-9" : "w-6 xs:w-7 h-6 xs:h-7"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-green-600`}
+                    />
+                  </PremiumIcon>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{
                     opacity: textRevealStates.batteryCapacityText ? 1 : 0,
-                    y: textRevealStates.batteryCapacityText ? 0 : 5,
+                    y: textRevealStates.batteryCapacityText ? 0 : 10,
+                    scale: chargingStates.batteryCapacity ? [1, 1.05, 1] : 1,
                   }}
-                  transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.2 }}
-                  className={`${isSimplifiedView ? "text-lg xs:text-xl" : "text-base xs:text-lg"} sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700`}
+                  transition={{
+                    opacity: { duration: isSimplifiedView ? 0.3 : 0.8, ease: "easeOut" },
+                    y: { duration: isSimplifiedView ? 0.3 : 0.8, ease: "easeOut" },
+                    scale: { duration: 0.3 },
+                  }}
+                  className="text-center w-full"
                 >
-                  {proposalData.capacity || "13.5"} kWh
-                </motion.p>
-              </motion.div>
-            </div>
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: textRevealStates.batteryCapacityText ? 1 : 0 }}
+                    transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
+                    className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-smoky-black/70 uppercase tracking-wider mb-0.5`}
+                  >
+                    Battery Capacity
+                  </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{
+                      opacity: textRevealStates.batteryCapacityText ? 1 : 0,
+                      y: textRevealStates.batteryCapacityText ? 0 : 5,
+                    }}
+                    transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.2 }}
+                    className={`${isSimplifiedView ? "text-lg xs:text-xl" : "text-base xs:text-lg"} sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700`}
+                  >
+                    {proposalData.capacity || "13.5"} kWh
+                  </motion.p>
+                </motion.div>
+              </div>
+            )}
 
             {/* Annual Consumption */}
             <div
-              className={`flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full 
-  ${isSimplifiedView ? "max-w-[85px] xs:max-w-[100px]" : "max-w-[70px] xs:max-w-[90px]"} 
-  sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
+              ref={icon3Ref}
+              className="relative flex flex-col items-center text-center w-full max-w-[160px] xs:col-span-1"
             >
               <motion.div
-                ref={icon3Ref}
-                id="icon3"
-                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center`}
+                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center mb-2 xs:mb-3 sm:mb-4 md:mb-5`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{
                   opacity: isInView ? 1 : 0,
@@ -339,14 +334,11 @@ export function SolarMetricsGrid({
 
             {/* Annual Production */}
             <div
-              className={`flex flex-col items-center space-y-1 xs:space-y-2 sm:space-y-4 w-full 
-${isSimplifiedView ? "max-w-[85px] xs:max-w-[100px] col-span-2 mx-auto" : "max-w-[70px] xs:max-w-[90px]"} 
-sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
+              ref={icon4Ref}
+              className="relative flex flex-col items-center text-center w-full max-w-[160px] xs:col-span-1"
             >
               <motion.div
-                ref={icon4Ref}
-                id="icon4"
-                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center`}
+                className={`${isSimplifiedView ? "h-[70px] xs:h-[80px]" : "h-[60px] xs:h-[70px]"} sm:h-[80px] md:h-[100px] lg:h-[112px] w-full flex items-center justify-center mb-2 xs:mb-3 sm:mb-4 md:mb-5`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{
                   opacity: isInView ? 1 : 0,
@@ -423,7 +415,7 @@ sm:max-w-[120px] md:max-w-[140px] lg:max-w-[160px]`}
             <motion.div
               ref={circleRef}
               id="circle"
-              className="h-[200px] xs:h-[240px] sm:h-[280px] md:h-[320px] lg:h-[280px] flex items-center justify-center"
+              className="h-[200px] xs:h-[240px] sm:h-[280px] md:h-[320px] lg:h-[280px] flex items-center justify-center mb-2 xs:mb-3 sm:mb-4 md:mb-5"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{
                 opacity: isInView ? 1 : 0,

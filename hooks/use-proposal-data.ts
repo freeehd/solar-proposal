@@ -34,6 +34,53 @@ export interface EnabledFinanceFields {
   solarRate: boolean
   escalationRate: boolean
   year1MonthlyPayments: boolean
+  incentives: boolean
+  cumulativeCashflow: boolean
+}
+
+// Add interface for battery fields visibility
+export interface EnabledBatteryFields {
+  batteryName: boolean
+  inverterName: boolean
+  capacity: boolean
+  outputKW: boolean
+  cost: boolean
+  batteryImage: boolean
+  storageSystemModel: boolean
+  storageSystemQuantity: boolean
+  storageSystemPrice: boolean
+}
+
+// Default enabled battery fields
+export const defaultEnabledBatteryFields: EnabledBatteryFields = {
+  batteryName: true,
+  inverterName: true,
+  capacity: true,
+  outputKW: true,
+  cost: true,
+  batteryImage: true,
+  storageSystemModel: true,
+  storageSystemQuantity: true,
+  storageSystemPrice: true,
+}
+
+// Default enabled finance fields
+export const defaultEnabledFinanceFields: EnabledFinanceFields = {
+  financingType: true,
+  paybackPeriod: true,
+  totalSystemCost: true,
+  lifetimeSavings: true,
+  netCost: true,
+  apr: false,
+  duration: false,
+  downPayment: false,
+  financedAmount: false,
+  monthlyPayments: false,
+  solarRate: false,
+  escalationRate: false,
+  year1MonthlyPayments: false,
+  incentives: true,
+  cumulativeCashflow: true,
 }
 
 // Update interface to use only snake_case properties and include new financial fields
@@ -85,24 +132,8 @@ export interface ProposalData {
   escalation_rate?: string
   year1_monthly_payments?: string
   enabled_finance_fields?: EnabledFinanceFields
+  enabled_battery_fields?: EnabledBatteryFields
   section_visibility?: SectionVisibility
-}
-
-// Default enabled finance fields
-export const defaultEnabledFinanceFields: EnabledFinanceFields = {
-  financingType: true,
-  paybackPeriod: true,
-  totalSystemCost: true,
-  lifetimeSavings: true,
-  netCost: true,
-  apr: false,
-  duration: false,
-  downPayment: false,
-  financedAmount: false,
-  monthlyPayments: false,
-  solarRate: false,
-  escalationRate: false,
-  year1MonthlyPayments: false,
 }
 
 // Update default data to use snake_case and include new financial fields
@@ -153,6 +184,7 @@ export const defaultProposalData: ProposalData = {
   escalation_rate: "",
   year1_monthly_payments: "",
   enabled_finance_fields: defaultEnabledFinanceFields,
+  enabled_battery_fields: defaultEnabledBatteryFields,
   energy_data: `Jan	Feb	Mar	Apr	May	Jun	Jul	Aug	Sep	Oct	Nov	Dec
 Energy usage (kWh)	973	844	916	932	1,029	1,171	1,521	800	1,700	1,060	1,060	1,440
 New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	1,475	1,093	784`,
@@ -181,11 +213,13 @@ interface UseProposalDataResult {
   proposalData: ProposalData
   visibleSections: SectionVisibility
   enabledFinanceFields: EnabledFinanceFields
+  enabledBatteryFields: EnabledBatteryFields
   dataLoaded: boolean
   loadingProgress: number
   setProposalData: React.Dispatch<React.SetStateAction<ProposalData>>
   toggleSectionVisibility: (sectionId: keyof SectionVisibility) => void
   toggleFinanceField: (fieldName: keyof EnabledFinanceFields) => void
+  toggleBatteryField: (fieldName: keyof EnabledBatteryFields) => void
   refreshProposal: () => Promise<void>
 }
 
@@ -216,6 +250,10 @@ export function useProposalData({
 
   const [enabledFinanceFields, setEnabledFinanceFields] = useState<EnabledFinanceFields>(
     proposalData.enabled_finance_fields || defaultEnabledFinanceFields,
+  )
+
+  const [enabledBatteryFields, setEnabledBatteryFields] = useState<EnabledBatteryFields>(
+    proposalData.enabled_battery_fields || defaultEnabledBatteryFields,
   )
 
   const [dataLoaded, setDataLoaded] = useState(false)
@@ -261,6 +299,21 @@ export function useProposalData({
       setProposalData((current) => ({
         ...current,
         enabled_finance_fields: updated,
+      }))
+
+      return updated
+    })
+  }, [])
+
+  // Toggle battery field visibility
+  const toggleBatteryField = useCallback((fieldName: keyof EnabledBatteryFields) => {
+    setEnabledBatteryFields((prev) => {
+      const updated = { ...prev, [fieldName]: !prev[fieldName] }
+
+      // Update proposal data with new battery field settings
+      setProposalData((current) => ({
+        ...current,
+        enabled_battery_fields: updated,
       }))
 
       return updated
@@ -333,16 +386,65 @@ export function useProposalData({
             console.error("Error parsing enabled finance fields:", error)
           }
 
+          // Extract enabled battery fields if they exist
+          let enabledBatteryFields = defaultEnabledBatteryFields
+          try {
+            if (data.proposal.enabled_battery_fields) {
+              if (typeof data.proposal.enabled_battery_fields === "string") {
+                enabledBatteryFields = JSON.parse(data.proposal.enabled_battery_fields)
+              } else {
+                enabledBatteryFields = data.proposal.enabled_battery_fields
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing enabled battery fields:", error)
+          }
+
           if (isMountedRef.current) {
-            setVisibleSections(sectionVisibility || defaultProposalData.section_visibility)
-            setEnabledFinanceFields(enabledFields || defaultEnabledFinanceFields)
+            // Create a default section visibility object
+            const defaultVisibility: SectionVisibility = {
+              hero: true,
+              whySunStudios: true,
+              app: true,
+              howSolarWorks: true,
+              energyUsage: true,
+              solarDesign: true,
+              storage: true,
+              environmentalImpact: true,
+              financing: true,
+              systemSummary: true,
+              callToAction: false,
+            }
+
+            // Create a new section visibility object with explicit type checking
+            const finalSectionVisibility: SectionVisibility = {
+              hero: sectionVisibility?.hero ?? defaultVisibility.hero,
+              whySunStudios: sectionVisibility?.whySunStudios ?? defaultVisibility.whySunStudios,
+              app: sectionVisibility?.app ?? defaultVisibility.app,
+              howSolarWorks: sectionVisibility?.howSolarWorks ?? defaultVisibility.howSolarWorks,
+              energyUsage: sectionVisibility?.energyUsage ?? defaultVisibility.energyUsage,
+              solarDesign: sectionVisibility?.solarDesign ?? defaultVisibility.solarDesign,
+              storage: sectionVisibility?.storage ?? defaultVisibility.storage,
+              environmentalImpact: sectionVisibility?.environmentalImpact ?? defaultVisibility.environmentalImpact,
+              financing: sectionVisibility?.financing ?? defaultVisibility.financing,
+              systemSummary: sectionVisibility?.systemSummary ?? defaultVisibility.systemSummary,
+              callToAction: sectionVisibility?.callToAction ?? defaultVisibility.callToAction,
+            }
+
+            const finalEnabledFields: EnabledFinanceFields = enabledFields ?? defaultEnabledFinanceFields
+            const finalEnabledBatteryFields: EnabledBatteryFields = enabledBatteryFields ?? defaultEnabledBatteryFields
+
+            setVisibleSections(finalSectionVisibility)
+            setEnabledFinanceFields(finalEnabledFields)
+            setEnabledBatteryFields(finalEnabledBatteryFields)
 
             // Set proposal data directly from API response (all snake_case)
             setProposalData((prevData) => ({
               ...prevData,
               ...data.proposal,
-              section_visibility: sectionVisibility,
-              enabled_finance_fields: enabledFields,
+              section_visibility: finalSectionVisibility,
+              enabled_finance_fields: finalEnabledFields,
+              enabled_battery_fields: finalEnabledBatteryFields,
             }))
 
             updateProgress(80) // Update progress after data is set
@@ -404,6 +506,11 @@ export function useProposalData({
               setEnabledFinanceFields(parsedData.enabled_finance_fields)
             }
 
+            // Extract enabled battery fields if they exist
+            if (parsedData.enabled_battery_fields) {
+              setEnabledBatteryFields(parsedData.enabled_battery_fields)
+            }
+
             setProposalData((prevData) => ({ ...prevData, ...parsedData }))
             updateProgress(80) // Update progress after data is set
           }
@@ -453,11 +560,13 @@ export function useProposalData({
     proposalData,
     visibleSections,
     enabledFinanceFields,
+    enabledBatteryFields,
     dataLoaded,
     loadingProgress,
     setProposalData,
     toggleSectionVisibility,
     toggleFinanceField,
+    toggleBatteryField,
     refreshProposal,
   }
 }

@@ -1,7 +1,7 @@
 "use client"
 import { useCallback, useRef, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart2, Thermometer, Shield } from "lucide-react"
+import { BarChart2, Thermometer, Shield, Sun, Battery, Zap, TrendingUp } from "lucide-react"
 import { motion, useInView } from "framer-motion"
 import { PremiumIcon } from "@/components/premium-icon"
 import Image from "next/image"
@@ -30,6 +30,14 @@ interface SolarDesignSectionProps {
     appliances_days?: string
     whole_home_days?: string
   }
+  enabledBatteryFields?: {
+    batteryName: boolean
+    inverterName: boolean
+    capacity: boolean
+    outputKW: boolean
+    cost: boolean
+    batteryImage: boolean
+  }
 }
 
 export default function SolarDesignSection({
@@ -53,6 +61,7 @@ export default function SolarDesignSection({
     appliances_days: "3",
     whole_home_days: "1.5",
   },
+  enabledBatteryFields,
 }: SolarDesignSectionProps) {
   // Safe area insets state
   const [safeAreaInsets, setSafeAreaInsets] = useState({
@@ -252,17 +261,17 @@ export default function SolarDesignSection({
   const solarPanelImageUrl =
     proposalData.solar_panel_design && proposalData.solar_panel_design !== "/placeholder.svg"
       ? proposalData.solar_panel_design
-      : "/solar.png?height=600&width=800"
+      : "/solar.png"
 
   const batteryImageUrl =
-    proposalData.battery_image && proposalData.battery_image !== "/placeholder.svg"
+    enabledBatteryFields?.batteryImage && proposalData.battery_image && proposalData.battery_image !== "/placeholder.svg"
       ? proposalData.battery_image
-      : "/Batteries/3.jpeg?height=600&width=800"
+      : "/Batteries/3.jpeg"
 
   return (
     <section
       ref={sectionRef}
-      className="relative py-12 xs:py-14 sm:py-20 md:py-24 bg-white min-h-[80vh]"
+      className="relative py-12 xs:py-14 sm:py-20 md:py-24 bg-background min-h-[80vh]"
       style={{
         contain: "paint",
         visibility: "visible",
@@ -285,10 +294,10 @@ export default function SolarDesignSection({
           transition={{ duration: 0.7 }}
           className="text-center mb-12 xs:mb-16 sm:mb-20"
         >
-          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold text-indigo-dye-600 mb-3 xs:mb-4 sm:mb-6 tracking-tight">
+          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 xs:mb-4 sm:mb-6 tracking-tight">
             Your Premium Solar Solution
           </h2>
-          <p className="text-smoky-black/80 max-w-2xl mx-auto text-base sm:text-lg font-medium">
+          <p className="text-foreground/80 max-w-2xl mx-auto text-base sm:text-lg font-medium">
             Designed exclusively for your home's energy profile, our premium solar system delivers exceptional
             performance and maximum long-term value.
           </p>
@@ -299,46 +308,50 @@ export default function SolarDesignSection({
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7, delay: 0.2 }}
-          className="grid md:grid-cols-2 gap-6 xs:gap-8 mb-12 xs:mb-16"
+          className={`grid ${enabledBatteryFields?.batteryImage ? "md:grid-cols-2" : "md:grid-cols-1"} gap-6 xs:gap-8 mb-12 xs:mb-16`}
         >
           {/* Solar Panel Design */}
-          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100/50 to-white shadow-xl border border-blue-100/50">
+          <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/50 to-background shadow-xl border border-border ${!enabledBatteryFields?.batteryImage ? "w-full max-w-3xl mx-auto" : ""}`}>
             <Image
-              src={solarPanelImageUrl || "/placeholder.svg"}
+              src={solarPanelImageUrl}
               alt="Solar Panel Design"
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
+              priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+            <div className="absolute bottom-0 left-0 right-0 p-6 text-primary-foreground">
               <h3 className="text-lg font-semibold mb-1">Solar Panel Layout</h3>
-              <p className="text-sm text-white/90">Optimized placement for maximum sun exposure</p>
+              <p className="text-sm text-primary-foreground/90">Optimized placement for maximum sun exposure</p>
             </div>
           </div>
 
-          {/* Battery Design */}
-          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100/50 to-white shadow-xl border border-blue-100/50">
-            <Image
-              src={batteryImageUrl || "/placeholder.svg"}
-              alt="Battery System"
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <h3 className="text-lg font-semibold mb-1">Battery System</h3>
-              <p className="text-sm text-white/90">Energy storage for continuous power supply</p>
+          {/* Battery Design - Only show if enabled */}
+          {enabledBatteryFields?.batteryImage && (
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/50 to-background shadow-xl border border-border">
+              <Image
+                src={batteryImageUrl}
+                alt="Battery System"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-6 text-primary-foreground">
+                <h3 className="text-lg font-semibold mb-1">Battery System</h3>
+                <p className="text-sm text-primary-foreground/90">Energy storage for continuous power supply</p>
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
 
         {/* Unified Card with Metrics and Circle */}
         <div
           className={`mt-6 ${isSmallDevice || isIOS ? "xs:mt-8" : "xs:mt-10"} sm:mt-12 mb-8 ${isSmallDevice || isIOS ? "xs:mb-10" : "xs:mb-16"}`}
         >
-          <Card className="bg-white border-none m-0 p-0 relative" ref={cardRef}>
+          <Card className="bg-card border-none m-0 p-0 relative" ref={cardRef}>
             <CardContent className="relative">
               {/* Render beams based on current progress and visibility - ONLY on larger devices */}
               {hasStarted && isInView && !isSmallDevice && !isIOS && (
@@ -349,8 +362,8 @@ export default function SolarDesignSection({
                     toRef={icon2Ref}
                     delay={0}
                     duration={1}
-                    pathColor="rgba(59, 130, 246, 0.7)"
-                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathColor="hsl(var(--primary) / 0.7)"
+                    glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={2}
                     glowWidth={10}
                     onProgress={(progress) => {
@@ -362,52 +375,76 @@ export default function SolarDesignSection({
                       }
                     }}
                   />
-                  <AnimatedBeam
-                    containerRef={cardRef}
-                    fromRef={icon2Ref}
-                    toRef={batteryCapacityRef}
-                    delay={1}
-                    duration={1}
-                    pathColor="rgba(59, 130, 246, 0.7)"
-                    glowColor="rgba(59, 130, 246, 0.4)"
-                    pathWidth={2}
-                    glowWidth={10}
-                    onProgress={(progress) => {
-                      if (progress > 0.05 && !chargingStates.icon2) {
-                        setChargingStates((prev) => ({ ...prev, icon2: true }))
-                      }
-                      if (progress > 0.8 && !chargingStates.batteryCapacity) {
-                        setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
-                      }
-                    }}
-                  />
-                  <AnimatedBeam
-                    containerRef={cardRef}
-                    fromRef={batteryCapacityRef}
-                    toRef={icon3Ref}
-                    delay={2}
-                    duration={1}
-                    pathColor="rgba(59, 130, 246, 0.7)"
-                    glowColor="rgba(59, 130, 246, 0.4)"
-                    pathWidth={2}
-                    glowWidth={10}
-                    onProgress={(progress) => {
-                      if (progress > 0.05 && !chargingStates.batteryCapacity) {
-                        setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
-                      }
-                      if (progress > 0.8 && !chargingStates.icon3) {
-                        setChargingStates((prev) => ({ ...prev, icon3: true }))
-                      }
-                    }}
-                  />
+                  {enabledBatteryFields?.capacity ? (
+                    <>
+                      <AnimatedBeam
+                        containerRef={cardRef}
+                        fromRef={icon2Ref}
+                        toRef={batteryCapacityRef}
+                        delay={1}
+                        duration={1}
+                        pathColor="hsl(var(--primary) / 0.7)"
+                        glowColor="hsl(var(--primary) / 0.4)"
+                        pathWidth={2}
+                        glowWidth={10}
+                        onProgress={(progress) => {
+                          if (progress > 0.05 && !chargingStates.icon2) {
+                            setChargingStates((prev) => ({ ...prev, icon2: true }))
+                          }
+                          if (progress > 0.8 && !chargingStates.batteryCapacity) {
+                            setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
+                          }
+                        }}
+                      />
+                      <AnimatedBeam
+                        containerRef={cardRef}
+                        fromRef={batteryCapacityRef}
+                        toRef={icon3Ref}
+                        delay={2}
+                        duration={1}
+                        pathColor="hsl(var(--primary) / 0.7)"
+                        glowColor="hsl(var(--primary) / 0.4)"
+                        pathWidth={2}
+                        glowWidth={10}
+                        onProgress={(progress) => {
+                          if (progress > 0.05 && !chargingStates.batteryCapacity) {
+                            setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
+                          }
+                          if (progress > 0.8 && !chargingStates.icon3) {
+                            setChargingStates((prev) => ({ ...prev, icon3: true }))
+                          }
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <AnimatedBeam
+                      containerRef={cardRef}
+                      fromRef={icon2Ref}
+                      toRef={icon3Ref}
+                      delay={1}
+                      duration={1}
+                      pathColor="hsl(var(--primary) / 0.7)"
+                      glowColor="hsl(var(--primary) / 0.4)"
+                      pathWidth={2}
+                      glowWidth={10}
+                      onProgress={(progress) => {
+                        if (progress > 0.05 && !chargingStates.icon2) {
+                          setChargingStates((prev) => ({ ...prev, icon2: true }))
+                        }
+                        if (progress > 0.8 && !chargingStates.icon3) {
+                          setChargingStates((prev) => ({ ...prev, icon3: true }))
+                        }
+                      }}
+                    />
+                  )}
                   <AnimatedBeam
                     containerRef={cardRef}
                     fromRef={icon3Ref}
                     toRef={icon4Ref}
-                    delay={3}
+                    delay={enabledBatteryFields?.capacity ? 3 : 2}
                     duration={1}
-                    pathColor="rgba(59, 130, 246, 0.7)"
-                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathColor="hsl(var(--primary) / 0.7)"
+                    glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={2}
                     glowWidth={10}
                     onProgress={(progress) => {
@@ -424,13 +461,13 @@ export default function SolarDesignSection({
                     fromRef={icon4Ref}
                     toRef={circleRef}
                     circleRef={circleRef}
-                    delay={4}
+                    delay={enabledBatteryFields?.capacity ? 4 : 3}
                     duration={1.5}
                     pattern="wave"
                     patternCount={2}
                     patternIntensity={0.03}
-                    pathColor="rgba(59, 130, 246, 0.7)"
-                    glowColor="rgba(59, 130, 246, 0.4)"
+                    pathColor="hsl(var(--primary) / 0.7)"
+                    glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={0}
                     glowWidth={0}
                     onProgress={(progress) => {
@@ -459,6 +496,7 @@ export default function SolarDesignSection({
                 icon4Ref={icon4Ref}
                 circleRef={circleRef}
                 isSimplifiedView={isSmallDevice || isIOS}
+                enabledBatteryFields={enabledBatteryFields}
               />
             </CardContent>
           </Card>
@@ -466,15 +504,15 @@ export default function SolarDesignSection({
 
         {/* Technology section */}
         <motion.div className="mt-6 xs:mt-8 mb-6 xs:mb-8 relative isolate" ref={techSectionRef}>
-          <Card className="bg-white border border-indigo-dye/20 shadow-xl overflow-hidden rounded-xl">
-            <CardHeader className="bg-white border-b border-indigo-dye/10 py-3 xs:py-4 sm:py-6">
-              <CardTitle className="text-xl xs:text-2xl font-bold text-center text-indigo-dye-600">
+          <Card className="bg-white border border-border shadow-xl overflow-hidden rounded-xl">
+            <CardHeader className="border-b border-border py-3 xs:py-4 sm:py-6">
+              <CardTitle className="text-xl xs:text-2xl font-bold text-center text-primary">
                 Premium Solar Technology
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 xs:p-4 sm:pt-6 sm:px-6 sm:pb-6 md:pt-10 md:pb-8">
               <motion.p
-                className="text-center mb-4 xs:mb-6 sm:mb-8 md:mb-10 text-smoky-black/80 max-w-3xl mx-auto text-sm xs:text-base sm:text-lg"
+                className="text-center mb-4 xs:mb-6 sm:mb-8 md:mb-10 text-foreground/80 max-w-3xl mx-auto text-sm xs:text-base sm:text-lg"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: isTechSectionInView ? 1 : 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
@@ -497,18 +535,18 @@ export default function SolarDesignSection({
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <BarChart2
-                        className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
+                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-accent`}
                         strokeWidth={2}
                       />
                     </PremiumIcon>
                   </motion.div>
-                  <p className="font-semibold text-smoky-black/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
+                  <p className="font-semibold text-foreground/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
                     Elite Efficiency
                   </p>
-                  <p className="text-base xs:text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700">
+                  <p className="text-base xs:text-lg sm:text-xl font-bold text-primary">
                     20-22%
                   </p>
-                  <p className="text-xs xs:text-sm text-smoky-black/70 mt-1 xs:mt-2">
+                  <p className="text-xs xs:text-sm text-foreground/70 mt-1 xs:mt-2">
                     Industry-leading conversion rate
                   </p>
                 </motion.div>
@@ -526,18 +564,18 @@ export default function SolarDesignSection({
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <Thermometer
-                        className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
+                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-accent`}
                         strokeWidth={2}
                       />
                     </PremiumIcon>
                   </motion.div>
-                  <p className="font-semibold text-smoky-black/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
+                  <p className="font-semibold text-foreground/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
                     Temperature Resilience
                   </p>
-                  <p className="text-base xs:text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700">
+                  <p className="text-base xs:text-lg sm:text-xl font-bold text-primary">
                     -0.35% / °C
                   </p>
-                  <p className="text-xs xs:text-sm text-smoky-black/70 mt-1 xs:mt-2">Superior heat performance</p>
+                  <p className="text-xs xs:text-sm text-foreground/70 mt-1 xs:mt-2">Superior heat performance</p>
                 </motion.div>
 
                 <motion.div
@@ -553,18 +591,18 @@ export default function SolarDesignSection({
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <Shield
-                        className="w-6 xs:w-7 sm:w-8 md:w-10 lg:w-12 h-6 xs:h-7 sm:h-8 md:h-10 lg:h-12 text-indigo-dye-600"
+                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-primary`}
                         strokeWidth={2}
                       />
                     </PremiumIcon>
                   </motion.div>
-                  <p className="font-semibold text-smoky-black/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
+                  <p className="font-semibold text-foreground/80 text-sm xs:text-base sm:text-lg mb-0.5 xs:mb-1 sm:mb-2">
                     Premium Warranty
                   </p>
-                  <p className="text-base xs:text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-dye-600 to-indigo-dye-700">
+                  <p className="text-base xs:text-lg sm:text-xl font-bold text-primary">
                     25 Years
                   </p>
-                  <p className="text-xs xs:text-sm text-smoky-black/70 mt-1 xs:mt-2">
+                  <p className="text-xs xs:text-sm text-foreground/70 mt-1 xs:mt-2">
                     Comprehensive performance guarantee
                   </p>
                 </motion.div>

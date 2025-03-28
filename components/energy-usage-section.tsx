@@ -37,7 +37,7 @@ interface ChartData {
   isPositive: boolean
 }
 
-// Custom tooltip component for the comparison chart
+// Custom tooltip with theme variables
 const CustomComparisonTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const usage = payload[0].value
@@ -46,20 +46,20 @@ const CustomComparisonTooltip = ({ active, payload, label }: any) => {
     const isPositive = difference >= 0
 
     return (
-      <div className="custom-tooltip bg-white p-3 rounded-lg border border-indigo-dye/20 shadow-lg">
+      <div className="custom-tooltip bg-card p-3 rounded-lg border border-border shadow-lg">
         <p className="font-medium text-sm mb-2">{label}</p>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between gap-4">
-            <span className="text-smoky-black/70">Usage:</span>
+            <span className="text-foreground/70">Usage:</span>
             <span className="font-medium">{usage.toLocaleString()} kWh</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-smoky-black/70">Production:</span>
+            <span className="text-foreground/70">Production:</span>
             <span className="font-medium">{production.toLocaleString()} kWh</span>
           </div>
-          <div className="flex justify-between gap-4 pt-1 border-t border-gray-200 mt-1">
-            <span className="text-smoky-black/70">Difference:</span>
-            <span className={`font-medium ${isPositive ? "text-green-600" : "text-amber-600"}`}>
+          <div className="flex justify-between gap-4 pt-1 border-t border-border/30 mt-1">
+            <span className="text-foreground/70">Difference:</span>
+            <span className={`font-medium ${isPositive ? "text-[hsl(var(--chart-production))]" : "text-[hsl(var(--chart-usage))]"}`}>
               {isPositive ? "+" : ""}
               {difference.toLocaleString()} kWh
             </span>
@@ -210,13 +210,13 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
   }, [data])
 
   return (
-    <section className="relative z-10 py-12 sm:py-16 md:py-20 bg-white">
+    <section className="relative z-10 py-12 sm:py-16 md:py-20 bg-background">
       <div className="container mx-auto px-4">
         <motion.h2
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-8 sm:mb-10 md:mb-12 text-center text-indigo-dye-600"
+          className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-8 sm:mb-10 md:mb-12 text-center text-primary"
         >
           Your Energy Usage
         </motion.h2>
@@ -228,9 +228,9 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           animate="visible"
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <Card className="bg-white shadow-lg border-indigo-dye/20">
+          <Card className="bg-card shadow-lg border-border">
             <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-xl sm:text-2xl font-semibold leading-tight text-center text-smoky-black">
+              <CardTitle className="text-xl sm:text-2xl font-semibold leading-tight text-center text-foreground">
                 Energy Cost Overview
               </CardTitle>
             </CardHeader>
@@ -238,40 +238,40 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 {/* Current Monthly Bill */}
                 <div className="flex flex-col items-center">
-                  <DollarSign className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-indigo-dye-600" strokeWidth={2.5} />
-                  <p className="text-xs sm:text-sm font-medium text-smoky-black/80 text-center">Current Monthly Bill</p>
-                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-indigo-dye-600">
+                  <DollarSign className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">Current Monthly Bill</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
                     ${Number(monthly_bill).toFixed(2)}
                   </p>
                 </div>
 
                 {/* Estimated in 30 years */}
                 <div className="flex flex-col items-center">
-                  <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-indigo-dye-600" strokeWidth={2.5} />
-                  <p className="text-xs sm:text-sm font-medium text-smoky-black/80 text-center">
+                  <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">
                     Estimated in 30 years
                   </p>
-                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-indigo-dye-600">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
                     ${finalMonthlyPayment.toFixed(2)}
                   </p>
                 </div>
 
                 {/* Total payments after 30 years */}
                 <div className="flex flex-col items-center">
-                  <Lightbulb className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-indigo-dye-600" strokeWidth={2.5} />
-                  <p className="text-xs sm:text-sm font-medium text-smoky-black/80 text-center">
+                  <Lightbulb className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">
                     Total payments (30 yrs)
                   </p>
-                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-indigo-dye-600">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
                     ${formatLargeNumber(totalPayments)}
                   </p>
                 </div>
 
                 {/* Average Rate/kWh */}
                 <div className="flex flex-col items-center">
-                  <Zap className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-indigo-dye-600" strokeWidth={2.5} />
-                  <p className="text-xs sm:text-sm font-medium text-smoky-black/80 text-center">Average Rate/kWh</p>
-                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-indigo-dye-600">
+                  <Zap className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">Average Rate/kWh</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
                     ${average_rate_kwh}/kWh
                   </p>
                 </div>
@@ -287,9 +287,9 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           transition={{ duration: 0.5, delay: 0.5 }}
           className="mt-8 sm:mt-10 md:mt-12"
         >
-          <Card className="bg-white shadow-lg border-indigo-dye/20">
+          <Card className="bg-card shadow-lg border-border">
             <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold text-smoky-black">
+              <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground">
                 Monthly Utility Costs Over 30 Years
               </CardTitle>
             </CardHeader>
@@ -312,13 +312,13 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       }}
                       barSize={getBarSize()}
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#c2cadc" opacity={0.3} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.3} />
                       <XAxis
                         dataKey="year"
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
-                        stroke="#0b0a08"
+                        stroke="var(--foreground)"
                         opacity={0.7}
                         fontSize={isMobile ? 10 : 11}
                         // Show fewer ticks on mobile
@@ -329,7 +329,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         tickLine={false}
                         axisLine={false}
                         tickMargin={5}
-                        stroke="#0b0a08"
+                        stroke="var(--foreground)"
                         opacity={0.7}
                         fontSize={isMobile ? 9 : 11}
                         tickFormatter={(value) => `$${value}`}
@@ -339,8 +339,8 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "white",
-                          border: "1px solid #c2cadc",
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
                           borderRadius: "0.5rem",
                           boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                           fontSize: isMobile ? "12px" : "14px",
@@ -348,12 +348,12 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         }}
                         formatter={(value) => [`$${value}`, "Monthly Cost"]}
                       />
-                      <Bar dataKey="amount" fill="#1a7aaa" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="amount" fill="hsl(var(--chart-production))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-smoky-black/70 font-medium">No data available</p>
+                    <p className="text-foreground/70 font-medium">No data available</p>
                   </div>
                 )}
               </div>
@@ -368,16 +368,16 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           transition={{ duration: 0.5, delay: 0.6 }}
           className="mt-8 sm:mt-10 md:mt-12"
         >
-          <Card className="bg-white shadow-lg border-indigo-dye/20">
+          <Card className="bg-card shadow-lg border-border">
             <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold text-smoky-black">
+              <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground">
                 Energy Usage vs. New System Production
               </CardTitle>
-              <CardDescription className="text-sm text-smoky-black/70">
+              <CardDescription className="text-sm text-foreground/70">
                 {annualTotals.offset > 0 && (
                   <span>
                     Your system offsets approximately{" "}
-                    <span className="font-semibold text-indigo-dye-600">{annualTotals.offset}%</span> of your annual
+                    <span className="font-semibold text-primary">{annualTotals.offset}%</span> of your annual
                     energy usage
                   </span>
                 )}
@@ -386,40 +386,40 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
             <CardContent>
               {/* Annual summary cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-                <Card className="bg-indigo-50 border-indigo-dye/10">
+                <Card className="bg-secondary/20 border-border/20">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-medium text-smoky-black/70">Annual Usage</p>
-                        <p className="text-lg font-bold text-smoky-black">{annualTotals.usage.toLocaleString()} kWh</p>
+                        <p className="text-xs font-medium text-foreground/70">Annual Usage</p>
+                        <p className="text-lg font-bold text-foreground">{annualTotals.usage.toLocaleString()} kWh</p>
                       </div>
-                      <ArrowUp className="h-5 w-5 text-amber-600" />
+                      <ArrowUp className="h-5 w-5 text-[hsl(var(--chart-usage))]" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-indigo-50 border-indigo-dye/10">
+                <Card className="bg-secondary/20 border-border/20">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-medium text-smoky-black/70">Annual Production</p>
-                        <p className="text-lg font-bold text-indigo-dye-600">
+                        <p className="text-xs font-medium text-foreground/70">Annual Production</p>
+                        <p className="text-lg font-bold text-primary">
                           {annualTotals.production.toLocaleString()} kWh
                         </p>
                       </div>
-                      <ArrowDown className="h-5 w-5 text-indigo-dye-600" />
+                      <ArrowDown className="h-5 w-5 text-[hsl(var(--chart-production))]" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-indigo-50 border-indigo-dye/10">
+                <Card className="bg-secondary/20 border-border/20">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-medium text-smoky-black/70">Energy Offset</p>
-                        <p className="text-lg font-bold text-green-600">{annualTotals.offset}%</p>
+                        <p className="text-xs font-medium text-foreground/70">Energy Offset</p>
+                        <p className="text-lg font-bold text-[hsl(var(--chart-production))]">{annualTotals.offset}%</p>
                       </div>
-                      <div className="h-5 w-5 rounded-full bg-green-600 flex items-center justify-center">
+                      <div className="h-5 w-5 rounded-full bg-[hsl(var(--chart-production))] flex items-center justify-center">
                         <span className="text-white text-xs font-bold">✓</span>
                       </div>
                     </div>
@@ -446,12 +446,12 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       barGap={0}
                       barCategoryGap={isMobile ? "15%" : "20%"}
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#c2cadc" opacity={0.3} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.3} />
                       <XAxis
                         dataKey="month"
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fill: "#0b0a08", fontSize: isMobile ? 10 : 11 }}
+                        tick={{ fill: "var(--foreground)", fontSize: isMobile ? 10 : 11 }}
                         opacity={0.7}
                         tickFormatter={(value) => value.slice(0, 3)}
                         padding={{ left: isMobile ? 15 : 20, right: isMobile ? 15 : 20 }}
@@ -461,7 +461,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       <YAxis
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fill: "#0b0a08", fontSize: isMobile ? 9 : 11 }}
+                        tick={{ fill: "var(--foreground)", fontSize: isMobile ? 9 : 11 }}
                         opacity={0.7}
                         tickFormatter={(value) => (isMobile ? `${value}` : `${value} kWh`)}
                         width={isMobile ? 35 : 50}
@@ -482,16 +482,40 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         }}
                       />
 
+                      <Bar
+                        name="usage"
+                        dataKey="usage"
+                        fill="hsl(var(--chart-usage))"
+                        radius={[4, 4, 0, 0]}
+                        barSize={getComparisonBarSize()}
+                      >
+                        {data.map((entry, index) => (
+                          <Cell key={`usage-${index}`} fill="hsl(var(--chart-usage))" />
+                        ))}
+                      </Bar>
+
+                      <Bar
+                        name="production"
+                        dataKey="production"
+                        fill="hsl(var(--chart-production))"
+                        radius={[4, 4, 0, 0]}
+                        barSize={getComparisonBarSize()}
+                      >
+                        {data.map((entry, index) => (
+                          <Cell key={`production-${index}`} fill="hsl(var(--chart-production))" />
+                        ))}
+                      </Bar>
+
                       {/* Reference line for average usage */}
                       <ReferenceLine
                         y={annualTotals.usage / 12}
-                        stroke="#EDAE49"
+                        stroke="hsl(var(--chart-usage))"
                         strokeDasharray="3 3"
                         strokeWidth={1.5}
                         label={{
                           value: "Avg Usage",
                           position: "right",
-                          fill: "#EDAE49",
+                          fill: "hsl(var(--chart-usage))",
                           fontSize: 10,
                         }}
                       />
@@ -499,74 +523,35 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       {/* Reference line for average production */}
                       <ReferenceLine
                         y={annualTotals.production / 12}
-                        stroke="#1a7aaa"
+                        stroke="hsl(var(--chart-production))"
                         strokeDasharray="3 3"
                         strokeWidth={1.5}
                         label={{
                           value: "Avg Production",
                           position: "right",
-                          fill: "#1a7aaa",
+                          fill: "hsl(var(--chart-production))",
                           fontSize: 10,
                         }}
                       />
-
-                      <Bar
-                        name="usage"
-                        dataKey="usage"
-                        fill="#EDAE49"
-                        radius={[4, 4, 0, 0]}
-                        barSize={getComparisonBarSize()}
-                      >
-                        {data.map((entry, index) => (
-                          <Cell key={`usage-${index}`} fill="#EDAE49" />
-                        ))}
-                      </Bar>
-
-                      <Bar
-                        name="production"
-                        dataKey="production"
-                        fill="#1a7aaa"
-                        radius={[4, 4, 0, 0]}
-                        barSize={getComparisonBarSize()}
-                      >
-                        {data.map((entry, index) => (
-                          <Cell key={`production-${index}`} fill={entry.isPositive ? "#1a7aaa" : "#1a7aaa"} />
-                        ))}
-
-                        {/* Only show labels on non-mobile */}
-                        {!isMobile && (
-                          <LabelList
-                            dataKey="difference"
-                            position="top"
-                            formatter={(value: number) => {
-                              if (value === 0) return ""
-                              return value > 0 ? `+${value}` : value
-                            }}
-                            style={{
-                              fontSize: 10,
-                              fill: (value: number) => (value >= 0 ? "#047857" : "#b45309"),
-                              fontWeight: "bold",
-                            }}
-                          />
-                        )}
-                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-smoky-black/70 font-medium">No data available</p>
+                    <p className="text-foreground/70 font-medium">No data available</p>
                   </div>
                 )}
               </div>
 
               {/* Legend explanation */}
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-smoky-black/70">
+             
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-foreground/70">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-amber-500 rounded-sm"></div>
+                  <div className="w-3 h-3 bg-[hsl(var(--chart-usage))] rounded-sm"></div>
                   <span>Energy Usage: Your home's monthly electricity consumption</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-indigo-dye-600 rounded-sm"></div>
+                  <div className="w-3 h-3 bg-[hsl(var(--chart-production))] rounded-sm"></div>
                   <span>Solar Production: Energy generated by your new solar system</span>
                 </div>
               </div>
