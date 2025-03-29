@@ -628,10 +628,10 @@ export default function FinancingSection({ proposalData }: FinancingSectionProps
           transition={{ delay: 1, duration: 0.5 }}
           className="mt-10 text-center text-sm text-muted-foreground"
         >
-          <p>
+          {/* <p>
             Projections based on current utility rates with {proposalData.escalation || "0"}% annual escalation. Actual
             savings may vary based on energy usage and future utility rates.
-          </p>
+          </p> */}
         </motion.div>
       </div>
     </section>
