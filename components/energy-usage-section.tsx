@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import { DollarSign, Lightbulb, Zap, TrendingUp } from "lucide-react"
 import { motion } from "framer-motion"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
@@ -197,8 +196,13 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
     return Math.max(maxUsage, maxProduction) * 1.1 // Add 10% padding
   }, [data])
 
+  // Calculate the max y-axis value rounded up to the nearest 500
+  const maxYAxisValue = useMemo(() => {
+    return Math.ceil(maxChartValue / 500) * 500
+  }, [maxChartValue])
+
   return (
-    <section className="relative z-10 py-12 sm:py-16 md:py-20 bg-background">
+    <section className="relative z-10   bg-background">
       <div className="container mx-auto px-4">
         <motion.h2
           initial={{ opacity: 0, y: -20 }}
@@ -206,10 +210,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           transition={{ duration: 0.5 }}
           className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-8 sm:mb-10 md:mb-12 text-center text-primary"
         >
-          Your Energy Usage
         </motion.h2>
-
-       
 
         {/* Energy Usage vs. Production Chart - IMPROVED */}
         <motion.div
@@ -296,7 +297,23 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       barGap={0}
                       barCategoryGap={isMobile ? "30%" : "40%"}
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" opacity={0.7} />
+                      <defs>
+                        {/* Sunset gradient for usage */}
+                        <linearGradient id="sunsetGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#EF5350" stopOpacity={1} /> {/* Light yellow */}
+                          
+                          <stop offset="100%" stopColor="#EF9A9A" stopOpacity={1} /> {/* Deep red-orange */}
+                        </linearGradient>
+
+                        {/* Pearlescent green gradient for production */}
+                        <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="30%" stopColor="#9CCC65" stopOpacity={1} /> {/* Lightest green */}
+                          
+                          <stop offset="100%" stopColor="#C5E1A5" stopOpacity={1} /> {/* Pearl green */}
+                        </linearGradient>
+                      </defs>
+
+                      <CartesianGrid vertical={false} stroke="#e5e7eb" opacity={0.7} />
                       <XAxis
                         dataKey="month"
                         tickLine={false}
@@ -312,14 +329,14 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         axisLine={{ stroke: "#e5e7eb" }}
                         tick={{ fill: "#374151", fontSize: isMobile ? 9 : 11 }}
                         tickFormatter={(value) => (isMobile ? `${value}` : `${value} kwh`.replace(/\s+/g, " "))} // Ensure text is in one line
-                        width={isMobile ? 25 : 70}
-                        domain={[0, Math.ceil(maxChartValue / 100) * 100]}
-                        ticks={Array.from({ length: Math.ceil(maxChartValue / 100) + 1 }, (_, i) => i * 100)}
+                        width={isMobile ? 25 : 80}
+                        domain={[0, maxYAxisValue]}
+                        ticks={Array.from({ length: Math.floor(maxYAxisValue / 500) + 1 }, (_, i) => i * 500)}
                         className="text-current"
                       />
                       <Tooltip content={<CustomComparisonTooltip />} />
                       <Legend
-                        verticalAlign="top"
+                        verticalAlign="bottom"
                         height={36}
                         iconType="square"
                         iconSize={10}
@@ -337,7 +354,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       <Bar
                         name="usage"
                         dataKey="usage"
-                        fill="#FACC15"
+                        fill="url(#sunsetGradient)"
                         radius={[4, 4, 0, 0]}
                         barSize={getComparisonBarSize()}
                       />
@@ -345,7 +362,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       <Bar
                         name="production"
                         dataKey="production"
-                        fill="#3B82F6"
+                        fill="url(#greenGradient)"
                         radius={[4, 4, 0, 0]}
                         barSize={getComparisonBarSize()}
                       />
