@@ -180,17 +180,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
         </ErrorBoundary>
       )}
 
-      {visibleSections.app && (
-        <ErrorBoundary fallback={<div>Error loading App section</div>}>
-          <div
-            ref={(el: HTMLDivElement | null) => {
-              if (el) sectionRefs.current.app = el
-            }}
-          >
-            <AppSection />
-          </div>
-        </ErrorBoundary>
-      )}
+     
 
       {visibleSections.howSolarWorks && (
         <ErrorBoundary fallback={<div>Error loading How Solar Works section</div>}>
@@ -256,7 +246,17 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
           </div>
         </ErrorBoundary>
       )}
-
+ {visibleSections.app && (
+        <ErrorBoundary fallback={<div>Error loading App section</div>}>
+          <div
+            ref={(el: HTMLDivElement | null) => {
+              if (el) sectionRefs.current.app = el
+            }}
+          >
+            <AppSection />
+          </div>
+        </ErrorBoundary>
+      )}
       {visibleSections.environmentalImpact && (
         <ErrorBoundary fallback={<div>Error loading Environmental Impact section</div>}>
           <div
