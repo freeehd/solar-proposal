@@ -194,24 +194,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
         </ErrorBoundary>
       )}
 
-      {visibleSections.energyUsage && (
-        <ErrorBoundary fallback={<div>Error loading Energy Usage section</div>}>
-          <div
-            ref={(el: HTMLDivElement | null) => {
-              if (el) sectionRefs.current.energyUsage = el
-            }}
-          >
-            <EnergyUsageSection
-              proposalData={{
-                monthly_bill: proposalData.monthly_bill,
-                average_rate_kwh: proposalData.average_rate_kwh,
-                escalation: proposalData.escalation,
-                energy_data: proposalData.energy_data,
-              }}
-            />
-          </div>
-        </ErrorBoundary>
-      )}
+   
 
       {visibleSections.solarDesign && (
         <ErrorBoundary fallback={<div>Error loading Solar Design section</div>}>
@@ -242,6 +225,25 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 whole_home_days: visibleSections.storage ? proposalData.whole_home_days : "",
               }}
               enabledBatteryFields={enabledBatteryFields}
+            />
+          </div>
+        </ErrorBoundary>
+      )}
+
+{visibleSections.energyUsage && (
+        <ErrorBoundary fallback={<div>Error loading Energy Usage section</div>}>
+          <div
+            ref={(el: HTMLDivElement | null) => {
+              if (el) sectionRefs.current.energyUsage = el
+            }}
+          >
+            <EnergyUsageSection
+              proposalData={{
+                monthly_bill: proposalData.monthly_bill,
+                average_rate_kwh: proposalData.average_rate_kwh,
+                escalation: proposalData.escalation,
+                energy_data: proposalData.energy_data,
+              }}
             />
           </div>
         </ErrorBoundary>
