@@ -99,7 +99,7 @@ module.exports = {
           DEFAULT: "#ffffff",
         },
         olive: {
-          DEFAULT: "#D2D981",
+          DEFAULT: "#3a3525",
           100: "#161707",
           200: "#2c2e0e",
           300: "#424515",

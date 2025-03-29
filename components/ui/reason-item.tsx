@@ -101,16 +101,16 @@ export const ReasonItem = React.memo(function ReasonItem({
   }), [hasBeenInView, previousCompleted, index])
 
   return (
-    <li ref={itemRef} className="flex items-start gap-4 md:gap-6">
-      <div className="relative flex-shrink-0 w-[120px] h-[120px] flex items-center justify-center">
+    <li ref={itemRef} className="flex items-start gap-2 md:gap-3">
+      <div className="relative flex-shrink-0 w-[80px] h-[120px] flex items-center justify-center">
         <div className="w-full h-full">
           <StarAnimation {...starAnimationProps} />
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="my-auto">
         <motion.div {...textAnimationProps}>
-          <h3 className="text-lg md:text-xl font-medium text-foreground mb-2">{reason.text}</h3>
+          <h3 className="text-lg md:text-xl pt-3 font-semibold text-foreground mb-2">{reason.text}</h3>
           <p className="text-muted-foreground text-sm md:text-base">{reason.description}</p>
         </motion.div>
       </div>

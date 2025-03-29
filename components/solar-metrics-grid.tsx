@@ -404,8 +404,7 @@ export function SolarMetricsGrid({
       >
         <CardHeader className={`pb-0 ${isSimplifiedView ? "pt-4 px-4" : "pt-5 px-5"} sm:pt-6 sm:px-6`}>
           <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-indigo-dye-600 flex items-center justify-center gap-2">
-            <TrendingUp className="h-6 w-6 sm:h-7 sm:w-7 text-green-600" />
-            <span>Financial Impact</span>
+           
           </CardTitle>
         </CardHeader>
         <CardContent

@@ -209,7 +209,143 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           Your Energy Usage
         </motion.h2>
 
-       
+        {/* Energy Cost Overview Card */}
+        <motion.div
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Card className="bg-card shadow-lg border-border">
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="text-xl sm:text-2xl font-semibold leading-tight text-center text-foreground">
+                Energy Cost Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                {/* Current Monthly Bill */}
+                <div className="flex flex-col items-center">
+                  <DollarSign className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">Current Monthly Bill</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
+                    ${Number(monthly_bill).toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Estimated in 30 years */}
+                <div className="flex flex-col items-center">
+                  <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">Estimated in 30 years</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
+                    ${finalMonthlyPayment.toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Total payments after 30 years */}
+                <div className="flex flex-col items-center">
+                  <Lightbulb className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">
+                    Total payments (30 yrs)
+                  </p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
+                    ${formatLargeNumber(totalPayments)}
+                  </p>
+                </div>
+
+                {/* Average Rate/kWh */}
+                <div className="flex flex-col items-center">
+                  <Zap className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 text-primary" strokeWidth={2.5} />
+                  <p className="text-xs sm:text-sm font-medium text-foreground/80 text-center">Average Rate/kWh</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-primary">
+                    ${average_rate_kwh}/kWh
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Monthly Utility Costs Chart */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="mt-8 sm:mt-10 md:mt-12"
+        >
+          <Card className="bg-card shadow-lg border-border">
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground">
+                Monthly Utility Costs Over 30 Years
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                {utilityData.length > 0 ? (
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    debounce={50}
+                    key={`chart-container-${isMobile ? "mobile" : isTablet ? "tablet" : "desktop"}`}
+                  >
+                    <BarChart
+                      data={utilityData}
+                      margin={{
+                        top: 20,
+                        right: isMobile ? 10 : 20,
+                        bottom: isMobile ? 50 : 40,
+                        left: isMobile ? 40 : 50,
+                      }}
+                      barSize={getBarSize()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.3} />
+                      <XAxis
+                        dataKey="year"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        stroke="var(--foreground)"
+                        opacity={0.7}
+                        fontSize={isMobile ? 10 : 11}
+                        // Show fewer ticks on mobile
+                        ticks={isMobile ? [1, 10, 20, 30] : [1, 5, 10, 15, 20, 25, 30]}
+                        height={isMobile ? 40 : 30}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={5}
+                        stroke="var(--foreground)"
+                        opacity={0.7}
+                        fontSize={isMobile ? 9 : 11}
+                        tickFormatter={(value) => `$${value}`}
+                        // On mobile, reduce the number of ticks
+                        tick={isMobile ? { fontSize: 9 } : { fontSize: 11 }}
+                        width={isMobile ? 40 : 50}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "0.5rem",
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                          fontSize: isMobile ? "12px" : "14px",
+                          padding: isMobile ? "6px" : "8px",
+                        }}
+                        formatter={(value) => [`$${value}`, "Monthly Cost"]}
+                      />
+                      <Bar dataKey="amount" fill="hsl(var(--chart-production))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-foreground/70 font-medium">No data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Energy Usage vs. Production Chart - IMPROVED */}
         <motion.div

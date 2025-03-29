@@ -301,12 +301,12 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
               </div>
 
               {/* Text content - Responsive text sizes */}
-              <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white drop-shadow-md">
-                Welcome to
+                <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white drop-shadow-md">
+                Hello <span className="font-bold text-indigo-dye-700">{name.split(" ")[0]}</span>
+
                 <span className="block mt-1 sm:mt-2 text-indigo-dye-700 text-4xl sm:text-5xl md:text-7xl lg:text-8xl">
-                  Solar Future
                 </span>
-              </h1>
+                </h1>
 
               {/* Underline - Adjusted size for mobile */}
               <div
@@ -324,7 +324,6 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
                 <div className="absolute inset-0 bg-white/15 backdrop-blur-md rounded-xl border border-white/20" />
                 <div className="relative z-10 text-center">
                   <p className="text-xl font-medium text-white mb-1 drop-shadow-md">
-                    Hello, <span className="font-bold text-indigo-dye-700">{name}</span>
                   </p>
                   <p className="text-base text-white/80 drop-shadow-sm max-w-full truncate">{address}</p>
                 </div>
@@ -338,7 +337,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
               <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end justify-between gap-8">
                 <div className="text-center md:text-left">
                   <p className="text-2xl md:text-3xl lg:text-4xl font-medium text-white mb-3 drop-shadow-md">
-                    Hello, <span className="font-bold text-indigo-dye-700">{name}</span>
+                    {/* Hello, <span className="font-bold text-indigo-dye-700">{name}</span> */}
                   </p>
                   <p className="text-xl md:text-2xl text-white/80 drop-shadow-sm max-w-full truncate">{address}</p>
                 </div>

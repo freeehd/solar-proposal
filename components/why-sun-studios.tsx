@@ -11,20 +11,22 @@ import { useReducedMotion } from "framer-motion"
 // Define reasons array outside component to prevent recreation on each render
 const reasons = [
   {
-    text: "5 stars rating Better Business Bureau",
-    description: "Accredited by the Better Business Bureau from our care and quality for our customers.",
+    text: "5 Stars Rating Google",
+    description: "Join the ever-growing list of satisfied customers who have rated us 5 Stars on Google.",
   },
   {
-    text: "5 stars rating Google",
-    description: "Join the ever-growing list of satisfied customers who have rated us 5 stars on Google.",
-  },
-  {
-    text: "5 stars rating Consumer Affairs",
-    description: "Consistently rated 5 stars by Consumer Affairs for our exceptional service.",
-  },
-  {
-    text: "5 stars rating Trust Pilot",
+    text: "5 Stars Rating Trust Pilot",
     description: "Providing top-quality solar solutions across 36 states nationwide.",
+  },
+ 
+
+  {
+    text: "5 Stars Rating Consumer Affairs",
+    description: "Consistently rated 5 Stars by Consumer Affairs for our exceptional service.",
+  },
+  {
+    text: "5 Stars Rating Yelp",
+    description: "Accredited by the Better Business Bureau from our care and quality for our customers.",
   },
   {
     text: "Only solar company that offers customer satisfaction guarantee",

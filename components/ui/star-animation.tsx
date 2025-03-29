@@ -29,14 +29,14 @@ const STAR_MODEL_URL = "/models/star2.glb"
 // Material configuration for consistent appearance
 const createStarMaterial = (emissiveIntensity = 0.3) => {
   return new THREE.MeshStandardMaterial({
-    color: new THREE.Color("#c77d0e"), // Gold color
-    emissive: new THREE.Color("#ffb300"), // Bright gold for glow
-    emissiveIntensity: 0.5,
-    roughness: 0.01, // Extremely low roughness for mirror-like reflection
+    color: new THREE.Color("#9a6209"), // Darker gold color
+    emissive: new THREE.Color("#d99000"), // Deeper gold for glow
+    emissiveIntensity: 0.4,
+    roughness: 0.005, // Even lower roughness for more mirror-like reflection
     metalness: 1.0, // Maximum metalness for perfect mirror finish
     transparent: true,
-    opacity: 0.95, // Slight transparency to soften edges
-    envMapIntensity: 3.5, // Significantly increased environment map intensity for mirror reflections
+    opacity: 0.98, // Higher opacity for more solid appearance
+    envMapIntensity: 4.5, // Increased environment map intensity for stronger reflections
   });
 };
 
@@ -97,9 +97,9 @@ const createFallbackStarModel = () => {
   // Add a soft outer glow mesh to hide jagged edges
   const glowGeometry = new THREE.OctahedronGeometry(1.05, 6);
   const glowMaterial = new THREE.MeshBasicMaterial({
-    color: new THREE.Color("#ffcc00"),
+    color: new THREE.Color("#d99000"),
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.25,
     side: THREE.BackSide,
   });
   
@@ -145,9 +145,9 @@ const StarModel = ({ onLoad }: { onLoad: (model: THREE.Group) => void }) => {
           const glowMesh = new THREE.Mesh(
             mesh.geometry.clone(),
             new THREE.MeshBasicMaterial({
-              color: new THREE.Color("#ffcc00"),
+              color: new THREE.Color("#d99000"),
               transparent: true,
-              opacity: 0.2,
+              opacity: 0.25,
               side: THREE.BackSide,
             })
           );
@@ -424,6 +424,22 @@ const StarMesh = React.memo(
         materialRef.current.emissiveIntensity = 0.5 // Increased glow on hover
       } else {
         materialRef.current.emissiveIntensity = 0.3 // Default glow
+      }
+    }, [isHovered])
+
+    // Handle material updates on hover
+    useEffect(() => {
+      if (!materialRef.current) return
+
+      // Update material properties on hover
+      if (isHovered) {
+        materialRef.current.emissiveIntensity = 0.6 // Increased glow on hover
+        materialRef.current.envMapIntensity = 5.5 // Increased reflectivity on hover
+        materialRef.current.roughness = 0.001 // Further reduced roughness for more mirror-like appearance
+      } else {
+        materialRef.current.emissiveIntensity = 0.4 // Default glow
+        materialRef.current.envMapIntensity = 4.5 // Default reflectivity
+        materialRef.current.roughness = 0.005 // Default roughness
       }
     }, [isHovered])
 

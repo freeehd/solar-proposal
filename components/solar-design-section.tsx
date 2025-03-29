@@ -303,49 +303,7 @@ export default function SolarDesignSection({
           </p>
         </motion.div>
 
-        {/* Design Images Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className={`grid ${enabledBatteryFields?.batteryImage ? "md:grid-cols-2" : "md:grid-cols-1"} gap-6 xs:gap-8 mb-12 xs:mb-16`}
-        >
-          {/* Solar Panel Design */}
-          <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/50 to-background shadow-xl border border-border ${!enabledBatteryFields?.batteryImage ? "w-full max-w-3xl mx-auto" : ""}`}>
-            <Image
-              src={solarPanelImageUrl}
-              alt="Solar Panel Design"
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-primary-foreground">
-              <h3 className="text-lg font-semibold mb-1">Solar Panel Layout</h3>
-              <p className="text-sm text-primary-foreground/90">Optimized placement for maximum sun exposure</p>
-            </div>
-          </div>
-
-          {/* Battery Design - Only show if enabled */}
-          {enabledBatteryFields?.batteryImage && (
-            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/50 to-background shadow-xl border border-border">
-              <Image
-                src={batteryImageUrl}
-                alt="Battery System"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6 text-primary-foreground">
-                <h3 className="text-lg font-semibold mb-1">Battery System</h3>
-                <p className="text-sm text-primary-foreground/90">Energy storage for continuous power supply</p>
-              </div>
-            </div>
-          )}
-        </motion.div>
+       
 
         {/* Unified Card with Metrics and Circle */}
         <div
@@ -501,7 +459,49 @@ export default function SolarDesignSection({
             </CardContent>
           </Card>
         </div>
+ {/* Design Images Section */}
+ <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.7, delay: 0.2 }}
+          className={`grid ${enabledBatteryFields?.batteryImage ? "md:grid-cols-2" : "md:grid-cols-1"} gap-6 xs:gap-8 mb-12 xs:mb-16`}
+        >
+          {/* Solar Panel Design */}
+          <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/50 to-background shadow-xl border border-border ${!enabledBatteryFields?.batteryImage ? "w-full max-w-3xl mx-auto" : ""}`}>
+            <Image
+              src={solarPanelImageUrl}
+              alt="Solar Panel Design"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6 text-primary-foreground">
+              <h3 className="text-lg font-semibold mb-1">Solar Panel Layout</h3>
+              <p className="text-sm text-primary-foreground/90">Optimized placement for maximum sun exposure</p>
+            </div>
+          </div>
 
+          {/* Battery Design - Only show if enabled */}
+          {enabledBatteryFields?.batteryImage && (
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/50 to-background shadow-xl border border-border">
+              <Image
+                src={batteryImageUrl}
+                alt="Battery System"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-6 text-primary-foreground">
+                <h3 className="text-lg font-semibold mb-1">Battery System</h3>
+                <p className="text-sm text-primary-foreground/90">Energy storage for continuous power supply</p>
+              </div>
+            </div>
+          )}
+        </motion.div>
         {/* Technology section */}
         <motion.div className="mt-6 xs:mt-8 mb-6 xs:mb-8 relative isolate" ref={techSectionRef}>
           <Card className="bg-white border border-border shadow-xl overflow-hidden rounded-xl">
