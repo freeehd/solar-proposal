@@ -300,16 +300,16 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       <defs>
                         {/* Sunset gradient for usage */}
                         <linearGradient id="sunsetGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#EF5350" stopOpacity={1} /> {/* Light yellow */}
+                          <stop offset="0%" stopColor="#9C21f0" stopOpacity={1} /> {/* Light yellow */}
                           
-                          <stop offset="100%" stopColor="#EF9A9A" stopOpacity={1} /> {/* Deep red-orange */}
+                          <stop offset="100%" stopColor="#64B5F6" stopOpacity={1} /> {/* Deep red-orange */}
                         </linearGradient>
 
                         {/* Pearlescent green gradient for production */}
                         <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="30%" stopColor="#9CCC65" stopOpacity={1} /> {/* Lightest green */}
+                          <stop offset="30%" stopColor="#66BB6A" stopOpacity={1} /> {/* Lightest green */}
                           
-                          <stop offset="100%" stopColor="#C5E1A5" stopOpacity={1} /> {/* Pearl green */}
+                          <stop offset="100%" stopColor="#64B5F6" stopOpacity={1} /> {/* Pearl green */}
                         </linearGradient>
                       </defs>
 
