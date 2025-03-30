@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Sun } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import Image from "next/image"
-
+import { AuroraText } from "./ui/aurora-text"
+import BreathingText from "./ui/breathing-text"
 interface HeroSectionProps {
   name: string
   address: string
@@ -302,7 +303,7 @@ export default function HeroSection({ name, address, onReady }: HeroSectionProps
 
               {/* Text content - Responsive text sizes */}
                 <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white drop-shadow-md">
-                Hello <span className="font-bold text-indigo-dye-700">{name.split(" ")[0]}</span>
+                Hello <AuroraText speed={2}>{name.split(" ")[0]}</AuroraText>
 
                 <span className="block mt-1 sm:mt-2 text-indigo-dye-700 text-4xl sm:text-5xl md:text-7xl lg:text-8xl">
                 </span>

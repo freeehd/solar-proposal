@@ -11,6 +11,7 @@ const MetallicEffect = () => {
   const [svgDimensions, setSvgDimensions] = useState({ width: 500, height: 500 })
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [scaleFactor, setScaleFactor] = useState(0)
 
   // Media queries for responsive design
   const isMobile = useMediaQuery("(max-width: 640px)")
@@ -18,11 +19,11 @@ const MetallicEffect = () => {
 
   const [params, setParams] = useState({
     edge: 0.01,
-    patternBlur: 0.09,
+    patternBlur: 0.05,
     patternScale: 2,
-    refraction: 0.0,
+    refraction: 0.02,
     speed: 0.15,
-    liquid: 0.0,
+    liquid: 0.4,
     color1: "#F1F4F9", //
     color2: "#1a1a1a", //
   })
@@ -44,6 +45,17 @@ const MetallicEffect = () => {
     // Cleanup
     return () => window.removeEventListener("resize", updateWidth)
   }, [])
+
+  // Update scale factor based on screen size
+  useEffect(() => {
+    if (isMobile) {
+      setScaleFactor(1)
+    } else if (isTablet) {
+      setScaleFactor(1.5)
+    } else {
+      setScaleFactor(2)
+    }
+  }, [isMobile, isTablet])
 
   useEffect(() => {
     let isMounted = true
@@ -92,50 +104,51 @@ const MetallicEffect = () => {
     }
   }, [])
 
-  // Calculate responsive dimensions while maintaining aspect ratio
+  // Calculate responsive dimensions based on container size
   const calculateDimensions = () => {
-    if (!containerWidth || !svgDimensions.width || !svgDimensions.height) {
-      return { width: "100%", height: 40 }
+    if (!containerWidth || !imageData || !svgDimensions.width || !svgDimensions.height) {
+      return { width: 0, height: 0 }
     }
 
-    // Base width on container width
-    const width = containerWidth
-
-    // Calculate height based on original aspect ratio
+    // Base width on container width and apply scale factor
     const aspectRatio = svgDimensions.height / svgDimensions.width
-    const height = Math.round(width * aspectRatio)
+    
+    // Calculate width with proper scaling
+    let width = 600
+    
+    // Calculate height based on aspect ratio with limits
+    const height = Math.min(
+      Math.round(width * aspectRatio),
+      isMobile ? 120 : isTablet ? 120 : 120
+    )
 
-    // Adjust height for different screen sizes
-    const adjustedHeight = isMobile ? Math.min(height, 40) : isTablet ? Math.min(height, 60) : Math.min(height, 80)
-
-    return { width, height: adjustedHeight }
+    return { width, height }
   }
 
   const dimensions = calculateDimensions()
 
   return (
-    <div ref={containerRef} className="relative w-full flex justify-start place-items-start">
+    <div ref={containerRef} className="relative w-full flex justify-center items-center">
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/10 z-10 rounded-lg">
-          <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex items-center justify-center w-full py-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
         </div>
       )}
 
       {error && (
-        <div className="error-fallback p-2 sm:p-3 md:p-4 text-sm sm:text-base text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg">
+        <div className="error-fallback p-2 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg w-full">
           ⚠️ {error} - Please ensure your SVG meets the requirements
         </div>
       )}
 
-      {imageData && !loading && !error && (
-        <div
-          className="w-full"
-          style={{
-            paddingTop: 0,
-            height: isMobile ? 40 : isTablet ? 60 : 80,
-          }}
-        >
-          <MetallicPaint imageData={imageData} params={params} width={dimensions.width} height={dimensions.height} />
+      {imageData && !loading && !error && dimensions.width > 0 && (
+        <div className="w-full flex justify-center items-center">
+          <MetallicPaint 
+            imageData={imageData} 
+            params={params} 
+            width={dimensions.width} 
+            height={dimensions.height} 
+          />
         </div>
       )}
     </div>

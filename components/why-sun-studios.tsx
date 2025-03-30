@@ -3,10 +3,15 @@
 import { motion, useInView, AnimatePresence } from "framer-motion"
 import { useRef, useState, useEffect, useMemo, useCallback, memo } from "react"
 import Image from "next/image"
+import dynamic from "next/dynamic"
+
 import { Card } from "@/components/ui/card"
 import { ReasonItem } from "./ui/reason-item"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useReducedMotion } from "framer-motion"
+const MetalicPaint = dynamic(() => import("@/components/ui/metallic"), {
+  ssr: false,
+})
 
 // Define reasons array outside component to prevent recreation on each render
 const reasons = [
@@ -83,8 +88,8 @@ const TextContent = memo(({ variants }: { variants: any }) => (
       transform: "translateZ(0)"
     }}
   >
-    <div className="text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed text-foreground/80 font-light tracking-wide mt-4 sm:mt-6 md:mt-8">
-      Sun Studios is a leading provider of solar energy solutions, committed to powering a sustainable
+    <div className="text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed text-foreground/80 font-light tracking-wide mt-0 sm:mt-0 md:mt-2">
+    The leading provider of solar energy solutions, committed to powering a sustainable
       future. With our innovative technology and expert team, we're transforming how homes and
       businesses harness the sun's energy.
     </div>
@@ -265,15 +270,15 @@ export default function WhySunStudios() {
                       }}
                       layout={false}
                     >
-                      <span className="block text-foreground">Why Choose</span>
-                      <div className="mt-2 sm:mt-4">
+                      {/* <span className="block text-foreground">Why Choose</span> */}
+                      <div className=" -mt-5 mx-24 sm:mt-4">
                         <motion.div
                           variants={animationVariants.title}
                           className="w-full max-w-[400px] h-auto"
                           style={{ willChange: "opacity, transform" }}
                           layout={false}
                         >
-                          <ImageWithFallback
+                          {/* <ImageWithFallback
                             src="/icon.png"
                             alt="Sun Studios"
                             width={400}
@@ -281,7 +286,9 @@ export default function WhySunStudios() {
                             className="w-full h-auto"
                             priority
                             sizes="(max-width: 640px) 90vw, 400px"
-                          />
+                          /> */}
+                                                  <MetalicPaint />
+
                         </motion.div>
                       </div>
                     </motion.h2>

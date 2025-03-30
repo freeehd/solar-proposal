@@ -309,7 +309,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="30%" stopColor="#66BB6A" stopOpacity={1} /> {/* Lightest green */}
                           
-                          <stop offset="100%" stopColor="#64B5F6" stopOpacity={1} /> {/* Pearl green */}
+                          <stop offset="100%" stopColor="#B2DFDB" stopOpacity={1} /> {/* Pearl green */}
                         </linearGradient>
                       </defs>
 
