@@ -209,7 +209,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 yearly_energy_produced: proposalData.yearly_energy_produced,
                 yearly_energy_usage: proposalData.yearly_energy_usage,
                 energy_offset: proposalData.energy_offset,
-                solar_panel_size: proposalData.number_of_solar_panels,
+                solar_panel_size: proposalData.system_size,
                 lifetime_savings: proposalData.lifetime_savings,
                 solar_panel_design: proposalData.solar_panel_design,
                 // Add storage section props - only show if storage section is visible and field is enabled
