@@ -2,9 +2,8 @@
 
 import type React from "react"
 
-import { type RefObject, useEffect, useId, useState, useCallback } from "react"
+import { type RefObject, useEffect, useId, useState, useCallback, useMemo, useRef } from "react"
 import { motion } from "framer-motion"
-import { BeamParticles } from "./beam-particles"
 
 export interface AnimatedBeamProps {
   className?: string
@@ -36,7 +35,7 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
   patternCount = 3,
   patternIntensity = 0.05,
   pathColor = "rgba(136, 182, 95, 0.6)",
-  pathWidth = 1,
+  pathWidth = 2,
   pathOpacity = 1,
   glowColor = "rgba(65, 220, 120, 0.3)",
   glowWidth = 16,
@@ -46,258 +45,245 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
   onComplete,
 }) => {
   const id = useId()
-  const [pathD, setPathD] = useState("")
-  const [svgDimensions, setSvgDimensions] = useState({ width: 0, height: 0 })
+  const [pathData, setPathData] = useState({ 
+    d: "", 
+    width: 0, 
+    height: 0,
+    isVisible: false 
+  })
   const [progress, setProgress] = useState(0)
-  const [isComplete, setIsComplete] = useState(false)
-  const [isVisible, setIsVisible] = useState(false)
-  const [responsiveWidth, setResponsiveWidth] = useState({ path: pathWidth, glow: glowWidth })
-
-  // Adjust beam width based on screen size
-  useEffect(() => {
-    const updateBeamWidth = () => {
-      const width = window.innerWidth
-      if (width < 375) {
-        // Small iPhone (SE, mini)
-        setResponsiveWidth({
-          path: pathWidth * 0.4,
-          glow: glowWidth * 0.4,
-        })
-      } else if (width < 640) {
-        // Mobile
-        setResponsiveWidth({
-          path: pathWidth * 0.5,
-          glow: glowWidth * 0.5,
-        })
-      } else if (width < 768) {
-        // Small tablets
-        setResponsiveWidth({
-          path: pathWidth * 0.7,
-          glow: glowWidth * 0.7,
-        })
-      } else if (width < 1024) {
-        // Tablets/iPad
-        setResponsiveWidth({
-          path: pathWidth * 0.85,
-          glow: glowWidth * 0.85,
-        })
-      } else {
-        // Desktop
-        setResponsiveWidth({
-          path: pathWidth,
-          glow: glowWidth,
-        })
-      }
-    }
-
-    // Initial call
-    updateBeamWidth()
-
-    // Add event listener
-    window.addEventListener("resize", updateBeamWidth)
-
-    // Cleanup
-    return () => window.removeEventListener("resize", updateBeamWidth)
+  const rafRef = useRef<number>()
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
+  const prevDimensionsRef = useRef({ width: 0, height: 0 })
+  
+  // Calculate responsive beam width based on screen size - memoized to avoid recalculations
+  const responsiveWidth = useMemo(() => {
+    const width = typeof window !== 'undefined' ? window.innerWidth : 1024
+    
+    if (width < 375) return { path: pathWidth * 0.4, glow: glowWidth * 0.4 } // Small iPhone
+    if (width < 640) return { path: pathWidth * 0.5, glow: glowWidth * 0.5 } // Mobile
+    if (width < 768) return { path: pathWidth * 0.7, glow: glowWidth * 0.7 } // Small tablets
+    if (width < 1024) return { path: pathWidth * 0.85, glow: glowWidth * 0.85 } // Tablets
+    return { path: pathWidth, glow: glowWidth } // Desktop
   }, [pathWidth, glowWidth])
 
-  // Calculate center points
-  const calculateCenter = useCallback(
-    (element: HTMLElement, containerRect: DOMRect, isCircle = false, isCard = false) => {
-      try {
-        const rect = element.getBoundingClientRect()
-        // Make icon size responsive
-        const width = window.innerWidth
-        let iconSize = 112 // Default (desktop)
-        let circleSize = 208 // Default (desktop)
-
-        if (width < 375) {
-          // Small iPhone (SE, mini)
-          iconSize = 48 // Increased from 36
-          circleSize = 90
-        } else if (width < 640) {
-          // Mobile
-          iconSize = 56 // Increased from 40
-          circleSize = 120
-        } else if (width < 768) {
-          // Small tablets
-          iconSize = 56
-          circleSize = 140
-        } else if (width < 1024) {
-          // Tablets/iPad
-          iconSize = 96
-          circleSize = 180
-        }
-
-        // If it's a card, use the center of the card
-        if (isCard) {
-          return {
-            x: rect.left - containerRect.left + rect.width / 2,
-            y: rect.top - containerRect.top + rect.height / 2,
-          }
-        }
-
-        const size = isCircle ? circleSize : iconSize
-
-        // Calculate center with more precision for mobile
-        let centerX, centerY
-
-        if (width < 640) {
-          // For mobile, use the center of the element directly
-          centerX = rect.left - containerRect.left + rect.width / 2
-          centerY = rect.top - containerRect.top + rect.height / 2
-        } else {
-          // For larger screens, use the size-based calculation
-          centerX = rect.left - containerRect.left + size / 2
-          centerY = rect.top - containerRect.top + size / 2
-        }
-
-        return {
-          x: centerX,
-          y: centerY,
-        }
-      } catch (error) {
-        console.error("Error calculating center:", error)
-        return { x: 0, y: 0 }
-      }
-    },
-    [],
-  )
-
-  // Update path and dimensions
-  const updatePath = useCallback(() => {
+  // Optimized center point calculation
+  const calculateCenter = useCallback((element: HTMLElement, containerRect: DOMRect, isCircle = false, isCard = false) => {
+    if (!element) return { x: 0, y: 0 }
+    
     try {
-      if (!containerRef?.current || !fromRef?.current || !toRef?.current) {
-        console.warn("Missing required refs")
-        return
-      }
-
-      const containerRect = containerRef.current.getBoundingClientRect()
-      setSvgDimensions({
-        width: containerRect.width,
-        height: containerRect.height,
-      })
-
-      // Check if we're connecting cards
-      const isFromCard = fromRef.current.classList.contains("rounded-xl")
-      const isToCard = toRef.current.classList.contains("rounded-xl")
-
-      const isTargetCircle = circleRef?.current && toRef.current === circleRef.current
-      const start = calculateCenter(fromRef.current, containerRect, false, isFromCard)
-      const end = calculateCenter(toRef.current, containerRect, !!isTargetCircle, isToCard)
-
-      const dx = end.x - start.x
-      const dy = end.y - start.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-
-      if (distance === 0) {
-        console.warn("Zero distance between points")
-        return
-      }
-
-      let d = `M ${start.x},${start.y} `
-
-      if (pattern === "straight") {
-        d += `L ${end.x},${end.y}`
-      } else if (pattern === "wave") {
-        const waveFrequency = Math.PI * 2 * patternCount
-        const steps = Math.min(100, Math.floor(distance / 5))
-
-        if (steps < 2) {
-          d += `L ${end.x},${end.y}`
-        } else {
-          for (let i = 0; i <= steps; i++) {
-            const t = i / steps
-            const x = start.x + dx * t
-            const y = start.y + dy * t
-            const waveOffset = Math.sin(t * waveFrequency) * distance * patternIntensity
-            const perpX = (-dy / distance) * waveOffset
-            const perpY = (dx / distance) * waveOffset
-            d += `${i === 0 ? "M" : "L"} ${x + perpX},${y + perpY} `
-          }
+      const rect = element.getBoundingClientRect()
+      const width = typeof window !== 'undefined' ? window.innerWidth : 1024
+      
+      // Size calculations - simplified and optimized
+      const size = isCircle 
+        ? width < 375 ? 90 : width < 640 ? 120 : width < 768 ? 140 : width < 1024 ? 180 : 208
+        : width < 375 ? 48 : width < 640 ? 56 : width < 768 ? 56 : width < 1024 ? 96 : 112
+      
+      // For cards or mobile, use direct center
+      if (isCard || width < 640) {
+        return {
+          x: rect.left - containerRect.left + rect.width / 2,
+          y: rect.top - containerRect.top + rect.height / 2,
         }
       }
-
-      d += `L ${end.x},${end.y}`
-      setPathD(d)
-      setIsVisible(true)
+      
+      // For larger screens and icons
+      return {
+        x: rect.left - containerRect.left + size / 2,
+        y: rect.top - containerRect.top + size / 2,
+      }
     } catch (error) {
-      console.error("Error updating beam path:", error)
-      setPathD("")
+      console.error("Error calculating center:", error)
+      return { x: 0, y: 0 }
     }
-  }, [containerRef, fromRef, toRef, circleRef, pattern, patternCount, patternIntensity, calculateCenter])
+  }, [])
 
-  // Initial setup and resize handling
-  useEffect(() => {
-    // Wait for DOM to be ready
-    const timer = setTimeout(() => {
-      updatePath()
-
-      const handleResize = () => {
-        requestAnimationFrame(updatePath)
+  // Optimized path generation
+  const generatePath = useCallback((start: {x: number, y: number}, end: {x: number, y: number}) => {
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const distance = Math.hypot(dx, dy) // More efficient than Math.sqrt(dx*dx + dy*dy)
+    
+    if (distance < 1) return `M ${start.x},${start.y} L ${end.x},${end.y}`
+    
+    let d = `M ${start.x},${start.y} `
+    
+    if (pattern === "straight") {
+      d += `L ${end.x},${end.y}`
+    } else if (pattern === "wave") {
+      const waveFrequency = Math.PI * 2 * patternCount
+      // Limit steps based on distance and screen size to improve performance
+      const steps = Math.min(
+        50, 
+        Math.max(5, Math.floor(distance / 10))
+      )
+      
+      if (steps < 2) {
+        d += `L ${end.x},${end.y}`
+      } else {
+        // Pre-calculate constants outside the loop
+        const invSteps = 1 / steps
+        const waveIntensity = distance * patternIntensity
+        const normDx = dx / distance
+        const normDy = dy / distance
+        
+        for (let i = 0; i <= steps; i++) {
+          const t = i * invSteps
+          const baseX = start.x + dx * t
+          const baseY = start.y + dy * t
+          
+          // Optimized wave calculation
+          const waveOffset = Math.sin(t * waveFrequency) * waveIntensity
+          const perpX = -normDy * waveOffset
+          const perpY = normDx * waveOffset
+          
+          d += `${i === 0 ? "M" : "L"} ${baseX + perpX},${baseY + perpY} `
+        }
       }
+    }
+    
+    return d
+  }, [pattern, patternCount, patternIntensity])
 
-      window.addEventListener("resize", handleResize)
-
-      // Setup ResizeObserver if available
-      let resizeObserver: ResizeObserver | null = null
+  // Update path handling with debounce and optimized calculations
+  const updatePath = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+    }
+    
+    rafRef.current = requestAnimationFrame(() => {
       try {
-        resizeObserver = new ResizeObserver(() => {
-          requestAnimationFrame(updatePath)
+        if (!containerRef?.current || !fromRef?.current || !toRef?.current) {
+          return
+        }
+
+        const containerRect = containerRef.current.getBoundingClientRect()
+        const newWidth = containerRect.width
+        const newHeight = containerRect.height
+        
+        // Skip update if dimensions haven't changed significantly (within 1px)
+        const dimensionsChanged = 
+          Math.abs(newWidth - prevDimensionsRef.current.width) > 1 || 
+          Math.abs(newHeight - prevDimensionsRef.current.height) > 1
+        
+        if (!dimensionsChanged && pathData.d) {
+          return
+        }
+        
+        prevDimensionsRef.current = { width: newWidth, height: newHeight }
+        
+        // Check for card elements - optimized with single DOM access
+        const isFromCard = fromRef.current.classList.contains("rounded-xl")
+        const isToCard = toRef.current.classList.contains("rounded-xl")
+        const isTargetCircle = circleRef?.current && toRef.current === circleRef.current
+        
+        // Calculate centers
+        const start = calculateCenter(fromRef.current, containerRect, false, isFromCard)
+        const end = calculateCenter(toRef.current, containerRect, isToCard)
+        
+        // Generate path
+        const d = generatePath(start, end)
+        
+        // Update state only if something changed
+        setPathData(prev => {
+          if (prev.d === d && prev.width === newWidth && prev.height === newHeight && prev.isVisible) {
+            return prev
+          }
+          return {
+            d,
+            width: newWidth,
+            height: newHeight,
+            isVisible: true
+          }
         })
-
-        if (containerRef?.current) {
-          resizeObserver.observe(containerRef.current)
-        }
       } catch (error) {
-        console.error("ResizeObserver not supported:", error)
+        console.error("Error updating beam path:", error)
       }
+    })
+  }, [containerRef, fromRef, toRef, circleRef, calculateCenter, generatePath, pathData.d])
 
-      return () => {
-        window.removeEventListener("resize", handleResize)
-        if (resizeObserver) {
-          resizeObserver.disconnect()
+  // Setup initial render and resize handling
+  useEffect(() => {
+    // First update with a slight delay to ensure DOM is ready
+    const timer = setTimeout(updatePath, 100)
+    
+    // Throttled resize handler
+    let resizeTimeout: NodeJS.Timeout
+    const handleResize = () => {
+      clearTimeout(resizeTimeout)
+      resizeTimeout = setTimeout(() => {
+        updatePath()
+      }, 100) // Throttle to avoid excessive updates
+    }
+    
+    window.addEventListener("resize", handleResize, { passive: true })
+    
+    // Setup optimized ResizeObserver
+    try {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect()
+      }
+      
+      resizeObserverRef.current = new ResizeObserver((entries) => {
+        if (entries.length) {
+          handleResize()
         }
+      })
+      
+      if (containerRef?.current) {
+        resizeObserverRef.current.observe(containerRef.current)
       }
-    }, 100) // Small delay to ensure DOM is ready
-
-    return () => clearTimeout(timer)
+    } catch (error) {
+      console.error("ResizeObserver setup failed:", error)
+    }
+    
+    return () => {
+      clearTimeout(timer)
+      clearTimeout(resizeTimeout)
+      window.removeEventListener("resize", handleResize)
+      
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect()
+      }
+      
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+      }
+    }
   }, [containerRef, updatePath])
 
-  const handleComplete = () => {
-    setIsComplete(true)
-    onComplete?.()
-  }
-
-  if (!pathD || !isVisible || svgDimensions.width === 0 || svgDimensions.height === 0) {
+  // Don't render anything if path not ready
+  if (!pathData.isVisible || !pathData.d || pathData.width <= 0 || pathData.height <= 0) {
     return null
   }
 
   return (
     <svg
       fill="none"
-      width={svgDimensions.width}
-      height={svgDimensions.height}
+      width={pathData.width}
+      height={pathData.height}
       xmlns="http://www.w3.org/2000/svg"
       className={`pointer-events-none absolute left-0 top-0 ${className || ""}`}
-      style={{ zIndex: 25 }} // Set a z-index that's higher than cards (10) but lower than premium icons (30)
-      viewBox={`0 0 ${svgDimensions.width} ${svgDimensions.height}`}
+      style={{ 
+        zIndex: 25,
+        // Safari-specific optimizations
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden'
+      }}
+      viewBox={`0 0 ${pathData.width} ${pathData.height}`}
     >
       <defs>
         <filter id={`glow-${id}`} filterUnits="userSpaceOnUse">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
-          <feGaussianBlur in="blur1" stdDeviation="6" result="blur2" />
-          <feMerge>
-            <feMergeNode in="blur2" />
-            <feMergeNode in="blur1" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+          {/* Simplified filter for better performance */}
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" />
         </filter>
       </defs>
 
       <g style={{ isolation: "isolate" }}>
-        {/* Base beam path */}
-        <motion.path
-          d={pathD}
+        {/* Base path - simplified */}
+        <path
+          d={pathData.d}
           stroke={pathColor}
           strokeWidth={responsiveWidth.path * 2}
           strokeLinecap="round"
@@ -305,10 +291,10 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
           opacity={0.3}
         />
 
-        {/* Main glow path */}
+        {/* Main glow path - optimized animation */}
         <motion.path
           key={`glow-${id}`}
-          d={pathD}
+          d={pathData.d}
           stroke={glowColor}
           strokeWidth={responsiveWidth.glow}
           strokeLinecap="round"
@@ -317,30 +303,30 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{
             pathLength: 1,
-            opacity: [0, pathOpacity, pathOpacity * 0.8, pathOpacity],
+            opacity: pathOpacity * 0.8,
           }}
           transition={{
             delay,
             duration,
             ease: "easeInOut",
-            opacity: {
-              duration: duration * 2,
-              repeat: 0,
-              ease: "easeInOut",
-            },
+            opacity: { duration: duration * 0.5 },
           }}
-          onUpdate={({ pathLength = 0 }) => {
-            const numericPathLength = Number(pathLength)
-            setProgress(numericPathLength)
-            onProgress?.(numericPathLength)
+          onUpdate={(latest) => {
+            if ('pathLength' in latest) {
+              const numericPathLength = Number(latest.pathLength) || 0
+              if (Math.abs(numericPathLength - progress) > 0.01) {
+                setProgress(numericPathLength)
+                onProgress?.(numericPathLength)
+              }
+            }
           }}
-          onAnimationComplete={handleComplete}
+          onAnimationComplete={() => onComplete?.()}
         />
 
-        {/* Main path */}
+        {/* Main path - simplified */}
         <motion.path
           key={`path-${id}`}
-          d={pathD}
+          d={pathData.d}
           stroke={pathColor}
           strokeWidth={responsiveWidth.path}
           strokeLinecap="round"
@@ -356,11 +342,7 @@ export const AnimatedBeam: React.FC<AnimatedBeamProps> = ({
             ease: "easeInOut",
           }}
         />
-
-        {/* Particle effects */}
-        {/* <BeamParticles progress={progress} pathD={pathD} count={window.innerWidth < 768 ? 4 : 8} /> */}
       </g>
     </svg>
   )
 }
-

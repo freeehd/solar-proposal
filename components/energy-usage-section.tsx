@@ -33,7 +33,7 @@ const CustomComparisonTooltip = ({ active, payload, label }: any) => {
     const isPositive = difference >= 0
 
     return (
-      <div className="custom-tooltip pearlescent-card premium-blur border border-primary/10 p-3 rounded-lg">
+      <div className="custom-tooltip  premium-blur border border-primary/10 p-3 rounded-lg">
         <p className="font-medium text-sm mb-2 text-foreground">{label}</p>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between gap-4">
@@ -295,7 +295,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           transition={{ duration: 0.5, delay: 0.6 }}
           className="mt-8 sm:mt-10 md:mt-12"
         >
-          <Card className="pearlescent-card premium-blur border border-primary/10 premium-shadow">
+          <Card className=" premium-blur border border-primary/10 premium-shadow">
             <CardHeader className="pb-2 sm:pb-4">
             </CardHeader>
             <CardContent className="p-0">

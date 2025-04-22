@@ -315,7 +315,7 @@ export default function SolarDesignSection({
         <div
           className={`mt-6 ${isSmallDevice || isIOS ? "xs:mt-8" : "xs:mt-10"} sm:mt-12 mb-8 ${isSmallDevice || isIOS ? "xs:mb-10" : "xs:mb-16"}`}
         >
-          <Card className="pearlescent-card border-none m-0 pt-0 relative" ref={cardRef}>
+          <Card className=" border-none m-0 pt-0 relative" ref={cardRef}>
             <CardContent className="relative pt-5">
               {/* Render beams based on current progress and visibility - ONLY on larger devices */}
               {hasStarted && isInView && !isSmallDevice && !isIOS && (
@@ -325,11 +325,11 @@ export default function SolarDesignSection({
                     fromRef={icon1Ref}
                     toRef={icon2Ref}
                     delay={0}
-                    duration={0.6} // Reduced from 0.8
+                    duration={0.8} // Reduced from 1
                     pathColor="hsl(var(--primary) / 0.7)"
                     glowColor="hsl(var(--primary) / 0.4)"
-                    pathWidth={2}
-                    glowWidth={8} // Reduced from 10
+                    pathWidth={5}
+                    glowWidth={10}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon1) {
                         setChargingStates((prev) => ({ ...prev, icon1: true }))
@@ -345,12 +345,12 @@ export default function SolarDesignSection({
                         containerRef={cardRef}
                         fromRef={icon2Ref}
                         toRef={batteryCapacityRef}
-                        delay={0.6} // Reduced from 0.8
-                        duration={0.6} // Reduced from 0.8
+                        delay={0.8} // Reduced from 1
+                        duration={0.8} // Reduced from 1
                         pathColor="hsl(var(--primary) / 0.7)"
                         glowColor="hsl(var(--primary) / 0.4)"
-                        pathWidth={2}
-                        glowWidth={8} // Reduced from 10
+                        pathWidth={5}
+                        glowWidth={10}
                         onProgress={(progress) => {
                           if (progress > 0.05 && !chargingStates.icon2) {
                             setChargingStates((prev) => ({ ...prev, icon2: true }))
@@ -364,12 +364,12 @@ export default function SolarDesignSection({
                         containerRef={cardRef}
                         fromRef={batteryCapacityRef}
                         toRef={icon3Ref}
-                        delay={1.2} // Reduced from 1.6
-                        duration={0.6} // Reduced from 0.8
+                        delay={1.6} // Reduced from 2
+                        duration={0.8} // Reduced from 1
                         pathColor="hsl(var(--primary) / 0.7)"
                         glowColor="hsl(var(--primary) / 0.4)"
-                        pathWidth={2}
-                        glowWidth={8} // Reduced from 10
+                        pathWidth={5}
+                        glowWidth={10}
                         onProgress={(progress) => {
                           if (progress > 0.05 && !chargingStates.batteryCapacity) {
                             setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
@@ -385,12 +385,12 @@ export default function SolarDesignSection({
                       containerRef={cardRef}
                       fromRef={icon2Ref}
                       toRef={icon3Ref}
-                      delay={0.6} // Reduced from 0.8
-                      duration={0.6} // Reduced from 0.8
+                      delay={0.8} // Reduced from 1
+                      duration={0.8} // Reduced from 1
                       pathColor="hsl(var(--primary) / 0.7)"
                       glowColor="hsl(var(--primary) / 0.4)"
-                      pathWidth={2}
-                      glowWidth={8} // Reduced from 10
+                      pathWidth={5}
+                      glowWidth={10}
                       onProgress={(progress) => {
                         if (progress > 0.05 && !chargingStates.icon2) {
                           setChargingStates((prev) => ({ ...prev, icon2: true }))
@@ -405,12 +405,12 @@ export default function SolarDesignSection({
                     containerRef={cardRef}
                     fromRef={icon3Ref}
                     toRef={icon4Ref}
-                    delay={enabledBatteryFields?.capacity ? 1.8 : 1.2} // Reduced from 2.4 and 1.6
-                    duration={0.6} // Reduced from 0.8
+                    delay={enabledBatteryFields?.capacity ? 2.4 : 1.6} // Reduced from 3 and 2
+                    duration={0.8} // Reduced from 1
                     pathColor="hsl(var(--primary) / 0.7)"
                     glowColor="hsl(var(--primary) / 0.4)"
-                    pathWidth={2}
-                    glowWidth={8} // Reduced from 10
+                    pathWidth={5}
+                    glowWidth={10}
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon3) {
                         setChargingStates((prev) => ({ ...prev, icon3: true }))
@@ -425,11 +425,11 @@ export default function SolarDesignSection({
                     fromRef={icon4Ref}
                     toRef={circleRef}
                     circleRef={circleRef}
-                    delay={enabledBatteryFields?.capacity ? 2.4 : 1.8} // Reduced from 3.2 and 2.4
-                    duration={0.9} // Reduced from 1.2
+                    delay={enabledBatteryFields?.capacity ? 3.2 : 2.4} // Reduced from 4 and 3
+                    duration={1.2} // Reduced from 1.5
                     pattern="wave"
                     patternCount={2}
-                    patternIntensity={0.02} // Reduced from 0.03
+                    patternIntensity={0.03}
                     pathColor="hsl(var(--primary) / 0.7)"
                     glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={0}
@@ -468,7 +468,7 @@ export default function SolarDesignSection({
 
         {/* Technology section */}
         <motion.div className="mt-6 xs:mt-8 mb-6 xs:mb-8 relative isolate" ref={techSectionRef}>
-          <Card className="pearlescent-card border border-border shadow-xl overflow-hidden rounded-xl">
+          <Card className=" border border-border shadow-xl overflow-hidden rounded-xl">
             <CardHeader className="border-b border-border py-3 xs:py-4 sm:py-6">
               <CardTitle className="text-xl xs:text-2xl font-bold text-center text-primary">
                 Premium Solar Technology
