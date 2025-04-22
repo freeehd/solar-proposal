@@ -106,7 +106,7 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
     >
       <motion.div
         className={cn(
-          "relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-white shadow-xl border border-blue-100/50",
+          "relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-blue-100 shadow-xl border border-blue-200",
           // Responsive padding based on screen size - reduced for mobile
           "p-1.5 xs:p-2 sm:p-3 md:p-3.5 lg:p-5",
           className,
@@ -120,18 +120,18 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
       >
         {/* Background gradient */}
         <div
-          className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/5 to-blue-600/10 opacity-50"
+          className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-200/30 to-blue-300/40 opacity-70"
           style={{ zIndex: 1 }}
           aria-hidden="true"
         />
 
         {/* Glow effect during charging */}
         <motion.div
-          className="absolute inset-0 rounded-full bg-blue-400/20"
+          className="absolute inset-0 rounded-full bg-blue-400/30"
           style={{ zIndex: 2 }}
           initial={{ opacity: 0 }}
           animate={{
-            opacity: isCharging && !hasAppeared ? [0, 0.5, 0.3] : 0,
+            opacity: isCharging && !hasAppeared ? [0, 0.7, 0.5] : 0,
             scale: isCharging && !hasAppeared ? [1, 1.05, 1] : 1,
           }}
           transition={{
@@ -153,8 +153,8 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
               <svg className="w-full h-full" viewBox="0 0 100 100">
                 <defs>
                   <linearGradient id="circleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(113, 244, 103, 0.9)" />
-                    <stop offset="100%" stopColor="rgba(113, 255, 246, 0.1)" />
+                    <stop offset="0%" stopColor="hsl(var(--accent))" />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" />
                   </linearGradient>
                 </defs>
                 <motion.circle

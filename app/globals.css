@@ -3,28 +3,27 @@
 @tailwind utilities;
 
 @layer base {
-  /* Brighter Pearlescent Theme */
   :root {
-    --background: 220 25% 18%; /* Lighter gunmetal grey background */
-    --foreground: 210 40% 98%; /* Slightly blue-tinted white text */
-    --card: 220 28% 22%; /* Brighter card background */
-    --card-foreground: 210 40% 98%;
-    --popover: 220 28% 22%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 100% 65%; /* Brighter sky blue */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 30% 25%; /* Lighter secondary */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 220 25% 30%;
-    --muted-foreground: 210 40% 85%;
-    --accent: 199 100% 75%; /* Brighter accent */
-    --accent-foreground: 220 25% 10%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 25% 30%;
-    --input: 220 25% 22%;
-    --ring: 210 100% 65%;
-    --radius: 0.75rem;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
 
     --z-index-base: 1;
     --z-index-cards: var(--z-index-base);
@@ -33,10 +32,33 @@
     --z-index-portal: 100;
   }
 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+
+  * {
+    @apply border-border;
+  }
   body {
     @apply bg-background text-foreground;
-    background-image: radial-gradient(circle at 20% 30%, hsl(220 25% 25% / 0.8) 0%, transparent 50%),
-      radial-gradient(circle at 80% 70%, hsl(210 100% 30% / 0.5) 0%, transparent 50%);
   }
 }
 
@@ -58,12 +80,11 @@
   }
 
   .accent-gradient-text {
-    @apply bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent;
   }
 
-  /* Brighter button styles */
   .primary-button {
-    @apply bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium shadow-[0_0_20px_rgba(0,150,255,0.4)];
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium;
   }
 
   .secondary-button {
@@ -71,7 +92,7 @@
   }
 
   .accent-button {
-    @apply bg-accent hover:bg-accent/90 text-accent-foreground px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium shadow-[0_0_20px_rgba(0,200,255,0.4)];
+    @apply bg-accent hover:bg-accent/90 text-accent-foreground px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium;
   }
 
   /* Pearlescent premium components */
@@ -110,7 +131,7 @@
   }
 
   .accent-text {
-    @apply text-accent font-medium;
+    @apply text-primary font-medium;
   }
 
   .primary-text {
@@ -369,13 +390,13 @@
   .animate-accent-pulse-glow,
   .animate-gradient-flow,
   .animate-pearlescent {
-    animation: none;
+    animation: none !important;
   }
 
   .transition-all-300,
   .hover-lift,
-  .card-hover {
-    transition: none;
+  .btn-hover-effect {
+    transition: none !important;
   }
 }
 
@@ -410,32 +431,30 @@
 /* Pearlescent scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: hsl(var(--background));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 150, 255, 0.4);
+  background: hsl(var(--primary) / 0.5);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 150, 255, 0.6);
+  background: hsl(var(--primary) / 0.7);
 }
 
 /* Pearlescent focus styles */
 :focus-visible {
-  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline: 2px solid hsl(var(--primary));
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary) / 0.3);
 }
 
 /* Pearlescent text selection */
 ::selection {
-  background-color: hsl(var(--primary) / 0.2);
+  background: hsl(var(--primary) / 0.2);
   color: hsl(var(--primary));
 }
 

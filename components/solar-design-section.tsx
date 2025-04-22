@@ -535,7 +535,7 @@ export default function SolarDesignSection({
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <BarChart2
-                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-accent`}
+                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-primary`}
                         strokeWidth={2}
                       />
                     </PremiumIcon>
@@ -564,7 +564,7 @@ export default function SolarDesignSection({
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <Thermometer
-                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-accent`}
+                        className={`${isSmallDevice || isIOS ? "w-6 xs:w-7 h-6 xs:h-7" : "w-8 xs:w-9 h-8 xs:h-9"} sm:w-9 md:w-12 lg:w-14 sm:h-9 md:h-12 lg:h-14 text-primary`}
                         strokeWidth={2}
                       />
                     </PremiumIcon>

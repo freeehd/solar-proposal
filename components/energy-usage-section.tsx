@@ -42,11 +42,11 @@ const CustomComparisonTooltip = ({ active, payload, label }: any) => {
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-foreground/70">Production:</span>
-            <span className="font-medium text-accent">{production.toLocaleString()} kWh</span>
+            <span className="font-medium text-[#10b981]">{production.toLocaleString()} kWh</span>
           </div>
           <div className="flex justify-between gap-4 pt-1 border-t border-border/20 mt-1">
             <span className="text-foreground/70">Difference:</span>
-            <span className={`font-medium ${isPositive ? "text-accent" : "text-destructive"}`}>
+            <span className={`font-medium ${isPositive ? "text-black" : "text-destructive"}`}>
               {isPositive ? "+" : ""}
               {difference.toLocaleString()} kWh
             </span>
@@ -201,6 +201,82 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
     return Math.ceil(maxChartValue / 500) * 500
   }, [maxChartValue])
 
+  const chartData = {
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    datasets: [
+      {
+        label: "Solar Production",
+        data: data.map((d) => d.production),
+        borderColor: "hsl(var(--primary))",
+        backgroundColor: "hsl(var(--primary) / 0.1)",
+        fill: true,
+        tension: 0.4,
+      },
+      {
+        label: "Utility Bill",
+        data: data.map((d) => d.usage),
+        borderColor: "hsl(var(--accent))",
+        backgroundColor: "hsl(var(--accent) / 0.1)",
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top" as const,
+        labels: {
+          color: "hsl(var(--foreground))",
+          font: {
+            size: 12,
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: "hsl(var(--background))",
+        titleColor: "hsl(var(--foreground))",
+        bodyColor: "hsl(var(--foreground))",
+        borderColor: "hsl(var(--border))",
+        borderWidth: 1,
+        padding: 12,
+        boxPadding: 6,
+        usePointStyle: true,
+        callbacks: {
+          label: function(context: any) {
+            const label = context.dataset.label || "";
+            const value = context.parsed.y;
+            return `${label}: ${value.toLocaleString()} kWh`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: {
+          color: "hsl(var(--border) / 0.1)",
+        },
+        ticks: {
+          color: "hsl(var(--foreground) / 0.7)",
+        },
+      },
+      y: {
+        grid: {
+          color: "hsl(var(--border) / 0.1)",
+        },
+        ticks: {
+          color: "hsl(var(--foreground) / 0.7)",
+          callback: function(value: any) {
+            return value.toLocaleString() + " kWh";
+          },
+        },
+      },
+    },
+  };
+
   return (
     <section className="relative z-10 bg-background">
       <div className="container mx-auto px-4">
@@ -243,24 +319,24 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       barCategoryGap={isMobile ? "30%" : "40%"}
                     >
                       <defs>
-                        {/* Updated gradients to match pearlescent theme */}
+                        {/* Updated gradients to use distinct colors */}
                         <linearGradient id="sunsetGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.6} />
                         </linearGradient>
 
                         <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="30%" stopColor="hsl(var(--accent))" stopOpacity={0.8} />
-                          <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.4} />
+                          <stop offset="30%" stopColor="#10b981" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#34d399" stopOpacity={0.6} />
                         </linearGradient>
                       </defs>
 
-                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <CartesianGrid vertical={false} stroke="#e5e7eb" opacity={0.4} />
                       <XAxis
                         dataKey="month"
                         tickLine={false}
-                        axisLine={{ stroke: "hsl(var(--border))" }}
-                        tick={{ fill: "hsl(var(--foreground))", fontSize: isMobile ? 10 : 12 }}
+                        axisLine={{ stroke: "#e5e7eb" }}
+                        tick={{ fill: "#374151", fontSize: isMobile ? 10 : 12 }}
                         tickFormatter={(value) => value.slice(0, 3)}
                         padding={{ left: isMobile ? 5 : 10, right: isMobile ? 5 : 10 }}
                         height={isMobile ? 40 : 30}
@@ -268,8 +344,8 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       />
                       <YAxis
                         tickLine={false}
-                        axisLine={{ stroke: "hsl(var(--border))" }}
-                        tick={{ fill: "hsl(var(--foreground))", fontSize: isMobile ? 9 : 11 }}
+                        axisLine={{ stroke: "#e5e7eb" }}
+                        tick={{ fill: "#374151", fontSize: isMobile ? 9 : 11 }}
                         tickFormatter={(value) => (isMobile ? `${value}` : `${value} kwh`.replace(/\s+/g, " "))}
                         width={isMobile ? 25 : 80}
                         domain={[0, maxYAxisValue]}
@@ -289,7 +365,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         }}
                         formatter={(value) => {
                           if (value === "usage") return "Energy Usage"
-                          if (value === "production") return "Solar Production"
+                          if (value === "usage") return "Solar Production"
                           return value
                         }}
                       />
