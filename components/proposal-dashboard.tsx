@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,44 @@ export default function ProposalDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
+  const observerRef = useRef<IntersectionObserver | null>(null)
+
+  // Set up intersection observer for section visibility
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const sectionId = entry.target.getAttribute('data-section-id')
+          if (sectionId) {
+            setVisibleSections(prev => {
+              const newSet = new Set(prev)
+              if (entry.isIntersecting) {
+                newSet.add(sectionId)
+              } else {
+                newSet.delete(sectionId)
+              }
+              return newSet
+            })
+          }
+        })
+      },
+      {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1
+      }
+    )
+
+    // Observe all sections
+    document.querySelectorAll('[data-section-id]').forEach(section => {
+      observerRef.current?.observe(section)
+    })
+
+    return () => {
+      observerRef.current?.disconnect()
+    }
+  }, [])
 
   // Memoize fetchProposals to avoid recreating it on every render
   const fetchProposals = useCallback(async () => {
@@ -86,7 +124,8 @@ export default function ProposalDashboard() {
     return () => clearInterval(refreshInterval)
   }, [fetchProposals])
 
-  const updateProposalStatus = async (id: number, newStatus: string) => {
+  // Memoize the updateProposalStatus function
+  const updateProposalStatus = useCallback(async (id: number, newStatus: string) => {
     try {
       const response = await fetch(`/api/proposals/${id}`, {
         method: "PUT",
@@ -104,7 +143,7 @@ export default function ProposalDashboard() {
 
       if (data.success) {
         // Update local state
-        setProposals(proposals.map((p) => (p.id === id ? { ...p, status: newStatus } : p)))
+        setProposals(prev => prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p)))
         toast({
           title: "Success",
           description: "Proposal status updated",
@@ -127,16 +166,15 @@ export default function ProposalDashboard() {
         variant: "destructive",
       })
     }
-  }
+  }, [fetchProposals])
 
-  // Format currency
-  const formatCurrency = (value: string) => {
+  // Memoize format functions
+  const formatCurrency = useCallback((value: string) => {
     const num = Number.parseFloat(value)
     return !isNaN(num) ? num.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "$0.00"
-  }
+  }, [])
 
-  // Format date
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     try {
       const date = new Date(dateString)
       return date.toLocaleDateString("en-US", {
@@ -149,7 +187,7 @@ export default function ProposalDashboard() {
     } catch (e) {
       return "Invalid date"
     }
-  }
+  }, [])
 
   return (
     <div className="space-y-4">
@@ -157,7 +195,7 @@ export default function ProposalDashboard() {
         <h1 className="text-2xl font-bold text-primary">Solar Proposals</h1>
         <div className="flex items-center gap-4">
           <p className="text-sm text-foreground/70">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
-          <Button variant="outline" size="sm" onClick={fetchProposals} disabled={isLoading} className="pearlescent-surface border-none hover:bg-primary/10 text-primary">
+          <Button variant="outline" size="sm" onClick={fetchProposals} disabled={isLoading} className="bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary">
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -185,9 +223,9 @@ export default function ProposalDashboard() {
           ))}
         </div>
       ) : proposals.length === 0 ? (
-        <div className="text-center py-10 pearlescent-surface rounded-lg">
+        <div className="text-center py-10 bg-gradient-to-r from-teal-50 to-blue-100 rounded-lg">
           <p className="text-foreground/70">No proposals found</p>
-          <Button variant="outline" className="mt-4 pearlescent-surface border-none hover:bg-primary/10 text-primary" onClick={fetchProposals}>
+          <Button variant="outline" className="mt-4 bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary" onClick={fetchProposals}>
             Refresh
           </Button>
         </div>
@@ -206,7 +244,7 @@ export default function ProposalDashboard() {
             </TableHeader>
             <TableBody>
               {proposals.map((proposal) => (
-                <TableRow key={proposal.id}>
+                <TableRow key={proposal.id} data-section-id={`proposal-${proposal.id}`}>
                   <TableCell className="font-medium text-primary">{proposal.name}</TableCell>
                   <TableCell className="text-foreground/70">{proposal.address}</TableCell>
                   <TableCell>
@@ -238,7 +276,7 @@ export default function ProposalDashboard() {
                         defaultValue={proposal.status}
                         onValueChange={(value) => updateProposalStatus(proposal.id, value)}
                       >
-                        <SelectTrigger className="w-[150px] pearlescent-surface border-none">
+                        <SelectTrigger className="w-[150px] bg-gradient-to-r from-teal-50 to-blue-100 border-none">
                           <SelectValue placeholder="Update status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -248,7 +286,7 @@ export default function ProposalDashboard() {
                         </SelectContent>
                       </Select>
                       <Link href={`/proposal/${proposal.id}`}>
-                        <Button variant="outline" size="sm" className="pearlescent-surface border-none hover:bg-primary/10 text-primary">
+                        <Button variant="outline" size="sm" className="bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary">
                           View
                         </Button>
                       </Link>

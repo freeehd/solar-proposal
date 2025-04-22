@@ -78,7 +78,7 @@ export function SolarMetricsGrid({
   return (
     <div className={`${isSimplifiedView ? "space-y-6" : "space-y-8"}`}>
       {/* Main metrics grid in its own card */}
-      <Card className="pearlescent-surface border-none  shadow-xl overflow-visible rounded-xl" ref={metricsCardRef}>
+      <Card className="bg-gradient-to-r from-teal-50 to-blue-100 border-none  shadow-xl overflow-visible rounded-xl" ref={metricsCardRef}>
         <CardHeader
           className={`pb-0 ${isSimplifiedView ? "pt-3 px-3 xs:pt-4 xs:px-4" : "pt-4 px-4 xs:pt-5 xs:px-5"} sm:pt-6 sm:px-6`}
         >
@@ -398,7 +398,7 @@ export function SolarMetricsGrid({
 
       {/* Circle Progress in its own card - ENLARGED */}
       <Card
-        className="pearlescent-surface border-none  border-blue/20 shadow-xl overflow-visible rounded-xl mx-auto"
+        className="bg-gradient-to-r from-teal-50 to-blue-100 border-none  border-blue/20 shadow-xl overflow-visible rounded-xl mx-auto"
         ref={circleCardRef}
         style={{ maxWidth: "800px" }} // Increased max width for the card
       >

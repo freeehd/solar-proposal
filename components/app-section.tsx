@@ -313,7 +313,7 @@ export default function AppSection() {
                   onClick={prevSlide}
                   className={`${
                     isMobile ? "w-8 h-8" : isTablet ? "w-10 h-10" : "w-12 h-12"
-                  } rounded-full pearlescent-surface border-none hover:bg-primary/10 text-primary transition-colors duration-300`}
+                  } rounded-full bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary transition-colors duration-300`}
                   aria-label="Previous slide"
                 >
                   <ChevronLeft className={isMobile ? "h-4 w-4" : "h-6 w-6"} />
@@ -324,7 +324,7 @@ export default function AppSection() {
                   onClick={nextSlide}
                   className={`${
                     isMobile ? "w-8 h-8" : isTablet ? "w-10 h-10" : "w-12 h-12"
-                  } rounded-full pearlescent-surface border-none hover:bg-primary/10 text-primary transition-colors duration-300`}
+                  } rounded-full bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary transition-colors duration-300`}
                   aria-label="Next slide"
                 >
                   <ChevronRight className={isMobile ? "h-4 w-4" : "h-6 w-6"} />
