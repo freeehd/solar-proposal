@@ -50,7 +50,7 @@ export default function ProposalEdit({ id }: { id: string }) {
     })
 
     // Redirect to the proposal view page
-    router.push(`/proposal/${id}`)
+    router.push(`/`)
   }
 
   if (loading) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import pool from "@/lib/db"
 
-// Helper functions from the submit-proposal route
+// Helper functions for validation
 function validateDecimal(value: any): number | null {
   if (value === null || value === undefined || value === "") {
     return null
@@ -71,66 +71,103 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     // Debug: Log the incoming data
     console.log("Updating proposal with data:", body)
 
-    // Build the SET part of the query dynamically based on the fields in the body
-    const updateFields: string[] = []
-    const values: any[] = []
-    let paramIndex = 1
+    // Map form data to database columns
+    const values = [
+      body.name || null,
+      body.address || null,
+      validateDecimal(body.averageRateKWh),
+      validateDecimal(body.fixedCosts),
+      validateDecimal(body.escalation),
+      validateDecimal(body.monthlyBill),
+      validateInteger(body.numberOfSolarPanels),
+      validateInteger(body.yearlyEnergyProduced),
+      validateInteger(body.yearlyEnergyUsage),
+      validateDecimal(body.systemSize),
+      validateInteger(body.energyOffset),
+      body.solarPanelDesign || null,
+      body.batteryName || null,
+      body.inverterName || null,
+      body.operatingMode || null,
+      validateDecimal(body.capacity),
+      validateDecimal(body.outputKW),
+      validateDecimal(body.cost),
+      body.backupAllocation || "",
+      body.batteryImage || null,
+      validateDecimal(body.paybackPeriod),
+      validateDecimal(body.totalSystemCost),
+      validateDecimal(body.lifetimeSavings),
+      validateDecimal(body.netCost),
+      validateDecimal(body.incentives),
+      body.solarSystemModel || null,
+      validateInteger(body.solarSystemQuantity),
+      validateDecimal(body.solarSystemPrice),
+      body.storageSystemModel || null,
+      validateInteger(body.storageSystemQuantity),
+      validateDecimal(body.storageSystemPrice),
+      body.financingType || null,
+      validateDecimal(body.apr),
+      validateInteger(body.duration),
+      validateDecimal(body.downPayment),
+      validateDecimal(body.financedAmount),
+      validateDecimal(body.monthlyPayments),
+      validateDecimal(body.solarRate),
+      validateDecimal(body.escalationRate),
+      validateDecimal(body.year1MonthlyPayments),
+      body.energyData || null,
+      body.section_visibility || body.sectionVisibility || null,
+      body.enabled_finance_fields || body.enabledFinanceFields || null,
+      body.enabled_battery_fields || body.enabledBatteryFields || null,
+      id, // The last parameter is the ID for the WHERE clause
+    ]
 
-    // Add each field from the body to the update query
-    for (const [key, value] of Object.entries(body)) {
-      // Skip the id field
-      if (key === "id") continue
-
-      updateFields.push(`${key} = $${paramIndex}`)
-
-      // Handle different data types
-      if (
-        key.includes("_cost") ||
-        key.includes("price") ||
-        key.includes("bill") ||
-        key.includes("savings") ||
-        key.includes("payment") ||
-        key.includes("amount") ||
-        key.includes("rate") ||
-        key === "apr" ||
-        key === "capacity" ||
-        key === "output_kw" ||
-        key === "fixed_costs" ||
-        key === "escalation" ||
-        key === "system_size" ||
-        key === "payback_period"
-      ) {
-        // For decimal fields
-        const decimalValue = validateDecimal(value)
-        values.push(decimalValue)
-        console.log(`Field ${key} (param $${paramIndex}) parsed as decimal:`, value, "→", decimalValue)
-      } else if (key.includes("quantity") || key.includes("number") || key.includes("offset") || key === "duration") {
-        // For integer fields
-        const intValue = validateInteger(value)
-        values.push(intValue)
-        console.log(`Field ${key} (param $${paramIndex}) parsed as integer:`, value, "→", intValue)
-      } else if (key === "section_visibility" || key === "enabled_finance_fields" || key === "energy_data") {
-        // For JSON fields
-        values.push(value)
-        console.log(`Field ${key} (param $${paramIndex}) kept as JSON`)
-      } else {
-        // For string fields
-        values.push(value)
-        console.log(`Field ${key} (param $${paramIndex}) kept as string:`, value)
-      }
-
-      paramIndex++
-    }
-
-    // Add the id as the last parameter
-    values.push(id)
-    console.log(`ID (param $${paramIndex}):`, id)
-
-    // Construct the full query
+    // Construct the UPDATE query with explicit column mapping
     const query = `
-      UPDATE solar_proposals
-      SET ${updateFields.join(", ")}
-      WHERE id = $${paramIndex}
+      UPDATE solar_proposals SET
+        name = $1,
+        address = $2,
+        average_rate_kwh = $3,
+        fixed_costs = $4,
+        escalation = $5,
+        monthly_bill = $6,
+        number_of_solar_panels = $7,
+        yearly_energy_produced = $8,
+        yearly_energy_usage = $9,
+        system_size = $10,
+        energy_offset = $11,
+        solar_panel_design = $12,
+        battery_name = $13,
+        inverter_name = $14,
+        operating_mode = $15,
+        capacity = $16,
+        output_kw = $17,
+        cost = $18,
+        backup_allocation = $19,
+        battery_image = $20,
+        payback_period = $21,
+        total_system_cost = $22,
+        lifetime_savings = $23,
+        net_cost = $24,
+        incentives = $25,
+        solar_system_model = $26,
+        solar_system_quantity = $27,
+        solar_system_price = $28,
+        storage_system_model = $29,
+        storage_system_quantity = $30,
+        storage_system_price = $31,
+        financing_type = $32,
+        apr = $33,
+        duration = $34,
+        down_payment = $35,
+        financed_amount = $36,
+        monthly_payments = $37,
+        solar_rate = $38,
+        escalation_rate = $39,
+        year1_monthly_payments = $40,
+        energy_data = $41,
+        section_visibility = $42,
+        enabled_finance_fields = $43,
+        enabled_battery_fields = $44
+      WHERE id = $45
       RETURNING *
     `
 
@@ -169,4 +206,3 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }
-

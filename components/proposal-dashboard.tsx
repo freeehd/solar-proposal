@@ -8,8 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { ShareLinkDialog } from "@/components/share-link-dialog"
-import { RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react"
+import { RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle, Trash2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import useSWR from "swr"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface Proposal {
   id: number
@@ -17,25 +29,73 @@ interface Proposal {
   address: string
   status: string
   created_at: string
+  updated_at: string
   total_system_cost: string
 }
 
+// Create a fetcher function for SWR
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`Server responded with status: ${res.status}`)
+  }
+  const data = await res.json()
+  if (!data.success) {
+    throw new Error(data.error || "Failed to fetch proposals")
+  }
+  return data.proposals
+}
+
 export default function ProposalDashboard() {
-  const [proposals, setProposals] = useState<Proposal[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [isManualRefresh, setIsManualRefresh] = useState(false)
+
+  // Use SWR for data fetching with caching
+  const {
+    data: proposals,
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useSWR<Proposal[], Error>("/api/proposals", fetcher, {
+    refreshInterval: 30000, // Auto refresh every 30 seconds
+    revalidateOnFocus: false, // Don't revalidate when window gets focus
+    dedupingInterval: 5000, // Deduplicate requests within 5 seconds
+    keepPreviousData: true, // Keep showing previous data while fetching new data
+    onSuccess: () => {
+      setLastRefreshed(new Date())
+      if (isManualRefresh) {
+        toast({
+          title: "Refreshed",
+          description: "Proposal list has been updated",
+          duration: 2000,
+        })
+        setIsManualRefresh(false)
+      }
+    },
+    onError: (err) => {
+      console.error("Error fetching proposals:", err)
+      if (isManualRefresh) {
+        toast({
+          title: "Error",
+          description: err.message || "Failed to refresh proposals",
+          variant: "destructive",
+        })
+        setIsManualRefresh(false)
+      }
+    },
+  })
 
   // Set up intersection observer for section visibility
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          const sectionId = entry.target.getAttribute('data-section-id')
+          const sectionId = entry.target.getAttribute("data-section-id")
           if (sectionId) {
-            setVisibleSections(prev => {
+            setVisibleSections((prev) => {
               const newSet = new Set(prev)
               if (entry.isIntersecting) {
                 newSet.add(sectionId)
@@ -49,126 +109,127 @@ export default function ProposalDashboard() {
       },
       {
         root: null,
-        rootMargin: '0px',
-        threshold: 0.1
-      }
+        rootMargin: "0px",
+        threshold: 0.1,
+      },
     )
 
     // Observe all sections
-    document.querySelectorAll('[data-section-id]').forEach(section => {
+    document.querySelectorAll("[data-section-id]").forEach((section) => {
       observerRef.current?.observe(section)
     })
 
     return () => {
       observerRef.current?.disconnect()
     }
-  }, [])
+  }, [proposals]) // Re-observe when proposals change
 
-  // Memoize fetchProposals to avoid recreating it on every render
-  const fetchProposals = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
+  // Manually refresh data with cache busting
+  const refreshData = useCallback(() => {
+    setIsManualRefresh(true)
+    // Use a timestamp to bust the cache
+    mutate(fetcher(`/api/proposals?refresh=${Date.now()}`))
+  }, [mutate])
 
-    try {
-      // Add cache-busting query parameter to prevent caching
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/proposals?t=${timestamp}`, {
-        // Add cache control headers
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-        },
-      })
+  // Update proposal status
+  const updateProposalStatus = useCallback(
+    async (id: number, newStatus: string) => {
+      try {
+        const response = await fetch(`/api/proposals/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        })
 
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`)
-      }
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`)
+        }
 
-      const data = await response.json()
+        const data = await response.json()
 
-      if (data.success) {
-        console.log("Fetched proposals:", data.proposals)
-        setProposals(data.proposals)
-        setLastRefreshed(new Date())
-      } else {
-        setError(data.error || "Failed to fetch proposals")
+        if (data.success) {
+          // Optimistically update the local data
+          mutate(
+            proposals?.map((p) => (p.id === id ? { ...p, status: newStatus } : p)) as Proposal[],
+            false, // Don't revalidate yet
+          )
+
+          toast({
+            title: "Success",
+            description: "Proposal status updated",
+          })
+
+          // Then revalidate to make sure our local data is correct
+          // Use a timestamp to bust the cache
+          mutate(fetcher(`/api/proposals?refresh=${Date.now()}`))
+        } else {
+          toast({
+            title: "Error",
+            description: data.error || "Failed to update proposal status",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error updating proposal status:", error)
         toast({
           title: "Error",
-          description: data.error || "Failed to fetch proposals",
+          description: error instanceof Error ? error.message : "Failed to update proposal status",
           variant: "destructive",
         })
       }
-    } catch (error) {
-      console.error("Error fetching proposals:", error)
-      setError("Failed to fetch proposals. Please try again.")
-      toast({
-        title: "Error",
-        description: "Failed to fetch proposals. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    },
+    [proposals, mutate],
+  )
 
-  // Initial fetch on component mount
-  useEffect(() => {
-    fetchProposals()
-
-    // Set up auto-refresh every 30 seconds
-    const refreshInterval = setInterval(() => {
-      fetchProposals()
-    }, 30000)
-
-    return () => clearInterval(refreshInterval)
-  }, [fetchProposals])
-
-  // Memoize the updateProposalStatus function
-  const updateProposalStatus = useCallback(async (id: number, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/proposals/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        // Update local state
-        setProposals(prev => prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p)))
-        toast({
-          title: "Success",
-          description: "Proposal status updated",
+  const deleteProposal = useCallback(
+    async (id: number) => {
+      try {
+        const response = await fetch(`/api/proposals/${id}`, {
+          method: "DELETE",
         })
 
-        // Refresh the data to ensure we have the latest
-        fetchProposals()
-      } else {
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`)
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+          // Optimistically update the local data by filtering out the deleted proposal
+          mutate(
+            proposals?.filter((p) => p.id !== id) as Proposal[],
+            false, // Don't revalidate yet
+          )
+
+          toast({
+            title: "Success",
+            description: "Proposal deleted successfully",
+          })
+
+          // Then revalidate to make sure our local data is correct
+          mutate(fetcher(`/api/proposals?refresh=${Date.now()}`))
+        } else {
+          toast({
+            title: "Error",
+            description: data.message || "Failed to delete proposal",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting proposal:", error)
         toast({
           title: "Error",
-          description: data.error || "Failed to update proposal status",
+          description: error instanceof Error ? error.message : "Failed to delete proposal",
           variant: "destructive",
         })
       }
-    } catch (error) {
-      console.error("Error updating proposal status:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update proposal status",
-        variant: "destructive",
-      })
-    }
-  }, [fetchProposals])
+    },
+    [proposals, mutate],
+  )
 
-  // Memoize format functions
+  // Format functions
   const formatCurrency = useCallback((value: string) => {
     const num = Number.parseFloat(value)
     return !isNaN(num) ? num.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "$0.00"
@@ -195,8 +256,14 @@ export default function ProposalDashboard() {
         <h1 className="text-2xl font-bold text-primary">Solar Proposals</h1>
         <div className="flex items-center gap-4">
           <p className="text-sm text-foreground/70">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
-          <Button variant="outline" size="sm" onClick={fetchProposals} disabled={isLoading} className="bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary">
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshData}
+            disabled={isValidating}
+            className="bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isValidating ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -205,11 +272,11 @@ export default function ProposalDashboard() {
       {error && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded flex items-center mb-4">
           <AlertCircle className="h-5 w-5 mr-2" />
-          <span>{error}</span>
+          <span>{error.message}</span>
         </div>
       )}
 
-      {isLoading ? (
+      {isLoading && !proposals ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex gap-4 p-2">
@@ -222,10 +289,14 @@ export default function ProposalDashboard() {
             </div>
           ))}
         </div>
-      ) : proposals.length === 0 ? (
+      ) : proposals && proposals.length === 0 ? (
         <div className="text-center py-10 bg-gradient-to-r from-teal-50 to-blue-100 rounded-lg">
           <p className="text-foreground/70">No proposals found</p>
-          <Button variant="outline" className="mt-4 bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary" onClick={fetchProposals}>
+          <Button
+            variant="outline"
+            className="mt-4 bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary"
+            onClick={refreshData}
+          >
             Refresh
           </Button>
         </div>
@@ -243,7 +314,7 @@ export default function ProposalDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {proposals.map((proposal) => (
+              {proposals?.map((proposal) => (
                 <TableRow key={proposal.id} data-section-id={`proposal-${proposal.id}`}>
                   <TableCell className="font-medium text-primary">{proposal.name}</TableCell>
                   <TableCell className="text-foreground/70">{proposal.address}</TableCell>
@@ -286,23 +357,63 @@ export default function ProposalDashboard() {
                         </SelectContent>
                       </Select>
                       <Link href={`/proposal/${proposal.id}`}>
-                        <Button variant="outline" size="sm" className="bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-gradient-to-r from-teal-50 to-blue-100 border-none hover:bg-primary/10 text-primary"
+                        >
                           View
                         </Button>
                       </Link>
                       <Link href={`/proposal/${proposal.id}/edit`}>
-                        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">Edit</Button>
+                        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                          Edit
+                        </Button>
                       </Link>
                       <ShareLinkDialog proposalId={proposal.id} />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the proposal for{" "}
+                              {proposal.name} and remove all associated data.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteProposal(proposal.id)}
+                              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          {isValidating && proposals && (
+            <div className="p-4 bg-background/50 text-center text-sm text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+              Refreshing data...
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
-

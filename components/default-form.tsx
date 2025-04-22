@@ -317,35 +317,60 @@ export function DefaultForm({
     mode: "onSubmit", // Only validate on submit
   })
 
-  // Enhanced onSubmit function with proper error handling and data processing
+  // Update the onSubmit function to handle both creation and updating scenarios
+
+  // Replace the existing onSubmit function with this updated version:
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
 
     try {
-      const response = await fetch("/api/submit-proposal", {
-        method: "POST",
+      // Prepare the data to be sent
+      const dataToSend = {
+        ...formData,
+        section_visibility: sectionVisibility,
+        enabled_finance_fields: enabledFinanceFields,
+        enabled_battery_fields: enabledBatteryFields,
+        energy_data: energyData,
+      }
+
+      // Determine the endpoint and method based on whether we're editing or creating
+      const endpoint = isEditing && proposalId ? `/api/proposals/${proposalId}` : "/api/submit-proposal"
+
+      const method = isEditing ? "PUT" : "POST"
+
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to submit form")
+        throw new Error(data.message || `Failed to ${isEditing ? "update" : "submit"} form`)
       }
 
       if (data.success) {
         toast({
           title: "Success",
-          description: "Proposal submitted successfully",
+          description: isEditing ? "Proposal updated successfully" : "Proposal submitted successfully",
         })
-        router.push("/")
+
+        console.log(`Proposal ${isEditing ? "updated" : "submitted"} successfully`, data.proposal)
+
+        // If onSubmitSuccess callback is provided, call it with the response data
+        if (onSubmitSuccess) {
+          onSubmitSuccess(data.proposal)
+        } else if (!isEditing) {
+          // Only redirect to home if we're not editing and no callback is provided
+          router.push("/")
+        }
       } else {
-        throw new Error(data.message || "Failed to submit form")
+        throw new Error(data.message || `Failed to ${isEditing ? "update" : "submit"} form`)
       }
     } catch (error) {
       console.error(`Error ${isEditing ? "updating" : "submitting"} form:`, error)
@@ -357,8 +382,7 @@ export function DefaultForm({
         variant: "destructive",
       })
 
-      // Show error in a prompt
-      alert(`Error: ${error instanceof Error ? error.message : "An unknown error occurred"}\n\nPlease check the console for more details.`)
+      setError(error instanceof Error ? error.message : "An unknown error occurred")
     } finally {
       setIsSubmitting(false)
     }
@@ -794,20 +818,10 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Battery Fields</h3>
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleAllBatteryFields(true)}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => toggleAllBatteryFields(true)}>
                   Enable All
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleAllBatteryFields(false)}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => toggleAllBatteryFields(false)}>
                   Disable All
                 </Button>
               </div>
@@ -872,10 +886,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                     onCheckedChange={() => toggleBatteryField("capacity")}
                   />
                 </div>
-                <Label
-                  htmlFor="capacity"
-                  className={!enabledBatteryFields.capacity ? "text-muted-foreground" : ""}
-                >
+                <Label htmlFor="capacity" className={!enabledBatteryFields.capacity ? "text-muted-foreground" : ""}>
                   Capacity (kWh)
                 </Label>
                 <Input
@@ -899,10 +910,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                     onCheckedChange={() => toggleBatteryField("outputKW")}
                   />
                 </div>
-                <Label
-                  htmlFor="outputKW"
-                  className={!enabledBatteryFields.outputKW ? "text-muted-foreground" : ""}
-                >
+                <Label htmlFor="outputKW" className={!enabledBatteryFields.outputKW ? "text-muted-foreground" : ""}>
                   Output (kW)
                 </Label>
                 <Input
@@ -921,15 +929,9 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
               {/* Cost */}
               <div className="space-y-2 border p-3 rounded-md relative">
                 <div className="absolute top-3 right-3">
-                  <Switch
-                    checked={enabledBatteryFields.cost}
-                    onCheckedChange={() => toggleBatteryField("cost")}
-                  />
+                  <Switch checked={enabledBatteryFields.cost} onCheckedChange={() => toggleBatteryField("cost")} />
                 </div>
-                <Label
-                  htmlFor="cost"
-                  className={!enabledBatteryFields.cost ? "text-muted-foreground" : ""}
-                >
+                <Label htmlFor="cost" className={!enabledBatteryFields.cost ? "text-muted-foreground" : ""}>
                   Cost ($)
                 </Label>
                 <Input
@@ -1397,7 +1399,10 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
                     onCheckedChange={() => toggleFinanceField("cumulativeCashflow")}
                   />
                 </div>
-                <Label htmlFor="cumulativeCashflow" className={!enabledFinanceFields.cumulativeCashflow ? "text-muted-foreground" : ""}>
+                <Label
+                  htmlFor="cumulativeCashflow"
+                  className={!enabledFinanceFields.cumulativeCashflow ? "text-muted-foreground" : ""}
+                >
                   Cumulative Cash Flow Chart
                 </Label>
                 <p className="text-sm text-muted-foreground">Show the cumulative cash flow chart and ROI information</p>
@@ -1608,4 +1613,3 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
 }
 
 export default DefaultForm
-

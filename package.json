@@ -71,6 +71,7 @@
     "react-tsparticles": "^2.12.2",
     "recharts": "latest",
     "sonner": "^1.7.1",
+    "swr": "^2.3.3",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.160.1",
