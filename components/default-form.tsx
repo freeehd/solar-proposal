@@ -20,6 +20,7 @@ import Image from "next/image"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Eye, EyeOff, Info, Loader2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useRouter } from "next/navigation"
 
 // Modified schema to make initial validation less strict but require necessary fields
 const formSchema = z.object({
@@ -277,6 +278,9 @@ export function DefaultForm({
 
   // Add loading state for form submission
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const router = useRouter()
 
   // Add a function to toggle financial fields
   const toggleFinanceField = (fieldName: string) => {
@@ -314,102 +318,34 @@ export function DefaultForm({
   })
 
   // Enhanced onSubmit function with proper error handling and data processing
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
+
     try {
-      setIsSubmitting(true)
-
-      // Prepare the data for submission - map camelCase to snake_case for the API
-      const submissionData = {
-        name: values.name,
-        address: values.address,
-        average_rate_kwh: values.averageRateKWh || "0.15",
-        fixed_costs: values.fixedCosts || "0.00",
-        escalation: values.escalation || "0.00",
-        monthly_bill: values.monthlyBill || "0.00",
-        number_of_solar_panels: values.numberOfSolarPanels || "0",
-        yearly_energy_produced: values.yearlyEnergyProduced || "0",
-        yearly_energy_usage: values.yearlyEnergyUsage || "0",
-        system_size: values.systemSize || "0.00",
-        energy_offset: values.energyOffset || "0",
-        solar_panel_design: values.solarPanelDesign || "",
-        battery_name: values.batteryName || "",
-        inverter_name: values.inverterName || "",
-        operating_mode: values.operatingMode || "Backup",
-        capacity: values.capacity || "0.00",
-        output_kw: values.outputKW || "0.00",
-        cost: values.cost || "0.00",
-        backup_allocation: values.backupAllocation || "",
-        battery_image: values.batteryImage || "",
-        payback_period: values.paybackPeriod || "0.00",
-        total_system_cost: values.totalSystemCost || "0.00",
-        lifetime_savings: values.lifetimeSavings || "0.00",
-        net_cost: values.netCost || "0.00",
-        incentives: values.incentives || "0.00",
-        solar_system_model: values.solarSystemModel || "",
-        solar_system_quantity: values.solarSystemQuantity || "0",
-        solar_system_price: values.solarSystemPrice || "0.00",
-        storage_system_model: values.storageSystemModel || "",
-        storage_system_quantity: values.storageSystemQuantity || "0",
-        storage_system_price: values.storageSystemPrice || "0.00",
-        financing_type: values.financingType || "Cash",
-        apr: values.apr || "0.00",
-        duration: values.duration || "0",
-        down_payment: values.downPayment || "0.00",
-        financed_amount: values.financedAmount || "0.00",
-        monthly_payments: values.monthlyPayments || "0.00",
-        solar_rate: values.solarRate || "0.00",
-        escalation_rate: values.escalationRate || "0.00",
-        year1_monthly_payments: values.year1MonthlyPayments || "0.00",
-        energy_data: energyData,
-        section_visibility: sectionVisibility,
-        enabled_finance_fields: enabledFinanceFields,
-        enabled_battery_fields: enabledBatteryFields,
-      }
-
-      // Determine the API endpoint and method based on whether we're editing or creating
-      const url = isEditing ? `/api/proposals/${proposalId}` : "/api/submit-proposal"
-      const method = isEditing ? "PUT" : "POST"
-
-      // Make the API call
-      const response = await fetch(url, {
-        method,
+      const response = await fetch("/api/submit-proposal", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(submissionData),
+        body: JSON.stringify(formData),
       })
 
-      const result = await response.json()
+      const data = await response.json()
 
-      // Check if the response is successful
       if (!response.ok) {
-        throw new Error(result.message || `Failed to ${isEditing ? "update" : "submit"} proposal`)
+        throw new Error(data.message || "Failed to submit form")
       }
 
-      // Verify that we have a proposal ID in the response
-      const proposalData = result.data
-      if (!proposalData || !proposalData.id) {
-        throw new Error("No proposal ID returned from server")
-      }
-
-      // Save to localStorage as a backup
-      localStorage.setItem("solarProposalData", JSON.stringify(submissionData))
-
-      // Show success message
-      toast({
-        title: isEditing ? "Proposal updated successfully!" : "Proposal submitted successfully!",
-        description: isEditing
-          ? `Proposal #${proposalData.id} has been updated.`
-          : `Proposal #${proposalData.id} has been created.`,
-        variant: "default",
-      })
-
-      // If we have a custom success handler, call it
-      if (onSubmitSuccess) {
-        onSubmitSuccess(proposalData)
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Proposal submitted successfully",
+        })
+        router.push("/")
       } else {
-        // Redirect to the dashboard
-        window.location.href = "/dashboard"
+        throw new Error(data.message || "Failed to submit form")
       }
     } catch (error) {
       console.error(`Error ${isEditing ? "updating" : "submitting"} form:`, error)
@@ -420,6 +356,9 @@ export function DefaultForm({
         description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       })
+
+      // Show error in a prompt
+      alert(`Error: ${error instanceof Error ? error.message : "An unknown error occurred"}\n\nPlease check the console for more details.`)
     } finally {
       setIsSubmitting(false)
     }
@@ -589,7 +528,7 @@ New system production (kWh)	867	1,128	1,624	1,837	2,006	2,119	2,131	2,034	1,759	
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={onSubmit} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
