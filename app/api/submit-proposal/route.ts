@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import pool from "@/lib/db"
+import { getPool } from "@/lib/db"
 
 // Helper functions
 function validateDecimal(value: any): number {
@@ -29,6 +29,8 @@ function validateInteger(value: any): number {
 }
 
 export async function POST(request: Request) {
+  const pool = getPool();
+  
   try {
     const body = await request.json()
     console.log("Received form data:", body)
