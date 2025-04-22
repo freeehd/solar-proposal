@@ -17,15 +17,16 @@ const MetallicEffect = () => {
   const isMobile = useMediaQuery("(max-width: 640px)")
   const isTablet = useMediaQuery("(min-width: 641px) and (max-width: 1024px)")
 
+  // Updated brighter pearlescent parameters for the metallic effect
   const [params, setParams] = useState({
     edge: 0.01,
     patternBlur: 0.05,
     patternScale: 2,
-    refraction: 0.02,
-    speed: 0.15,
-    liquid: 0.4,
-    color1: "#F1F4F9", //
-    color2: "#1a1a1a", //
+    refraction: 0.04, // Increased refraction for more eye-catching effect
+    speed: 0.12, // Slightly faster for more dynamic effect
+    liquid: 0.35, // More liquid effect for more movement
+    color1: "#C0E8FF", // Brighter sky blue highlight
+    color2: "#3A4050", // Lighter gunmetal grey shadow
   })
 
   // Calculate and update container width on resize
@@ -112,15 +113,12 @@ const MetallicEffect = () => {
 
     // Base width on container width and apply scale factor
     const aspectRatio = svgDimensions.height / svgDimensions.width
-    
+
     // Calculate width with proper scaling
-    let width = 600
-    
+    const width = 600
+
     // Calculate height based on aspect ratio with limits
-    const height = Math.min(
-      Math.round(width * aspectRatio),
-      isMobile ? 120 : isTablet ? 120 : 120
-    )
+    const height = Math.min(Math.round(width * aspectRatio), isMobile ? 120 : isTablet ? 120 : 120)
 
     return { width, height }
   }
@@ -136,19 +134,16 @@ const MetallicEffect = () => {
       )}
 
       {error && (
-        <div className="error-fallback p-2 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg w-full">
+        <div className="error-fallback p-2 text-sm text-red-500 bg-red-900/20 rounded-lg w-full">
           ⚠️ {error} - Please ensure your SVG meets the requirements
         </div>
       )}
 
       {imageData && !loading && !error && dimensions.width > 0 && (
         <div className="w-full flex justify-center items-center">
-          <MetallicPaint 
-            imageData={imageData} 
-            params={params} 
-            width={dimensions.width} 
-            height={dimensions.height} 
-          />
+          <div >
+            <MetallicPaint imageData={imageData} params={params} width={dimensions.width} height={dimensions.height} />
+          </div>
         </div>
       )}
     </div>
@@ -156,4 +151,3 @@ const MetallicEffect = () => {
 }
 
 export default MetallicEffect
-

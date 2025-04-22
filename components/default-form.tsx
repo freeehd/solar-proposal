@@ -322,7 +322,7 @@ export function DefaultForm({
       const submissionData = {
         name: values.name,
         address: values.address,
-        average_rate_kwh: values.averageRateKWh || "0.15", // Ensure required field has a value
+        average_rate_kwh: values.averageRateKWh || "0.15",
         fixed_costs: values.fixedCosts || "0.00",
         escalation: values.escalation || "0.00",
         monthly_bill: values.monthlyBill || "0.00",
@@ -366,9 +366,6 @@ export function DefaultForm({
         enabled_battery_fields: enabledBatteryFields,
       }
 
-      // Log the data being submitted
-      console.log(`${isEditing ? "Updating" : "Submitting"} form data:`, submissionData)
-
       // Determine the API endpoint and method based on whether we're editing or creating
       const url = isEditing ? `/api/proposals/${proposalId}` : "/api/submit-proposal"
       const method = isEditing ? "PUT" : "POST"
@@ -382,18 +379,15 @@ export function DefaultForm({
         body: JSON.stringify(submissionData),
       })
 
-      // Check if the response is successful
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error("API error response:", errorData)
-        throw new Error(errorData.message || `Failed to ${isEditing ? "update" : "submit"} proposal`)
-      }
-
-      // Parse the response to get the proposal ID
       const result = await response.json()
 
+      // Check if the response is successful
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to ${isEditing ? "update" : "submit"} proposal`)
+      }
+
       // Verify that we have a proposal ID in the response
-      const proposalData = result.data || result.proposal
+      const proposalData = result.data
       if (!proposalData || !proposalData.id) {
         throw new Error("No proposal ID returned from server")
       }
@@ -414,8 +408,8 @@ export function DefaultForm({
       if (onSubmitSuccess) {
         onSubmitSuccess(proposalData)
       } else {
-        // Redirect to the newly created/updated proposal
-        window.location.href = `/proposal/${proposalData.id}`
+        // Redirect to the dashboard
+        window.location.href = "/dashboard"
       }
     } catch (error) {
       console.error(`Error ${isEditing ? "updating" : "submitting"} form:`, error)

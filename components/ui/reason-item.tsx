@@ -14,11 +14,11 @@ interface ReasonItemProps {
   onStarComplete?: () => void
 }
 
-export const ReasonItem = React.memo(function ReasonItem({ 
-  reason, 
-  index, 
-  previousCompleted = true, 
-  onStarComplete 
+export const ReasonItem = React.memo(function ReasonItem({
+  reason,
+  index,
+  previousCompleted = true,
+  onStarComplete,
 }: ReasonItemProps) {
   const [hasAnimated, setHasAnimated] = useState(false)
   const [hasBeenInView, setHasBeenInView] = useState(false)
@@ -87,21 +87,27 @@ export const ReasonItem = React.memo(function ReasonItem({
   }, [hasBeenInView, previousCompleted, hasAnimated, index, handleStarComplete])
 
   // Memoize animation props to prevent unnecessary prop changes
-  const starAnimationProps = useMemo(() => ({
-    delay: index * 0.2,
-    onAnimationComplete: handleStarComplete,
-    inView: hasBeenInView && previousCompleted
-  }), [index, handleStarComplete, hasBeenInView, previousCompleted])
+  const starAnimationProps = useMemo(
+    () => ({
+      delay: index * 0.2,
+      onAnimationComplete: handleStarComplete,
+      inView: hasBeenInView && previousCompleted,
+    }),
+    [index, handleStarComplete, hasBeenInView, previousCompleted],
+  )
 
   // Memoize text animation props
-  const textAnimationProps = useMemo(() => ({
-    initial: { opacity: 0, y: 20 },
-    animate: hasBeenInView && previousCompleted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 },
-    transition: { duration: 0.5, delay: index * 0.2 + 0.1 }
-  }), [hasBeenInView, previousCompleted, index])
+  const textAnimationProps = useMemo(
+    () => ({
+      initial: { opacity: 0, y: 20 },
+      animate: hasBeenInView && previousCompleted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 },
+      transition: { duration: 0.5, delay: index * 0.2 + 0.1 },
+    }),
+    [hasBeenInView, previousCompleted, index],
+  )
 
   return (
-    <li ref={itemRef} className="flex items-start gap-2 md:gap-3">
+    <li ref={itemRef} className="flex items-start gap-3 md:gap-4 group">
       <div className="relative flex-shrink-0 w-[80px] h-[120px] flex items-center justify-center">
         <div className="w-full h-full">
           <StarAnimation {...starAnimationProps} />
@@ -110,11 +116,12 @@ export const ReasonItem = React.memo(function ReasonItem({
 
       <div className="my-auto">
         <motion.div {...textAnimationProps}>
-          <h3 className="text-lg md:text-xl pt-3 font-semibold text-foreground mb-2">{reason.text}</h3>
-          <p className="text-muted-foreground text-sm md:text-base">{reason.description}</p>
+          <h3 className="text-lg md:text-xl pt-3 font-medium text-foreground mb-2 tracking-tight group-hover:text-primary transition-colors duration-300">
+            {reason.text}
+          </h3>
+          <p className="text-muted-foreground text-sm md:text-base leading-relaxed">{reason.description}</p>
         </motion.div>
       </div>
     </li>
   )
 })
-

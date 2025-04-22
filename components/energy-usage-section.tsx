@@ -33,20 +33,20 @@ const CustomComparisonTooltip = ({ active, payload, label }: any) => {
     const isPositive = difference >= 0
 
     return (
-      <div className="custom-tooltip bg-white p-3 rounded-lg border border-gray-200 shadow-lg">
-        <p className="font-medium text-sm mb-2">{label}</p>
+      <div className="custom-tooltip pearlescent-card premium-blur border border-primary/10 p-3 rounded-lg">
+        <p className="font-medium text-sm mb-2 text-foreground">{label}</p>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between gap-4">
-            <span className="text-gray-600">Usage:</span>
-            <span className="font-medium">{usage.toLocaleString()} kWh</span>
+            <span className="text-foreground/70">Usage:</span>
+            <span className="font-medium text-primary">{usage.toLocaleString()} kWh</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-gray-600">Production:</span>
-            <span className="font-medium">{production.toLocaleString()} kWh</span>
+            <span className="text-foreground/70">Production:</span>
+            <span className="font-medium text-accent">{production.toLocaleString()} kWh</span>
           </div>
-          <div className="flex justify-between gap-4 pt-1 border-t border-gray-200 mt-1">
-            <span className="text-gray-600">Difference:</span>
-            <span className={`font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
+          <div className="flex justify-between gap-4 pt-1 border-t border-border/20 mt-1">
+            <span className="text-foreground/70">Difference:</span>
+            <span className={`font-medium ${isPositive ? "text-accent" : "text-destructive"}`}>
               {isPositive ? "+" : ""}
               {difference.toLocaleString()} kWh
             </span>
@@ -202,7 +202,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
   }, [maxChartValue])
 
   return (
-    <section className="relative z-10   bg-background">
+    <section className="relative z-10 bg-background">
       <div className="container mx-auto px-4">
         <motion.h2
           initial={{ opacity: 0, y: -20 }}
@@ -219,66 +219,11 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
           transition={{ duration: 0.5, delay: 0.6 }}
           className="mt-8 sm:mt-10 md:mt-12"
         >
-          <Card className="bg-card shadow-lg border-border">
+          <Card className="pearlescent-card premium-blur border border-primary/10 premium-shadow">
             <CardHeader className="pb-2 sm:pb-4">
-              {/* <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground">
-                Energy Usage vs. New System Production
-              </CardTitle> */}
-              {/* <CardDescription className="text-sm text-foreground/70">
-                {annualTotals.offset > 0 && (
-                  <span>
-                    Your system offsets approximately{" "}
-                    <span className="font-semibold text-primary">{annualTotals.offset}%</span> of your annual
-                    energy usage
-                  </span>
-                )}
-              </CardDescription> */}
             </CardHeader>
             <CardContent className="p-0">
-              {/* Annual summary cards
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-                <Card className="bg-secondary/20 border-border/20">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-foreground/70">Annual Usage</p>
-                        <p className="text-lg font-bold text-foreground">{annualTotals.usage.toLocaleString()} kWh</p>
-                      </div>
-                      <ArrowUp className="h-5 w-5 text-[hsl(var(--chart-usage))]" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-secondary/20 border-border/20">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-foreground/70">Annual Production</p>
-                        <p className="text-lg font-bold text-primary">
-                          {annualTotals.production.toLocaleString()} kWh
-                        </p>
-                      </div>
-                      <ArrowDown className="h-5 w-5 text-[hsl(var(--chart-production))]" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-secondary/20 border-border/20">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-foreground/70">Energy Offset</p>
-                        <p className="text-lg font-bold text-[hsl(var(--chart-production))]">{annualTotals.offset}%</p>
-                      </div>
-                      <div className="h-5 w-5 rounded-full bg-[hsl(var(--chart-production))] flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">✓</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div> */}
-
-              <div className="h-[350px] sm:h-[450px] md:h-[550px] w-full bg-white rounded-lg">
+              <div className="h-[350px] sm:h-[450px] md:h-[550px] w-full bg-card/50 rounded-lg">
                 {data.length > 0 ? (
                   <ResponsiveContainer
                     width="100%"
@@ -298,27 +243,24 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       barCategoryGap={isMobile ? "30%" : "40%"}
                     >
                       <defs>
-                        {/* Sunset gradient for usage */}
+                        {/* Updated gradients to match pearlescent theme */}
                         <linearGradient id="sunsetGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#9C21f0" stopOpacity={1} /> {/* Light yellow */}
-                          
-                          <stop offset="100%" stopColor="#64B5F6" stopOpacity={1} /> {/* Deep red-orange */}
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
                         </linearGradient>
 
-                        {/* Pearlescent green gradient for production */}
                         <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="30%" stopColor="#66BB6A" stopOpacity={1} /> {/* Lightest green */}
-                          
-                          <stop offset="100%" stopColor="#B2DFDB" stopOpacity={1} /> {/* Pearl green */}
+                          <stop offset="30%" stopColor="hsl(var(--accent))" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.4} />
                         </linearGradient>
                       </defs>
 
-                      <CartesianGrid vertical={false} stroke="#e5e7eb" opacity={0.7} />
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
                       <XAxis
                         dataKey="month"
                         tickLine={false}
-                        axisLine={{ stroke: "#e5e7eb" }}
-                        tick={{ fill: "#374151", fontSize: isMobile ? 10 : 12 }}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--foreground))", fontSize: isMobile ? 10 : 12 }}
                         tickFormatter={(value) => value.slice(0, 3)}
                         padding={{ left: isMobile ? 5 : 10, right: isMobile ? 5 : 10 }}
                         height={isMobile ? 40 : 30}
@@ -326,9 +268,9 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       />
                       <YAxis
                         tickLine={false}
-                        axisLine={{ stroke: "#e5e7eb" }}
-                        tick={{ fill: "#374151", fontSize: isMobile ? 9 : 11 }}
-                        tickFormatter={(value) => (isMobile ? `${value}` : `${value} kwh`.replace(/\s+/g, " "))} // Ensure text is in one line
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--foreground))", fontSize: isMobile ? 9 : 11 }}
+                        tickFormatter={(value) => (isMobile ? `${value}` : `${value} kwh`.replace(/\s+/g, " "))}
                         width={isMobile ? 25 : 80}
                         domain={[0, maxYAxisValue]}
                         ticks={Array.from({ length: Math.floor(maxYAxisValue / 500) + 1 }, (_, i) => i * 500)}
@@ -343,6 +285,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                         wrapperStyle={{
                           fontSize: isMobile ? "11px" : "13px",
                           fontWeight: "500",
+                          color: "hsl(var(--foreground))"
                         }}
                         formatter={(value) => {
                           if (value === "usage") return "Energy Usage"

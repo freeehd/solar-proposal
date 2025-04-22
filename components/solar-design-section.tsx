@@ -271,7 +271,7 @@ export default function SolarDesignSection({
   return (
     <section
       ref={sectionRef}
-      className="relative py-12 xs:py-14 sm:py-20 md:py-24 bg-background min-h-[80vh]"
+      className="relative py-12 xs:py-14 sm:py-20 md:py-24  min-h-[80vh]"
       style={{
         contain: "paint",
         visibility: "visible",
@@ -351,7 +351,7 @@ export default function SolarDesignSection({
         <div
           className={`mt-6 ${isSmallDevice || isIOS ? "xs:mt-8" : "xs:mt-10"} sm:mt-12 mb-8 ${isSmallDevice || isIOS ? "xs:mb-10" : "xs:mb-16"}`}
         >
-          <Card className="bg-card border-none m-0 p-0 relative" ref={cardRef}>
+          <Card className="pearlescent-card border-none m-0 pt-5 relative" ref={cardRef}>
             <CardContent className="relative">
               {/* Render beams based on current progress and visibility - ONLY on larger devices */}
               {hasStarted && isInView && !isSmallDevice && !isIOS && (
@@ -504,7 +504,7 @@ export default function SolarDesignSection({
 
         {/* Technology section */}
         <motion.div className="mt-6 xs:mt-8 mb-6 xs:mb-8 relative isolate" ref={techSectionRef}>
-          <Card className="bg-white border border-border shadow-xl overflow-hidden rounded-xl">
+          <Card className="pearlescent-card border border-border shadow-xl overflow-hidden rounded-xl">
             <CardHeader className="border-b border-border py-3 xs:py-4 sm:py-6">
               <CardTitle className="text-xl xs:text-2xl font-bold text-center text-primary">
                 Premium Solar Technology

@@ -165,14 +165,14 @@ export default function AppSection() {
   }
 
   return (
-    <section className="relative py-16 md:py-24 lg:py-32 overflow-hidden bg-white">
+    <section className="relative py-16 md:py-24 lg:py-32 overflow-hidden bg-background">
       {/* Animated background shapes - scaled appropriately for mobile */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03]">
           <motion.div
             className={`absolute top-1/4 left-1/4 ${
               isMobile ? "w-48 h-48" : isTablet ? "w-64 h-64" : "w-96 h-96"
-            } rounded-full bg-olive-500`}
+            } rounded-full bg-primary`}
             animate={{
               scale: [1, 1.2, 1],
               opacity: [0.5, 0.3, 0.5],
@@ -186,7 +186,7 @@ export default function AppSection() {
           <motion.div
             className={`absolute bottom-1/4 right-1/4 ${
               isMobile ? "w-48 h-48" : isTablet ? "w-64 h-64" : "w-96 h-96"
-            } rounded-full bg-indigo-dye-300`}
+            } rounded-full bg-accent`}
             animate={{
               scale: [1.2, 1, 1.2],
               opacity: [0.3, 0.5, 0.3],
@@ -215,7 +215,7 @@ export default function AppSection() {
             <h2
               className={`${
                 isMobile ? "text-3xl" : isTablet ? "text-4xl" : "text-4xl lg:text-5xl"
-              } font-normal leading-tight text-smoky-black mb-4 md:mb-6`}
+              } font-normal leading-tight text-primary mb-4 md:mb-6`}
             >
               Power at Your Control
             </h2>
@@ -229,7 +229,7 @@ export default function AppSection() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.5 }}
-                  className="text-base md:text-lg text-smoky-black/70 leading-relaxed"
+                  className="text-base md:text-lg text-foreground/70 leading-relaxed"
                 >
                   {slides[currentSlide].description}
                 </motion.p>
@@ -290,14 +290,14 @@ export default function AppSection() {
                     }}
                     className={`${
                       isMobile ? "w-2 h-2" : "w-3 h-3"
-                    } rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-olive-500 focus:ring-offset-2`}
+                    } rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
                     aria-label={`Go to slide ${index + 1}`}
                   >
                     <motion.div
                       className="w-full h-full rounded-full"
                       initial={false}
                       animate={{
-                        backgroundColor: currentSlide === index ? "#6b7222" : "#c2cadc",
+                        backgroundColor: currentSlide === index ? "hsl(var(--primary))" : "hsl(var(--foreground) / 0.2)",
                       }}
                       transition={{ duration: 0.3 }}
                     />
@@ -313,7 +313,7 @@ export default function AppSection() {
                   onClick={prevSlide}
                   className={`${
                     isMobile ? "w-8 h-8" : isTablet ? "w-10 h-10" : "w-12 h-12"
-                  } rounded-full bg-white hover:bg-french-gray-100 border-2 border-indigo-dye-500 text-indigo-dye-500 hover:text-indigo-dye-600 transition-colors duration-300`}
+                  } rounded-full pearlescent-surface border-none hover:bg-primary/10 text-primary transition-colors duration-300`}
                   aria-label="Previous slide"
                 >
                   <ChevronLeft className={isMobile ? "h-4 w-4" : "h-6 w-6"} />
@@ -324,7 +324,7 @@ export default function AppSection() {
                   onClick={nextSlide}
                   className={`${
                     isMobile ? "w-8 h-8" : isTablet ? "w-10 h-10" : "w-12 h-12"
-                  } rounded-full bg-white hover:bg-french-gray-100 border-2 border-indigo-dye-500 text-indigo-dye-500 hover:text-indigo-dye-600 transition-colors duration-300`}
+                  } rounded-full pearlescent-surface border-none hover:bg-primary/10 text-primary transition-colors duration-300`}
                   aria-label="Next slide"
                 >
                   <ChevronRight className={isMobile ? "h-4 w-4" : "h-6 w-6"} />
@@ -349,7 +349,7 @@ export default function AppSection() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.5 }}
-                  className="text-lg md:text-xl lg:text-2xl text-smoky-black/70 leading-relaxed"
+                  className="text-lg md:text-xl lg:text-2xl text-foreground/70 leading-relaxed"
                 >
                   {slides[currentSlide].description}
                 </motion.p>

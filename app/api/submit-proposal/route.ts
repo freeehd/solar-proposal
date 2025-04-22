@@ -4,42 +4,28 @@ import pool from "@/lib/db"
 // Helper functions
 function validateDecimal(value: any): number {
   if (value === null || value === undefined || value === "") {
-    return 0 // Return 0 instead of null for empty values
+    return 0
   }
 
-  // Handle string values that might contain commas or currency symbols
   if (typeof value === "string") {
     value = value.replace(/[$,]/g, "")
   }
 
   const parsedValue = Number.parseFloat(value)
-
-  if (isNaN(parsedValue)) {
-    return 0 // Return 0 instead of null for invalid values
-  }
-
-  return parsedValue
+  return isNaN(parsedValue) ? 0 : parsedValue
 }
 
 function validateInteger(value: any): number {
   if (value === null || value === undefined || value === "") {
-    return 0 // Return 0 instead of null for empty values
+    return 0
   }
 
-  // Handle string values that might contain commas
   if (typeof value === "string") {
-    // Remove any decimal part before parsing as integer
     value = value.replace(/,/g, "").split(".")[0]
   }
 
-  // Use parseInt for integer values
   const parsedValue = Number.parseInt(value, 10)
-
-  if (isNaN(parsedValue)) {
-    return 0 // Return 0 instead of null for invalid values
-  }
-
-  return parsedValue
+  return isNaN(parsedValue) ? 0 : parsedValue
 }
 
 export async function POST(request: Request) {
@@ -47,7 +33,15 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log("Received form data:", body)
 
-    // Extract fields from the request body
+    // Validate required fields
+    if (!body.name || !body.address) {
+      return NextResponse.json(
+        { success: false, message: "Name and address are required fields" },
+        { status: 400 }
+      )
+    }
+
+    // Extract and validate fields from the request body
     const {
       name,
       address,
@@ -95,9 +89,6 @@ export async function POST(request: Request) {
       enabled_battery_fields,
     } = body
 
-    // Debug the field types
-    console.log("system_size value:", system_size, "type:", typeof system_size)
-
     // Prepare the query
     const query = `
       INSERT INTO solar_proposals (
@@ -144,32 +135,28 @@ export async function POST(request: Request) {
         energy_data,
         section_visibility,
         enabled_finance_fields,
-        enabled_battery_fields
+        enabled_battery_fields,
+        created_at,
+        updated_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44
+        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44,
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ) RETURNING *
     `
 
-    // Ensure all required numeric fields have values
-    const parsedAverageRate = Number.parseFloat(average_rate_kwh) || 0.15
-
-    // For system_size, we need to ensure it's treated as a decimal
-    const parsedSystemSize = Number.parseFloat(system_size) || 0
-    console.log("Parsed system_size:", parsedSystemSize)
-
     // Prepare the values array with proper type handling
     const values = [
-      name || "Guest",
-      address || "123 Solar Street",
-      parsedAverageRate, // Use directly parsed value with fallback
+      name,
+      address,
+      validateDecimal(average_rate_kwh),
       validateDecimal(fixed_costs),
       validateDecimal(escalation),
       validateDecimal(monthly_bill),
       validateInteger(number_of_solar_panels),
       validateInteger(yearly_energy_produced),
       validateInteger(yearly_energy_usage),
-      validateDecimal(system_size), // Use directly parsed value for system_size
+      validateDecimal(system_size),
       validateInteger(energy_offset),
       solar_panel_design || "",
       battery_name || "",
@@ -201,57 +188,37 @@ export async function POST(request: Request) {
       validateDecimal(escalation_rate),
       validateDecimal(year1_monthly_payments),
       energy_data || "",
-      section_visibility || {
-        hero: true,
-        whySunStudios: true,
-        app: true,
-        howSolarWorks: true,
-        energyUsage: true,
-        solarDesign: true,
-        storage: true,
-        environmentalImpact: true,
-        financing: true,
-        systemSummary: true,
-        callToAction: false,
-      },
-      enabled_finance_fields || {
-        financingType: true,
-        paybackPeriod: true,
-        totalSystemCost: true,
-        lifetimeSavings: true,
-        netCost: true,
-        apr: false,
-        duration: false,
-        downPayment: false,
-        financedAmount: false,
-        monthlyPayments: false,
-        solarRate: false,
-        escalationRate: false,
-        year1MonthlyPayments: false,
-      },
-      enabled_battery_fields || {
-        batteryName: true,
-        inverterName: true,
-        capacity: true,
-        outputKW: true,
-        cost: true,
-        batteryImage: true,
-      },
+      section_visibility || {},
+      enabled_finance_fields || {},
+      enabled_battery_fields || {},
     ]
-
-    // Log the query and values for debugging
-    console.log("Executing query:", query)
-    console.log("With values:", values)
-    console.log("system_size value in array:", values[9])
 
     // Execute the query
     const result = await pool.query(query, values)
 
+    if (!result.rows[0]) {
+      throw new Error("Failed to create proposal")
+    }
+
     // Return the created proposal
-    return NextResponse.json({ success: true, data: result.rows[0] }, { status: 201 })
+    return NextResponse.json(
+      { 
+        success: true, 
+        data: result.rows[0],
+        message: "Proposal created successfully" 
+      }, 
+      { status: 201 }
+    )
   } catch (error: any) {
     console.error("Error creating proposal:", error)
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: error.message || "An error occurred while creating the proposal",
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 
+      { status: 500 }
+    )
   }
 }
 
