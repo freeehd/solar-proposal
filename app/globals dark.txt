@@ -1,0 +1,460 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Brighter Pearlescent Theme */
+  :root {
+    --background: 220 25% 18%; /* Lighter gunmetal grey background */
+    --foreground: 210 40% 98%; /* Slightly blue-tinted white text */
+    --card: 220 28% 22%; /* Brighter card background */
+    --card-foreground: 210 40% 98%;
+    --popover: 220 28% 22%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 100% 65%; /* Brighter sky blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 30% 25%; /* Lighter secondary */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 220 25% 30%;
+    --muted-foreground: 210 40% 85%;
+    --accent: 199 100% 75%; /* Brighter accent */
+    --accent-foreground: 220 25% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 25% 30%;
+    --input: 220 25% 22%;
+    --ring: 210 100% 65%;
+    --radius: 0.75rem;
+
+    --z-index-base: 1;
+    --z-index-cards: var(--z-index-base);
+    --z-index-beams: calc(var(--z-index-base) + 1);
+    --z-index-icons: calc(var(--z-index-base) + 2);
+    --z-index-portal: 100;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-image: radial-gradient(circle at 20% 30%, hsl(220 25% 25% / 0.8) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, hsl(210 100% 30% / 0.5) 0%, transparent 50%);
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply container mx-auto px-4 py-20 relative z-10;
+  }
+
+  .section-title {
+    @apply text-4xl md:text-5xl font-normal leading-tight mb-12 text-center text-foreground;
+  }
+
+  .card-premium {
+    @apply bg-card/80 backdrop-blur border-primary/10 rounded-lg shadow-lg overflow-hidden;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+
+  .accent-gradient-text {
+    @apply bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent;
+  }
+
+  /* Brighter button styles */
+  .primary-button {
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium shadow-[0_0_20px_rgba(0,150,255,0.4)];
+  }
+
+  .secondary-button {
+    @apply bg-secondary/50 hover:bg-secondary/70 text-foreground border border-foreground/20 px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium;
+  }
+
+  .accent-button {
+    @apply bg-accent hover:bg-accent/90 text-accent-foreground px-6 py-2 rounded-full transition-colors duration-300 text-sm font-medium shadow-[0_0_20px_rgba(0,200,255,0.4)];
+  }
+
+  /* Pearlescent premium components */
+  .premium-card {
+    @apply bg-card/80 backdrop-blur-xl border border-white/10 shadow-lg rounded-2xl p-6 sm:p-8;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 0 25px
+      rgba(0, 150, 255, 0.15);
+  }
+
+  .premium-button {
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-full transition-all duration-300 text-sm font-medium;
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.4);
+  }
+
+  .premium-input {
+    @apply bg-background/50 border border-border/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/30 focus:border-primary/50 outline-none transition-all duration-300;
+  }
+}
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin 20s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .dramatic-text {
+    @apply text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold leading-tight tracking-tight;
+  }
+
+  .accent-text {
+    @apply text-accent font-medium;
+  }
+
+  .primary-text {
+    @apply text-primary;
+  }
+
+  .grain {
+    @apply fixed inset-0 z-10 pointer-events-none opacity-20;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .text-shadow-md {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .text-shadow-lg {
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .perspective {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+
+  .bg-blur {
+    @apply backdrop-blur-md bg-opacity-30;
+  }
+
+  .transition-all-300 {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .hover-lift {
+    @apply transition-all-300 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
+
+  .absolute-center {
+    @apply absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2;
+  }
+
+  .section-padding {
+    @apply py-20 md:py-32;
+  }
+
+  .gradient-border {
+    @apply border border-transparent bg-gradient-to-r from-primary/80 to-accent bg-clip-border;
+  }
+
+  .accent-gradient-border {
+    @apply border border-transparent bg-gradient-to-r from-accent/80 to-accent bg-clip-border;
+  }
+
+  .primary-gradient {
+    @apply bg-gradient-to-r from-primary/80 to-primary;
+  }
+
+  .accent-gradient {
+    @apply bg-gradient-to-r from-accent/80 to-accent;
+  }
+
+  .soft-gradient {
+    @apply bg-gradient-to-b from-background to-muted;
+  }
+
+  .radial-gradient {
+    @apply bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary)/0.15),transparent)];
+  }
+
+  /* Pearlescent premium utilities */
+  .premium-text {
+    @apply font-light tracking-tight;
+  }
+
+  .premium-heading {
+    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight;
+  }
+
+  .premium-blur {
+    @apply backdrop-blur-xl bg-opacity-80;
+  }
+
+  .premium-shadow {
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3), 0 0 25px rgba(0, 150, 255, 0.15);
+  }
+
+  .premium-gradient {
+    @apply bg-gradient-to-b from-background to-background/95;
+  }
+
+  .premium-radial {
+    @apply bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.25),transparent_70%)];
+  }
+
+  /* Pearlescent specific utilities */
+  .pearlescent-bg {
+    @apply bg-background relative overflow-hidden;
+    background-image: radial-gradient(circle at 20% 30%, hsl(220 25% 25% / 0.8) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, hsl(210 100% 30% / 0.5) 0%, transparent 50%);
+  }
+
+  .pearlescent-card {
+    @apply bg-card/70 backdrop-blur-md border border-white/10 rounded-2xl;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 0 25px
+      rgba(0, 150, 255, 0.15);
+  }
+
+  .pearlescent-glow {
+    box-shadow: 0 0 30px rgba(0, 150, 255, 0.3);
+  }
+
+  .pearlescent-text {
+    @apply bg-gradient-to-r from-blue-300 to-indigo-200 bg-clip-text text-transparent;
+    text-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+  }
+
+  .pearlescent-surface {
+    @apply relative;
+    background-image: linear-gradient(
+      125deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.1) 40%,
+      rgba(0, 150, 255, 0.15) 60%,
+      rgba(255, 255, 255, 0.2) 100%
+    );
+    background-size: 200% 200%;
+    animation: pearlescent 8s ease infinite;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.6);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes accent-pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 10px hsl(var(--accent) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px hsl(var(--accent) / 0.6);
+  }
+}
+
+.animate-accent-pulse-glow {
+  animation: accent-pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+.animate-gradient-flow {
+  animation: gradientFlow 3s ease infinite;
+  background-size: 100% 200%;
+}
+
+@keyframes pearlescent {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-pearlescent {
+  animation: pearlescent 8s ease infinite;
+}
+
+/* Premium icon styles */
+.premium-icon-wrapper {
+  position: relative;
+  z-index: var(--z-index-portal);
+  isolation: isolate;
+}
+
+/* Card styles */
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px];
+}
+
+.card-border {
+  @apply border border-border;
+}
+
+.card-shadow {
+  @apply shadow-md;
+}
+
+.card-shadow-lg {
+  @apply shadow-lg;
+}
+
+/* Button styles */
+.btn-hover-effect {
+  @apply relative overflow-hidden;
+}
+
+.btn-hover-effect::after {
+  content: "";
+  @apply absolute inset-0 bg-white opacity-0 transition-opacity duration-300;
+}
+
+.btn-hover-effect:hover::after {
+  @apply opacity-20;
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-pulse-glow,
+  .animate-accent-pulse-glow,
+  .animate-gradient-flow,
+  .animate-pearlescent {
+    animation: none;
+  }
+
+  .transition-all-300,
+  .hover-lift,
+  .card-hover {
+    transition: none;
+  }
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Aurora text animation */
+@keyframes aurora {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-aurora {
+  animation: aurora 10s ease infinite;
+}
+
+/* Pearlescent scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 150, 255, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 150, 255, 0.6);
+}
+
+/* Pearlescent focus styles */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary) / 0.3);
+}
+
+/* Pearlescent text selection */
+::selection {
+  background-color: hsl(var(--primary) / 0.2);
+  color: hsl(var(--primary));
+}
+
+/* Navigation bar */
+.apple-nav {
+  @apply bg-card/90 backdrop-blur-md text-foreground h-12 flex items-center justify-center border-b border-white/10;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.3);
+}
+
+.apple-nav-item {
+  @apply px-4 text-sm font-normal opacity-80 hover:opacity-100 transition-opacity;
+}
+
+/* Button styles */
+.apple-button-primary {
+  @apply bg-primary text-white rounded-full px-5 py-1.5 text-sm font-medium;
+  box-shadow: 0 0 20px rgba(0, 150, 255, 0.4);
+}
+
+.apple-button-secondary {
+  @apply bg-[rgba(255,255,255,0.15)] text-white rounded-full px-5 py-1.5 text-sm font-medium border border-white/15;
+}

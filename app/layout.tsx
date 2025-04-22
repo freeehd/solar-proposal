@@ -22,7 +22,7 @@ export default function RootLayout({
         <meta name="description" content="Premium solar energy solutions for discerning homes and businesses" />
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <main className="relative flex min-h-screen flex-col">{children}</main>
         </ThemeProvider>
       </body>

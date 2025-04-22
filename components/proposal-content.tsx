@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import HeroSection from "@/components/hero-section"
 import EnergyUsageSection from "@/components/energy-usage-section"
 import SolarDesignSection from "@/components/solar-design-section"
@@ -41,6 +41,7 @@ const sections = [
 
 export default function ProposalContent({ proposalId, initialData = {} }: ProposalContentProps) {
   const [activeSection, setActiveSection] = useState("hero")
+  const [isClient, setIsClient] = useState(false)
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({})
   const instanceIdRef = useRef(`proposal-content-${Math.random().toString(36).substring(2, 9)}`)
 
@@ -50,43 +51,79 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
     initialData,
   })
 
+  // Set isClient to true after mount
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
   // Log component mounting
   useEffect(() => {
+    if (!isClient) return
+
     const instanceId = instanceIdRef.current
     console.log(`ProposalContent [${instanceId}]: Component mounted`)
 
     return () => {
       console.log(`ProposalContent [${instanceId}]: Component unmounted`)
     }
-  }, [])
+  }, [isClient])
 
-  // Handle scroll position for navigation
+  // Handle scroll position for navigation with throttling
   useEffect(() => {
+    if (!isClient) return
+
+    let ticking = false
+    let lastScrollY = window.scrollY
+
     const handleScroll = () => {
-      const scrollPosition = window.scrollY + window.innerHeight / 2
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPosition = window.scrollY + window.innerHeight / 2
+          
+          // Only update if scroll position changed significantly
+          if (Math.abs(scrollPosition - lastScrollY) > 50) {
+            lastScrollY = scrollPosition
 
-      // Only check visible sections
-      const visibleSectionsList = sections.filter(
-        (section) => visibleSections[section.id as keyof typeof visibleSections],
-      )
+            // Only check visible sections
+            const visibleSectionsList = sections.filter(
+              (section) => visibleSections[section.id as keyof typeof visibleSections],
+            )
 
-      for (const section of visibleSectionsList) {
-        const element = sectionRefs.current[section.id]
-        if (element) {
-          const { offsetTop, offsetHeight } = element
-          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
-            setActiveSection(section.id)
-            break
+            for (const section of visibleSectionsList) {
+              const element = sectionRefs.current[section.id]
+              if (element) {
+                const { offsetTop, offsetHeight } = element
+                if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+                  setActiveSection(section.id)
+                  break
+                }
+              }
+            }
           }
-        }
+          ticking = false
+        })
+        ticking = true
       }
     }
 
-    window.addEventListener("scroll", handleScroll)
+    window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [visibleSections])
+  }, [visibleSections, isClient])
+
+  // Optimize section refs with useCallback
+  const setSectionRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
+    if (el) sectionRefs.current[id] = el
+  }, [])
+
+  // Memoize visible sections list
+  const visibleSectionsList = useMemo(() => 
+    sections.filter((section) => visibleSections[section.id as keyof typeof visibleSections]),
+    [visibleSections]
+  )
 
   const scrollTo = (id: string) => {
+    if (!isClient) return
+
     // Special case for storage section - scroll to solar design
     if (id === "storage") {
       const element = sectionRefs.current["solarDesign"]
@@ -111,13 +148,15 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
     setProposalData((prevData) => ({ ...prevData, [name]: value }))
   }
 
-  // Filter visible sections for navigation
-  const visibleSectionsList = sections.filter((section) => visibleSections[section.id as keyof typeof visibleSections])
+  // Don't render anything until client-side hydration is complete
+  if (!isClient) {
+    return null
+  }
 
   return (
     <div className="text-foreground bg-background">
       {/* Self-contained loading screen overlay with fixed display time */}
-      <LoadingScreen  />
+      <LoadingScreen />
 
       {visibleSectionsList.length > 0 && (
         <nav className="fixed top-0 right-0 h-screen z-40 flex items-center">
@@ -157,52 +196,31 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
       {/* Render sections based on visibility settings */}
       {visibleSections.hero && (
         <ErrorBoundary fallback={<div>Error loading Hero section</div>}>
-          <div
-            ref={(el: HTMLDivElement | null) => {
-              if (el) sectionRefs.current.hero = el
-            }}
-          >
+          <div ref={setSectionRef("hero")}>
             <HeroSection name={proposalData.name} address={proposalData.address} />
           </div>
         </ErrorBoundary>
       )}
 
-      {/* Rest of the sections remain unchanged */}
       {visibleSections.whySunStudios && (
         <ErrorBoundary fallback={<div>Error loading Why Sun Studios section</div>}>
-          <div
-            ref={(el: HTMLDivElement | null) => {
-              if (el) sectionRefs.current.whySunStudios = el
-            }}
-          >
+          <div ref={setSectionRef("whySunStudios")}>
             <WhySunStudios />
           </div>
         </ErrorBoundary>
       )}
 
-     
-
       {visibleSections.howSolarWorks && (
         <ErrorBoundary fallback={<div>Error loading How Solar Works section</div>}>
-          <div
-            ref={(el: HTMLDivElement | null) => {
-              if (el) sectionRefs.current.howSolarWorks = el
-            }}
-          >
+          <div ref={setSectionRef("howSolarWorks")}>
             <HowSolarWorksx />
           </div>
         </ErrorBoundary>
       )}
 
-   
-
       {visibleSections.solarDesign && (
         <ErrorBoundary fallback={<div>Error loading Solar Design section</div>}>
-          <div
-            ref={(el: HTMLDivElement | null) => {
-              if (el) sectionRefs.current.solarDesign = el
-            }}
-          >
+          <div ref={setSectionRef("solarDesign")}>
             <SolarDesignSection
               proposalData={{
                 number_of_solar_panels: proposalData.number_of_solar_panels,
@@ -212,7 +230,6 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 solar_panel_size: proposalData.system_size,
                 lifetime_savings: proposalData.lifetime_savings,
                 solar_panel_design: proposalData.solar_panel_design,
-                // Add storage section props - only show if storage section is visible and field is enabled
                 battery_name: visibleSections.storage && enabledBatteryFields.batteryName ? proposalData.battery_name : "",
                 inverter_name: visibleSections.storage && enabledBatteryFields.inverterName ? proposalData.inverter_name : "",
                 capacity: visibleSections.storage && enabledBatteryFields.capacity ? proposalData.capacity : "",
@@ -230,7 +247,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
         </ErrorBoundary>
       )}
 
-{visibleSections.energyUsage && (
+      {visibleSections.energyUsage && (
         <ErrorBoundary fallback={<div>Error loading Energy Usage section</div>}>
           <div
             ref={(el: HTMLDivElement | null) => {
@@ -248,7 +265,8 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
           </div>
         </ErrorBoundary>
       )}
- {visibleSections.app && (
+
+      {visibleSections.app && (
         <ErrorBoundary fallback={<div>Error loading App section</div>}>
           <div
             ref={(el: HTMLDivElement | null) => {
@@ -259,6 +277,7 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
           </div>
         </ErrorBoundary>
       )}
+
       {visibleSections.environmentalImpact && (
         <ErrorBoundary fallback={<div>Error loading Environmental Impact section</div>}>
           <div
@@ -286,7 +305,6 @@ export default function ProposalContent({ proposalId, initialData = {} }: Propos
                 net_cost: proposalData.net_cost,
                 monthly_bill: proposalData.monthly_bill,
                 escalation: proposalData.escalation,
-                // Add new financial fields
                 financing_type: proposalData.financing_type,
                 apr: proposalData.apr,
                 duration: proposalData.duration,

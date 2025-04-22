@@ -129,7 +129,7 @@ export function SolarMetricsGrid({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: textRevealStates.text1 ? 1 : 0 }}
                   transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-white uppercase tracking-wider mb-0.5`}
+                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-primary uppercase tracking-wider mb-0.5`}
                 >
                   System Size
                 </motion.p>
@@ -190,7 +190,7 @@ export function SolarMetricsGrid({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: textRevealStates.text2 ? 1 : 0 }}
                   transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-white uppercase tracking-wider mb-0.5`}
+                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-primary uppercase tracking-wider mb-0.5`}
                 >
                   Solar Panels
                 </motion.p>
@@ -252,7 +252,7 @@ export function SolarMetricsGrid({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: textRevealStates.batteryCapacityText ? 1 : 0 }}
                     transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                    className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-white uppercase tracking-wider mb-0.5`}
+                    className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-primary uppercase tracking-wider mb-0.5`}
                   >
                     Battery Capacity
                   </motion.p>
@@ -314,7 +314,7 @@ export function SolarMetricsGrid({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: textRevealStates.text3 ? 1 : 0 }}
                   transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-white uppercase tracking-wider mb-0.5`}
+                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-primary uppercase tracking-wider mb-0.5`}
                 >
                   Annual Consumption
                 </motion.p>
@@ -375,7 +375,7 @@ export function SolarMetricsGrid({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: textRevealStates.text4 ? 1 : 0 }}
                   transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-white uppercase tracking-wider mb-0.5`}
+                  className={`${isSimplifiedView ? "text-[11px] xs:text-xs" : "text-[10px] xs:text-[11px]"} sm:text-xs font-medium text-primary uppercase tracking-wider mb-0.5`}
                 >
                   Annual Production
                 </motion.p>
@@ -445,7 +445,7 @@ export function SolarMetricsGrid({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: textRevealStates.circleText ? 1 : 0 }}
                 transition={{ duration: isSimplifiedView ? 0.2 : 0.5, delay: isSimplifiedView ? 0 : 0.1 }}
-                className="text-xs sm:text-sm md:text-base font-medium text-white uppercase tracking-wider mb-1 sm:mb-2"
+                className="text-xs sm:text-sm md:text-base font-medium text-primary uppercase tracking-wider mb-1 sm:mb-2"
               >
                 Lifetime Savings
               </motion.p>

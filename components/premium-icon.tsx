@@ -106,7 +106,7 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
     >
       <motion.div
         className={cn(
-          "relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-blue-100 shadow-xl border border-blue-200",
+          "relative flex items-center justify-center rounded-full bg-white shadow-xl border border-blue-200",
           // Responsive padding based on screen size - reduced for mobile
           "p-1.5 xs:p-2 sm:p-3 md:p-3.5 lg:p-5",
           className,
@@ -120,7 +120,7 @@ export function PremiumIcon({ className, children, isCharging, onChargingComplet
       >
         {/* Background gradient */}
         <div
-          className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-200/30 to-blue-300/40 opacity-70"
+          className="absolute inset-0 rounded-full  opacity-70"
           style={{ zIndex: 1 }}
           aria-hidden="true"
         />

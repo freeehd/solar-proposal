@@ -351,8 +351,8 @@ export default function SolarDesignSection({
         <div
           className={`mt-6 ${isSmallDevice || isIOS ? "xs:mt-8" : "xs:mt-10"} sm:mt-12 mb-8 ${isSmallDevice || isIOS ? "xs:mb-10" : "xs:mb-16"}`}
         >
-          <Card className="pearlescent-card border-none m-0 pt-5 relative" ref={cardRef}>
-            <CardContent className="relative">
+          <Card className="pearlescent-card border-none m-0 pt-0 relative" ref={cardRef}>
+            <CardContent className="relative pt-5">
               {/* Render beams based on current progress and visibility - ONLY on larger devices */}
               {hasStarted && isInView && !isSmallDevice && !isIOS && (
                 <div className="absolute inset-0 overflow-visible" style={{ zIndex: 10 }}>
