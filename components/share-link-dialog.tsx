@@ -48,7 +48,7 @@ export function ShareLinkDialog({ proposalId }: ShareLinkDialogProps) {
         <Button
           variant="outline"
           size="sm"
-          className="text-white dark:text-white"
+          className="text-black dark:text-white"
         >
           <Share2 className="mr-2 h-4 w-4" />
           Share
