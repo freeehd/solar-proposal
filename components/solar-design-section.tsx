@@ -77,19 +77,13 @@ export default function SolarDesignSection({
 
   // Get safe area insets
   useEffect(() => {
-    // Check if running in a browser and if CSS environment variables are supported
     if (typeof window !== "undefined" && window.CSS && window.CSS.supports) {
-      // Check if the browser supports env()
       if (window.CSS.supports("padding-top: env(safe-area-inset-top)")) {
-        // Get computed style of document.documentElement
         const computedStyle = getComputedStyle(document.documentElement)
-
-        // Try to get the safe area insets
         const top = Number.parseInt(computedStyle.getPropertyValue("--sat") || "0", 10)
         const right = Number.parseInt(computedStyle.getPropertyValue("--sar") || "0", 10)
         const bottom = Number.parseInt(computedStyle.getPropertyValue("--sab") || "0", 10)
         const left = Number.parseInt(computedStyle.getPropertyValue("--sal") || "0", 10)
-
         setSafeAreaInsets({ top, right, bottom, left })
       }
     }
@@ -109,13 +103,13 @@ export default function SolarDesignSection({
 
   // Use Framer Motion's useInView hook for main section and tech section
   const isInView = useInView(sectionRef, {
-    once: true, // Only trigger once
-    amount: 0.3, // Require 30% of the section to be visible (more reliable)
+    once: true,
+    amount: 0.1, // Reduced from 0.3 for faster triggering
   })
 
   const isTechSectionInView = useInView(techSectionRef, {
     once: true,
-    amount: 0.3,
+    amount: 0.1, // Reduced from 0.3 for faster triggering
   })
 
   // Track if animation sequence has started
@@ -145,60 +139,32 @@ export default function SolarDesignSection({
   // Detect device type
   useEffect(() => {
     const checkDevice = () => {
-      // Check if small device (iPhone or similar)
       setIsSmallDevice(window.innerWidth < 640)
-
-      // Check if iOS device
       const userAgent = window.navigator.userAgent.toLowerCase()
       setIsIOS(/iphone|ipad|ipod|macintosh/.test(userAgent) && "ontouchend" in document)
     }
 
     checkDevice()
     window.addEventListener("resize", checkDevice)
-
     return () => window.removeEventListener("resize", checkDevice)
   }, [])
 
   // Start animation sequence when section comes into view
   useEffect(() => {
     if (isInView && !hasStarted) {
-      // Add a delay to ensure the section is fully visible before starting animations
-      const timer = setTimeout(() => {
-        console.log("Section in view, starting animations")
-        setHasStarted(true)
-      }, 800) // Longer delay to ensure section is properly visible
-
-      return () => clearTimeout(timer)
+      setHasStarted(true)
     }
   }, [isInView, hasStarted])
 
   // Handle tech section visibility
   useEffect(() => {
     if (isTechSectionInView && !techSectionVisible) {
-      const timer = setTimeout(() => {
-        setTechSectionVisible(true)
-      }, 400)
-
-      return () => clearTimeout(timer)
+      setTechSectionVisible(true)
     }
   }, [isTechSectionInView, techSectionVisible])
 
-  // Add a useEffect to force activation on mobile after a delay
-  useEffect(() => {
-    // Only use this fallback if the section hasn't started animating after a longer period
-    const timer = setTimeout(() => {
-      if (!hasStarted && !isInView) {
-        console.log("Fallback animation trigger activated")
-        setHasStarted(true)
-      }
-    }, 3000) // Longer fallback delay (3 seconds)
-
-    return () => clearTimeout(timer)
-  }, [hasStarted, isInView])
-
   // Trigger text reveal after icon charging
   useEffect(() => {
-    // For small devices, reveal text immediately without animations
     if (isSmallDevice || isIOS) {
       setTextRevealStates({
         text1: true,
@@ -213,22 +179,22 @@ export default function SolarDesignSection({
 
     // For each icon, trigger text reveal after charging
     if (chargingStates.icon1) {
-      setTimeout(() => setTextRevealStates((prev) => ({ ...prev, text1: true })), 300)
+      setTextRevealStates((prev) => ({ ...prev, text1: true }))
     }
     if (chargingStates.icon2) {
-      setTimeout(() => setTextRevealStates((prev) => ({ ...prev, text2: true })), 300)
+      setTextRevealStates((prev) => ({ ...prev, text2: true }))
     }
     if (chargingStates.batteryCapacity) {
-      setTimeout(() => setTextRevealStates((prev) => ({ ...prev, batteryCapacityText: true })), 300)
+      setTextRevealStates((prev) => ({ ...prev, batteryCapacityText: true }))
     }
     if (chargingStates.icon3) {
-      setTimeout(() => setTextRevealStates((prev) => ({ ...prev, text3: true })), 300)
+      setTextRevealStates((prev) => ({ ...prev, text3: true }))
     }
     if (chargingStates.icon4) {
-      setTimeout(() => setTextRevealStates((prev) => ({ ...prev, text4: true })), 300)
+      setTextRevealStates((prev) => ({ ...prev, text4: true }))
     }
     if (chargingStates.circle) {
-      setTimeout(() => setTextRevealStates((prev) => ({ ...prev, circleText: true })), 300)
+      setTextRevealStates((prev) => ({ ...prev, circleText: true }))
     }
   }, [chargingStates, isSmallDevice, isIOS])
 
@@ -247,14 +213,12 @@ export default function SolarDesignSection({
   }, [isSmallDevice, isIOS, hasStarted])
 
   const handleChargingComplete = useCallback((iconKey: keyof typeof chargingStates) => {
-    setTimeout(() => {
-      setChargingStates((prev) => {
-        if (prev[iconKey]) {
-          return { ...prev, [iconKey]: false }
-        }
-        return prev
-      })
-    }, 1000)
+    setChargingStates((prev) => {
+      if (prev[iconKey]) {
+        return { ...prev, [iconKey]: false }
+      }
+      return prev
+    })
   }, [])
 
   // Simplified image URL variables using only snake_case
@@ -271,7 +235,7 @@ export default function SolarDesignSection({
   return (
     <section
       ref={sectionRef}
-      className="relative py-12 xs:py-14 sm:py-20 md:py-24  min-h-[80vh]"
+      className="relative py-12 xs:py-14 sm:py-20 md:py-24 min-h-[80vh]"
       style={{
         contain: "paint",
         visibility: "visible",
@@ -291,7 +255,7 @@ export default function SolarDesignSection({
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7 }}
+          transition={{ duration: 0.5 }} // Reduced from 0.7
           className="text-center mb-12 xs:mb-16 sm:mb-20"
         >
           <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 xs:mb-4 sm:mb-6 tracking-tight">
@@ -307,7 +271,7 @@ export default function SolarDesignSection({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, delay: 0.2 }}
+          transition={{ duration: 0.5, delay: 0.1 }} // Reduced from 0.7 and 0.2
           className={`grid ${enabledBatteryFields?.batteryImage ? "md:grid-cols-2" : "md:grid-cols-1"} gap-6 xs:gap-8 mb-12 xs:mb-16`}
         >
           {/* Solar Panel Design */}
@@ -361,11 +325,11 @@ export default function SolarDesignSection({
                     fromRef={icon1Ref}
                     toRef={icon2Ref}
                     delay={0}
-                    duration={1}
+                    duration={0.6} // Reduced from 0.8
                     pathColor="hsl(var(--primary) / 0.7)"
                     glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={2}
-                    glowWidth={10}
+                    glowWidth={8} // Reduced from 10
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon1) {
                         setChargingStates((prev) => ({ ...prev, icon1: true }))
@@ -381,12 +345,12 @@ export default function SolarDesignSection({
                         containerRef={cardRef}
                         fromRef={icon2Ref}
                         toRef={batteryCapacityRef}
-                        delay={1}
-                        duration={1}
+                        delay={0.6} // Reduced from 0.8
+                        duration={0.6} // Reduced from 0.8
                         pathColor="hsl(var(--primary) / 0.7)"
                         glowColor="hsl(var(--primary) / 0.4)"
                         pathWidth={2}
-                        glowWidth={10}
+                        glowWidth={8} // Reduced from 10
                         onProgress={(progress) => {
                           if (progress > 0.05 && !chargingStates.icon2) {
                             setChargingStates((prev) => ({ ...prev, icon2: true }))
@@ -400,12 +364,12 @@ export default function SolarDesignSection({
                         containerRef={cardRef}
                         fromRef={batteryCapacityRef}
                         toRef={icon3Ref}
-                        delay={2}
-                        duration={1}
+                        delay={1.2} // Reduced from 1.6
+                        duration={0.6} // Reduced from 0.8
                         pathColor="hsl(var(--primary) / 0.7)"
                         glowColor="hsl(var(--primary) / 0.4)"
                         pathWidth={2}
-                        glowWidth={10}
+                        glowWidth={8} // Reduced from 10
                         onProgress={(progress) => {
                           if (progress > 0.05 && !chargingStates.batteryCapacity) {
                             setChargingStates((prev) => ({ ...prev, batteryCapacity: true }))
@@ -421,12 +385,12 @@ export default function SolarDesignSection({
                       containerRef={cardRef}
                       fromRef={icon2Ref}
                       toRef={icon3Ref}
-                      delay={1}
-                      duration={1}
+                      delay={0.6} // Reduced from 0.8
+                      duration={0.6} // Reduced from 0.8
                       pathColor="hsl(var(--primary) / 0.7)"
                       glowColor="hsl(var(--primary) / 0.4)"
                       pathWidth={2}
-                      glowWidth={10}
+                      glowWidth={8} // Reduced from 10
                       onProgress={(progress) => {
                         if (progress > 0.05 && !chargingStates.icon2) {
                           setChargingStates((prev) => ({ ...prev, icon2: true }))
@@ -441,12 +405,12 @@ export default function SolarDesignSection({
                     containerRef={cardRef}
                     fromRef={icon3Ref}
                     toRef={icon4Ref}
-                    delay={enabledBatteryFields?.capacity ? 3 : 2}
-                    duration={1}
+                    delay={enabledBatteryFields?.capacity ? 1.8 : 1.2} // Reduced from 2.4 and 1.6
+                    duration={0.6} // Reduced from 0.8
                     pathColor="hsl(var(--primary) / 0.7)"
                     glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={2}
-                    glowWidth={10}
+                    glowWidth={8} // Reduced from 10
                     onProgress={(progress) => {
                       if (progress > 0.05 && !chargingStates.icon3) {
                         setChargingStates((prev) => ({ ...prev, icon3: true }))
@@ -461,11 +425,11 @@ export default function SolarDesignSection({
                     fromRef={icon4Ref}
                     toRef={circleRef}
                     circleRef={circleRef}
-                    delay={enabledBatteryFields?.capacity ? 4 : 3}
-                    duration={1.5}
+                    delay={enabledBatteryFields?.capacity ? 2.4 : 1.8} // Reduced from 3.2 and 2.4
+                    duration={0.9} // Reduced from 1.2
                     pattern="wave"
                     patternCount={2}
-                    patternIntensity={0.03}
+                    patternIntensity={0.02} // Reduced from 0.03
                     pathColor="hsl(var(--primary) / 0.7)"
                     glowColor="hsl(var(--primary) / 0.4)"
                     pathWidth={0}
@@ -515,7 +479,7 @@ export default function SolarDesignSection({
                 className="text-center mb-4 xs:mb-6 sm:mb-8 md:mb-10 text-foreground/80 max-w-3xl mx-auto text-sm xs:text-base sm:text-lg"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: isTechSectionInView ? 1 : 0 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
+                transition={{ delay: 0.2, duration: 0.4 }} // Reduced from 0.3 and 0.5
               >
                 Our premium solar panels utilize cutting-edge photovoltaic technology to maximize energy conversion
                 efficiency. Engineered with premium materials, they deliver exceptional performance in all weather
@@ -526,12 +490,12 @@ export default function SolarDesignSection({
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: techSectionVisible ? 1 : 0, y: techSectionVisible ? 0 : 20 }}
-                  transition={{ delay: 0.4, duration: 0.5 }}
+                  transition={{ delay: 0.3, duration: 0.4 }} // Reduced from 0.4 and 0.5
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: techSectionVisible ? 1 : 0, scale: techSectionVisible ? 1 : 0.8 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
+                    transition={{ duration: 0.4, delay: 0.4 }} // Reduced from 0.5 and 0.5
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <BarChart2
@@ -555,12 +519,12 @@ export default function SolarDesignSection({
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: techSectionVisible ? 1 : 0, y: techSectionVisible ? 0 : 20 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
+                  transition={{ delay: 0.4, duration: 0.4 }} // Reduced from 0.5 and 0.5
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: techSectionVisible ? 1 : 0, scale: techSectionVisible ? 1 : 0.8 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
+                    transition={{ duration: 0.4, delay: 0.5 }} // Reduced from 0.5 and 0.6
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <Thermometer
@@ -582,12 +546,12 @@ export default function SolarDesignSection({
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: techSectionVisible ? 1 : 0, y: techSectionVisible ? 0 : 20 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
+                  transition={{ delay: 0.5, duration: 0.4 }} // Reduced from 0.6 and 0.5
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: techSectionVisible ? 1 : 0, scale: techSectionVisible ? 1 : 0.8 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
+                    transition={{ duration: 0.4, delay: 0.6 }} // Reduced from 0.5 and 0.7
                   >
                     <PremiumIcon className="w-12 xs:w-14 sm:w-16 md:w-20 lg:w-24 h-12 xs:h-14 sm:h-16 md:h-20 lg:h-24 mb-2 xs:mb-3 sm:mb-4 md:mb-5">
                       <Shield
