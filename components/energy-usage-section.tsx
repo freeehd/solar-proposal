@@ -317,6 +317,7 @@ export default function EnergyUsageSection({ proposalData }: EnergyUsageSectionP
                       }}
                       barGap={0}
                       barCategoryGap={isMobile ? "30%" : "40%"}
+                      className="drop-shadow-md"
                     >
                       <defs>
                         {/* Updated gradients to use distinct colors */}

@@ -81,7 +81,7 @@ const TextContent = memo(({ variants }: { variants: any }) => (
     }}
   >
     <div className="text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed text-foreground/90 font-light tracking-wide mt-0 sm:mt-0 md:mt-2">
-     The leading provider of   <span className="font-medium primary-text">Solar Energy Solutions</span>, committed to powering a sustainable future. With our innovative technology and expert team, we're transforming how homes and businesses harness the sun's energy.
+     The leading provider of   Solar Energy Solutions, committed to powering a sustainable future. With our innovative technology and expert team, we're transforming how homes and businesses harness the sun's energy.
 
     </div>
   </motion.div>

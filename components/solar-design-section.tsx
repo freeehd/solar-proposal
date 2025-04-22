@@ -485,7 +485,7 @@ export default function SolarDesignSection({
                 efficiency. Engineered with premium materials, they deliver exceptional performance in all weather
                 conditions.
               </motion.p>
-              <div className="grid grid-cols-1 xs:grid-cols-3 gap-4 xs:gap-6 sm:gap-8 md:gap-10">
+              <div className="grid grid-cols-3 xs:grid-cols-3 gap-4 xs:gap-6 sm:gap-8 md:gap-10">
                 <motion.div
                   className="flex flex-col items-center text-center"
                   initial={{ opacity: 0, y: 20 }}
