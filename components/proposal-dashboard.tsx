@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { ShareLinkDialog } from "@/components/share-link-dialog"
-import { RefreshCw, AlertCircle } from "lucide-react"
+import { RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface Proposal {
@@ -89,7 +89,7 @@ export default function ProposalDashboard() {
   const updateProposalStatus = async (id: number, newStatus: string) => {
     try {
       const response = await fetch(`/api/proposals/${id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -154,10 +154,10 @@ export default function ProposalDashboard() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Solar Proposals</h1>
+        <h1 className="text-2xl font-bold text-primary">Solar Proposals</h1>
         <div className="flex items-center gap-4">
-          <p className="text-sm text-gray-500">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
-          <Button variant="outline" size="sm" onClick={fetchProposals} disabled={isLoading}>
+          <p className="text-sm text-foreground/70">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
+          <Button variant="outline" size="sm" onClick={fetchProposals} disabled={isLoading} className="pearlescent-surface border-none hover:bg-primary/10 text-primary">
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -165,7 +165,7 @@ export default function ProposalDashboard() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center mb-4">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded flex items-center mb-4">
           <AlertCircle className="h-5 w-5 mr-2" />
           <span>{error}</span>
         </div>
@@ -185,14 +185,14 @@ export default function ProposalDashboard() {
           ))}
         </div>
       ) : proposals.length === 0 ? (
-        <div className="text-center py-10 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">No proposals found</p>
-          <Button variant="outline" className="mt-4" onClick={fetchProposals}>
+        <div className="text-center py-10 pearlescent-surface rounded-lg">
+          <p className="text-foreground/70">No proposals found</p>
+          <Button variant="outline" className="mt-4 pearlescent-surface border-none hover:bg-primary/10 text-primary" onClick={fetchProposals}>
             Refresh
           </Button>
         </div>
       ) : (
-        <div className="rounded-md border overflow-hidden">
+        <div className="rounded-md border border-border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -207,30 +207,38 @@ export default function ProposalDashboard() {
             <TableBody>
               {proposals.map((proposal) => (
                 <TableRow key={proposal.id}>
-                  <TableCell className="font-medium">{proposal.name}</TableCell>
-                  <TableCell>{proposal.address}</TableCell>
+                  <TableCell className="font-medium text-primary">{proposal.name}</TableCell>
+                  <TableCell className="text-foreground/70">{proposal.address}</TableCell>
                   <TableCell>
                     <Badge
-                      variant={
+                      variant="secondary"
+                      className={`flex items-center gap-1.5 px-2.5 py-1 ${
                         proposal.status === "completed"
-                          ? "success"
+                          ? "bg-green-500/20 text-green-500 hover:bg-green-500/30 border-green-500/30"
                           : proposal.status === "in_progress"
-                            ? "warning"
-                            : "secondary"
-                      }
+                            ? "bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 border-amber-500/30"
+                            : "bg-red-500/20 text-red-500 hover:bg-red-500/30 border-red-500/30"
+                      }`}
                     >
-                      {proposal.status.replace("_", " ")}
+                      {proposal.status === "completed" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : proposal.status === "in_progress" ? (
+                        <Clock className="h-3.5 w-3.5" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5" />
+                      )}
+                      <span className="capitalize">{proposal.status.replace("_", " ")}</span>
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(proposal.created_at)}</TableCell>
-                  <TableCell>{formatCurrency(proposal.total_system_cost)}</TableCell>
+                  <TableCell className="text-foreground/70">{formatDate(proposal.created_at)}</TableCell>
+                  <TableCell className="text-primary">{formatCurrency(proposal.total_system_cost)}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Select
                         defaultValue={proposal.status}
                         onValueChange={(value) => updateProposalStatus(proposal.id, value)}
                       >
-                        <SelectTrigger className="w-[150px]">
+                        <SelectTrigger className="w-[150px] pearlescent-surface border-none">
                           <SelectValue placeholder="Update status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -240,12 +248,12 @@ export default function ProposalDashboard() {
                         </SelectContent>
                       </Select>
                       <Link href={`/proposal/${proposal.id}`}>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" className="pearlescent-surface border-none hover:bg-primary/10 text-primary">
                           View
                         </Button>
                       </Link>
                       <Link href={`/proposal/${proposal.id}/edit`}>
-                        <Button size="sm">Edit</Button>
+                        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">Edit</Button>
                       </Link>
                       <ShareLinkDialog proposalId={proposal.id} />
                     </div>
